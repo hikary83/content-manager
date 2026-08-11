@@ -350,6 +350,8 @@ h1 {
 
 .api-connection {
   display: inline-flex;
+  max-width: 100%;
+  flex: 0 0 auto;
   align-items: center;
   gap: 6px;
   border: 1px solid #e4e1dc;
@@ -359,6 +361,18 @@ h1 {
   color: #8b8984;
   font-size: 8px;
   white-space: nowrap;
+}
+
+.api-connection > span {
+  display: inline;
+  width: auto;
+  height: auto;
+  overflow: visible;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  font-weight: 700;
 }
 
 .api-connection > i {
@@ -549,7 +563,8 @@ h1 {
 .discovery-product-card {
   display: grid;
   min-width: 0;
-  grid-template-columns: 108px minmax(0, 1fr);
+  min-height: 190px;
+  grid-template-columns: 132px minmax(0, 1fr);
   overflow: hidden;
   border: 1px solid #e3e1dc;
   border-radius: 10px;
@@ -570,12 +585,21 @@ h1 {
 
 .discovery-product-image {
   position: relative;
-  min-height: 145px;
+  display: grid;
+  min-height: 190px;
   overflow: hidden;
+  place-items: center;
   background: #f3f1ed;
 }
 
-.discovery-product-image img { width: 100%; height: 100%; object-fit: cover; }
+.discovery-product-image img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 10px;
+  background: #fff;
+  object-fit: contain;
+}
 .discovery-product-image > span { position: absolute; inset: 0; display: grid; place-items: center; color: #bab7b0; font-family: var(--font-geist-mono), monospace; font-size: 6px; }
 .discovery-product-image b {
   position: absolute;
@@ -809,7 +833,7 @@ h1 {
 }
 
 .section-heading > div { display: flex; align-items: center; gap: 10px; }
-.section-heading > div > span {
+.section-heading > div:first-child > span {
   display: grid;
   width: 24px;
   height: 24px;
@@ -1363,6 +1387,7 @@ textarea {
   .discovery-toolbar { grid-template-columns: 1fr; }
   .discovery-tabs button { flex: 1; justify-content: center; }
   .product-discovery-grid { grid-template-columns: 1fr; }
+  .discovery-product-card { grid-template-columns: 150px minmax(0, 1fr); }
 }
 
 @media (max-width: 850px) {
@@ -1405,8 +1430,8 @@ textarea {
   .discovery-tabs button { padding-inline: 5px; }
   .api-empty-state { align-items: flex-start; flex-wrap: wrap; }
   .api-empty-state > button { width: 100%; margin-left: 47px; }
-  .discovery-product-card { grid-template-columns: 96px minmax(0, 1fr); }
-  .discovery-product-image { min-height: 142px; }
+  .discovery-product-card { min-height: 170px; grid-template-columns: 112px minmax(0, 1fr); }
+  .discovery-product-image { min-height: 170px; }
   .settings-backdrop { align-items: end; padding: 0; }
   .settings-modal { width: 100%; border-radius: 17px 17px 0 0; padding: 20px 17px 24px; }
 }
@@ -1433,7 +1458,7 @@ textarea {
 .step span { width: 29px; height: 29px; font-size: 10px; }
 
 h2 { font-size: 18px; }
-.section-heading > div > span { width: 29px; height: 29px; font-size: 10px; }
+.section-heading > div:first-child > span { width: 29px; height: 29px; font-size: 10px; }
 .section-heading p { font-size: 12px; line-height: 1.45; }
 .field-label { margin-bottom: 9px; font-size: 12px; }
 .field-label small { font-size: 10px; }
