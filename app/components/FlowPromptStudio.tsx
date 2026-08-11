@@ -35,6 +35,7 @@ export type FlowProject = {
 type FlowPromptStudioProps = {
   productName: string;
   productImage: string | null;
+  productImages: Array<{ name: string; dataUrl: string }>;
   benefit: string;
   price: string;
   hook: string;
@@ -74,7 +75,7 @@ function short(value: string, max: number) {
 }
 
 function makeFlowProject(input: FlowPromptStudioProps, variant: number): FlowProject {
-  const { productName, benefit, price, hook, tone, concept, referenceImages } = input;
+  const { productName, benefit, price, hook, tone, concept, productImages, referenceImages } = input;
   const conceptInfo = conceptCopy[concept];
   const cleanProduct = short(productName, 70) || "선택한 상품";
   const cleanBenefit = short(benefit, 180) || `${cleanProduct}의 핵심 장점을 직관적으로 보여준다.`;
@@ -133,6 +134,11 @@ function makeFlowProject(input: FlowPromptStudioProps, variant: number): FlowPro
   const referenceDirection = referenceImages.length > 0
     ? `${referenceImages.length} additional visual reference image${referenceImages.length > 1 ? "s are" : " is"} attached. Use them only as references for lighting, color palette, environment, composition, and camera mood. Never copy or replace the real product design from those images.`
     : "No additional mood references are attached. Build a clean commercial environment that supports the selected concept.";
+  const productImageCount = Math.max(1, productImages.length);
+  const productReferenceLock = `PRODUCT REFERENCE LOCK — HIGHEST PRIORITY
+The ${productImageCount} attached product reference image${productImageCount > 1 ? "s show" : " shows"} the same real product from different views. Treat all of them together as identity evidence, not as style inspiration. Reference image 1 is the primary identity source; the other product images clarify the side profile, back, components, accessories, materials, and real usage.
+Keep the product completely unchanged in every frame: exact product category, silhouette, dimensions, proportions, color, material, surface finish, transparent parts, buttons, openings, straps, accessories, component count, packaging structure, logo position, and label layout. Do not redesign, simplify, beautify, recolor, resize, substitute, add, remove, merge, duplicate, or hallucinate any product detail. Never turn it into a similar or generic product.
+Before rendering each new shot, cross-check the product against all attached product images. If a detail is not visible or unclear, hide that detail with a natural camera angle instead of inventing it.`;
 
   const firstPrompt = `Create the first 8 seconds of a vertical 9:16 Korean shopping short.
 
@@ -141,7 +147,8 @@ KEY BENEFIT: ${cleanBenefit}
 CREATIVE CONCEPT: ${conceptInfo.label} / ${tone}
 DIRECTION: ${conceptInfo.direction}
 
-Use the uploaded product image as the exact visual reference and starting frame. Preserve the real packaging, logo placement, proportions, and colors. Do not invent or alter any brand text.
+${productReferenceLock}
+Use the primary product image as the starting-frame reference when possible.
 ${referenceDirection}
 
 SHOT PLAN
@@ -162,8 +169,9 @@ PRODUCT IDENTITY — KEEP THIS CONTEXT ACTIVE FOR EVERY NEW FRAME
 PRODUCT: ${cleanProduct}
 KEY BENEFIT: ${cleanBenefit}
 CREATIVE CONCEPT: ${conceptInfo.label} / ${tone}
+${productReferenceLock}
 The product already visible in the source clip is the only hero product. Preserve its exact category, purpose, silhouette, packaging, materials, colors, proportions, logo placement, label layout, and all visible design details. Never replace it with another product, generic object, container, appliance, cosmetic, or package.
-If the original product image is attached again, use it as the highest-priority identity reference. If it is not attached, use the product shown in the source clip's final frame as the visual ground truth.
+Attach all ${productImageCount} product reference image${productImageCount > 1 ? "s" : ""} again for this continuation. Use them as the highest-priority identity reference together with the product shown in the source clip's final frame.
 
 PREVIOUS 8-SECOND CLIP RECAP
 0-3s: ${scenes[0].visual}.
@@ -210,7 +218,7 @@ FINAL CONSISTENCY CHECK: same product, same set, same visual identity, same clip
 상품: ${cleanProduct}
 콘셉트: ${conceptInfo.label} / ${tone}
 핵심 소구점: ${cleanBenefit}
-참고 이미지: 상품 원본 1장 + 무드 참고 ${referenceImages.length}장
+참고 이미지: 상품 기준 ${productImageCount}장 + 무드 참고 ${referenceImages.length}장
 
 [15초 대본·스토리보드]
 ${storyboardText}
@@ -240,7 +248,7 @@ ${social.post}
 [FLOW 설정]
 - 세로 9:16
 - 첫 영상 8초
-- 상품 이미지를 핵심 Ingredient 또는 시작 프레임으로 추가
+- 상품 기준 이미지 ${productImageCount}장을 모두 핵심 Ingredient로 추가하고 첫 번째 사진을 대표 시작 프레임으로 사용
 - 추가 참고 이미지는 조명·배경·색감·카메라 무드용 Ingredient로 추가
 - 첫 8초 영상 생성 후 Veo 3.1 Lite의 Extend에서 두 번째 프롬프트 사용
 - Flow 영상에는 자막·가격·CTA 등 어떤 화면 글자도 생성하지 않기
@@ -248,7 +256,7 @@ ${social.post}
 
   return {
     title: `${cleanProduct} · ${conceptInfo.label} 쇼츠`,
-    summary: `세로 9:16 · 15초 ${tone} 쇼츠 · 참고 이미지 ${referenceImages.length + 1}장`,
+    summary: `세로 9:16 · 15초 ${tone} 쇼츠 · 상품 기준 ${productImageCount}장 + 무드 ${referenceImages.length}장`,
     scenes,
     firstPrompt,
     extendPrompt,
@@ -360,7 +368,7 @@ export function FlowPromptStudio(props: FlowPromptStudioProps) {
           </div>
 
           <div className="flow-howto">
-            <div><span>1</span><p><strong>참고 이미지 추가</strong><small>상품은 핵심 Ingredient, 나머지는 무드 참고로 넣기</small></p></div>
+            <div><span>1</span><p><strong>상품 사진 {Math.max(1, props.productImages.length)}장 첨부</strong><small>상품 사진은 모두 핵심 Ingredients, 무드 사진은 연출 참고로 구분</small></p></div>
             <div><span>2</span><p><strong>세로 9:16 · 8초</strong><small>첫 번째 프롬프트를 붙여 넣고 생성</small></p></div>
             <div><span>3</span><p><strong>Veo 3.1 Lite · Extend</strong><small>두 번째 프롬프트로 약 7초 이어 만들기</small></p></div>
           </div>

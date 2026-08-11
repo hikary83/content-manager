@@ -2,6 +2,7 @@ type ProductData = {
   name?: string;
   description?: string;
   image?: string;
+  images?: string[];
   price?: string;
   originalPrice?: string;
   currency?: string;
@@ -141,14 +142,35 @@ function firstOffer(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" ? (value as Record<string, unknown>) : null;
 }
 
-function imageFromProduct(value: unknown) {
-  const image = Array.isArray(value) ? value[0] : value;
-  if (typeof image === "string") return image;
-  if (image && typeof image === "object") {
-    const record = image as Record<string, unknown>;
-    return typeof record.url === "string" ? record.url : typeof record.contentUrl === "string" ? record.contentUrl : "";
-  }
-  return "";
+function imagesFromProduct(value: unknown) {
+  const values = Array.isArray(value) ? value : [value];
+  return values.flatMap((image) => {
+    if (typeof image === "string") return [image];
+    if (image && typeof image === "object") {
+      const record = image as Record<string, unknown>;
+      const url = typeof record.url === "string" ? record.url : typeof record.contentUrl === "string" ? record.contentUrl : "";
+      return url ? [url] : [];
+    }
+    return [];
+  });
+}
+
+function metaContents(html: string, names: string[]) {
+  const wanted = new Set(names.map((name) => name.toLowerCase()));
+  return (html.match(/<meta\b[^>]*>/gi) ?? []).flatMap((tag) => {
+    const key = (readAttribute(tag, "property") || readAttribute(tag, "name") || readAttribute(tag, "itemprop")).toLowerCase();
+    const content = readAttribute(tag, "content");
+    return wanted.has(key) && content ? [content] : [];
+  });
+}
+
+function pageProductImages(html: string) {
+  return (html.match(/<img\b[^>]*>/gi) ?? []).flatMap((tag) => {
+    const marker = `${readAttribute(tag, "class")} ${readAttribute(tag, "id")} ${readAttribute(tag, "itemprop")}`.toLowerCase();
+    if (!/(product|prod-|gallery|thumbnail|itemprop|image)/.test(marker)) return [];
+    const source = readAttribute(tag, "data-origin") || readAttribute(tag, "data-src") || readAttribute(tag, "src");
+    return source ? [source] : [];
+  });
 }
 
 function absoluteUrl(value: string, base: URL) {
@@ -227,7 +249,13 @@ export async function POST(request: Request) {
       metaContent(html, ["og:description", "twitter:description", "description"]) ||
       (typeof product?.description === "string" ? product.description : ""),
     ).slice(0, 500);
-    const rawImage = metaContent(html, ["og:image:secure_url", "og:image", "twitter:image"]) || imageFromProduct(product?.image);
+    const imageCandidates = [
+      ...imagesFromProduct(product?.image),
+      ...metaContents(html, ["og:image:secure_url", "og:image", "twitter:image", "twitter:image:src"]),
+      ...pageProductImages(html),
+    ];
+    const images = [...new Set(imageCandidates.map((value) => absoluteUrl(value, finalUrl)).filter(Boolean))].slice(0, 5);
+    const rawImage = images[0] ?? "";
     const price = formatPrice(
       offer?.price ??
       offer?.lowPrice ??
@@ -244,6 +272,7 @@ export async function POST(request: Request) {
       name: name.slice(0, 150),
       description,
       image: absoluteUrl(rawImage, finalUrl),
+      images,
       price,
       originalPrice,
       currency,

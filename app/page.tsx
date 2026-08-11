@@ -35,6 +35,7 @@ type PersistedProjectData = {
   benefit: string;
   productImage: string | null;
   fileName: string;
+  productImages?: ReferenceImage[];
   referenceImages: ReferenceImage[];
   concept: ConceptId;
   tone: string;
@@ -70,6 +71,8 @@ export default function Home() {
   const [concept, setConcept] = useState<ConceptId>("problem");
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [fileName, setFileName] = useState("상품 이미지를 올려주세요");
+  const [productImages, setProductImages] = useState<ReferenceImage[]>([]);
+  const [productImagesLoading, setProductImagesLoading] = useState(false);
   const [referenceImages, setReferenceImages] = useState<ReferenceImage[]>([]);
   const [referenceMessage, setReferenceMessage] = useState("");
   const [projectRevision, setProjectRevision] = useState(0);
@@ -126,7 +129,7 @@ export default function Home() {
     void loadSavedProjects();
   };
 
-  function buildProjectData(productImage = uploadedImage, references = referenceImages): PersistedProjectData {
+  function buildProjectData(productImage = uploadedImage, references = referenceImages, gallery = productImages): PersistedProjectData {
     return {
       productUrl,
       productName,
@@ -135,6 +138,7 @@ export default function Home() {
       benefit,
       productImage,
       fileName,
+      productImages: gallery,
       referenceImages: references,
       concept,
       tone,
@@ -191,9 +195,10 @@ export default function Home() {
     try {
       let activeProjectId = projectId;
       const safeProductImage = uploadedImage?.startsWith("data:") ? null : uploadedImage;
+      const safeProductImages = productImages.map((image) => ({ ...image, dataUrl: image.dataUrl.startsWith("data:") ? "" : image.dataUrl }));
       const safeReferences = referenceImages.map((image) => ({ ...image, dataUrl: image.dataUrl.startsWith("data:") ? "" : image.dataUrl }));
       const saveStatus = options.status ?? projectStatus;
-      const initialBody = projectRequestBody(buildProjectData(safeProductImage, safeReferences), saveStatus);
+      const initialBody = projectRequestBody(buildProjectData(safeProductImage, safeReferences, safeProductImages), saveStatus);
       const initialResponse = await fetch(activeProjectId ? `/api/projects/${activeProjectId}` : "/api/projects", {
         method: activeProjectId ? "PATCH" : "POST",
         headers: { "content-type": "application/json" },
@@ -205,10 +210,22 @@ export default function Home() {
       setProjectId(activeProjectId);
 
       let persistedProductImage = uploadedImage;
+      const persistedProductImages = [...productImages];
       const persistedReferences = [...referenceImages];
       if (uploadedImage?.startsWith("data:")) {
         const asset = await uploadProjectAsset(activeProjectId, await dataUrlToFile(uploadedImage, fileName), "product");
         persistedProductImage = asset.url ?? null;
+        for (let index = 0; index < persistedProductImages.length; index += 1) {
+          if (persistedProductImages[index].dataUrl === uploadedImage) {
+            persistedProductImages[index] = { ...persistedProductImages[index], id: asset.id, dataUrl: asset.url ?? "" };
+          }
+        }
+      }
+      for (let index = 0; index < persistedProductImages.length; index += 1) {
+        const image = persistedProductImages[index];
+        if (!image.dataUrl.startsWith("data:")) continue;
+        const asset = await uploadProjectAsset(activeProjectId, await dataUrlToFile(image.dataUrl, image.name), "product-reference");
+        persistedProductImages[index] = { ...image, id: asset.id, dataUrl: asset.url ?? "" };
       }
       for (let index = 0; index < persistedReferences.length; index += 1) {
         const reference = persistedReferences[index];
@@ -221,7 +238,7 @@ export default function Home() {
         setPendingVideo(null);
       }
 
-      const finalBody = projectRequestBody(buildProjectData(persistedProductImage, persistedReferences), saveStatus);
+      const finalBody = projectRequestBody(buildProjectData(persistedProductImage, persistedReferences, persistedProductImages), saveStatus);
       const finalResponse = await fetch(`/api/projects/${activeProjectId}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
@@ -230,6 +247,7 @@ export default function Home() {
       const finalData = await finalResponse.json() as { project?: SavedProject; error?: string };
       if (!finalResponse.ok || !finalData.project) throw new Error(finalData.error || "프로젝트 정보를 마무리하지 못했어요.");
       setUploadedImage(persistedProductImage);
+      setProductImages(persistedProductImages);
       setReferenceImages(persistedReferences);
       setProjectStatus(saveStatus);
       await refreshAssets(activeProjectId);
@@ -262,6 +280,11 @@ export default function Home() {
       setBenefit(data.benefit ?? "");
       setUploadedImage(data.productImage ?? null);
       setFileName(data.fileName ?? "저장된 상품 이미지");
+      setProductImages(Array.isArray(data.productImages) && data.productImages.length > 0
+        ? data.productImages
+        : data.productImage
+          ? [{ id: "saved-product-main", name: data.fileName ?? "상품 대표 이미지", dataUrl: data.productImage }]
+          : []);
       setReferenceImages(Array.isArray(data.referenceImages) ? data.referenceImages : []);
       setConcept(data.concept ?? "problem");
       setTone(data.tone ?? "트렌디");
@@ -365,12 +388,130 @@ export default function Home() {
     }
     const reader = new FileReader();
     reader.addEventListener("load", () => {
-      if (typeof reader.result === "string") setUploadedImage(reader.result);
+      if (typeof reader.result === "string") {
+        const nextImage = { id: `product-main-${file.lastModified}-${Math.random()}`, name: file.name, dataUrl: reader.result };
+        setUploadedImage(reader.result);
+        setProductImages((current) => {
+          const additional = current[0]?.dataUrl === uploadedImage ? current.slice(1) : current;
+          return [nextImage, ...additional.filter((image) => image.dataUrl !== reader.result)].slice(0, 5);
+        });
+      }
     });
     reader.readAsDataURL(file);
     setFileName(file.name);
     setImportStatus(null);
     resetProject();
+  };
+
+  const handleProductImages = async (event: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = "";
+    const available = 5 - productImages.length;
+    const accepted = files.filter((file) => file.type.startsWith("image/") && file.size <= 8 * 1024 * 1024).slice(0, available);
+    if (accepted.length === 0) {
+      setReferenceMessage(productImages.length >= 5 ? "상품 이미지는 최대 5장까지 사용할 수 있어요." : "JPG·PNG·WEBP 이미지를 장당 8MB 이하로 올려주세요.");
+      return;
+    }
+    try {
+      const loaded = await Promise.all(accepted.map(readReferenceFile));
+      setProductImages((current) => [...current, ...loaded].slice(0, 5));
+      if (!uploadedImage && loaded[0]) {
+        setUploadedImage(loaded[0].dataUrl);
+        setFileName(loaded[0].name);
+      }
+      setReferenceMessage(`${loaded.length}장의 상품 이미지를 추가했어요. Flow Ingredients에 함께 넣어주세요.`);
+      resetProject();
+    } catch (error) {
+      setReferenceMessage(error instanceof Error ? error.message : "상품 이미지를 읽지 못했어요.");
+    }
+  };
+
+  const makePrimaryProductImage = (id: string) => {
+    const target = productImages.find((image) => image.id === id);
+    if (!target) return;
+    setUploadedImage(target.dataUrl);
+    setFileName(target.name);
+    setProductImages([target, ...productImages.filter((image) => image.id !== id)]);
+    setReferenceMessage("대표 상품 이미지를 변경했어요.");
+    resetProject();
+  };
+
+  const removeProductImage = (id: string) => {
+    const next = productImages.filter((image) => image.id !== id);
+    if (productImages[0]?.id === id) {
+      setUploadedImage(next[0]?.dataUrl ?? null);
+      setFileName(next[0]?.name ?? "상품 이미지를 올려주세요");
+    }
+    setProductImages(next);
+    setReferenceMessage("상품 이미지를 제거했어요.");
+    resetProject();
+  };
+
+  const downloadProductImage = async (image: ReferenceImage, index: number) => {
+    try {
+      const source = /^https?:\/\//i.test(image.dataUrl)
+        ? `/api/image-download?url=${encodeURIComponent(image.dataUrl)}&name=${encodeURIComponent(image.name)}`
+        : image.dataUrl;
+      const response = await fetch(source);
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({})) as { error?: string };
+        throw new Error(data.error || "상품 이미지를 내려받지 못했어요.");
+      }
+      const blob = await response.blob();
+      const extension = blob.type.includes("png") ? "png" : blob.type.includes("webp") ? "webp" : blob.type.includes("gif") ? "gif" : "jpg";
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `HIKARY-${productName.replace(/[^\p{L}\p{N}]+/gu, "-") || "product"}-${String(index + 1).padStart(2, "0")}.${extension}`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      setReferenceMessage(error instanceof Error ? error.message : "상품 이미지를 내려받지 못했어요.");
+    }
+  };
+
+  const downloadAllProductImages = async () => {
+    setReferenceMessage(`${productImages.length}장의 상품 이미지 다운로드를 시작했어요.`);
+    for (let index = 0; index < productImages.length; index += 1) {
+      await downloadProductImage(productImages[index], index);
+    }
+  };
+
+  const refreshProductImages = async () => {
+    if (!productUrl.trim()) {
+      setReferenceMessage("상품 페이지 주소를 입력하면 사진을 더 찾아볼 수 있어요.");
+      return;
+    }
+    setProductImagesLoading(true);
+    setReferenceMessage("");
+    try {
+      const response = await fetch("/api/import-product", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ url: productUrl.trim() }),
+      });
+      const data = await response.json() as { error?: string; image?: string; images?: string[] };
+      if (!response.ok) throw new Error(data.error || "상품 사진을 불러오지 못했어요.");
+      const candidates = [...new Set([...(data.images ?? []), ...(data.image ? [data.image] : [])])];
+      const currentUrls = new Set(productImages.map((image) => image.dataUrl));
+      const added = candidates.filter((url) => !currentUrls.has(url)).slice(0, Math.max(0, 5 - productImages.length));
+      if (added.length === 0) {
+        setReferenceMessage(productImages.length >= 5 ? "상품 이미지 5장을 모두 준비했어요." : "상품 페이지에서 추가 이미지를 찾지 못했어요. 직접 사진을 추가해 주세요.");
+        return;
+      }
+      const nextImages = added.map((dataUrl, index) => ({ id: `remote-product-${Date.now()}-${index}`, name: `상품 페이지 이미지 ${productImages.length + index + 1}`, dataUrl }));
+      setProductImages((current) => [...current, ...nextImages].slice(0, 5));
+      if (!uploadedImage && nextImages[0]) {
+        setUploadedImage(nextImages[0].dataUrl);
+        setFileName(nextImages[0].name);
+      }
+      setReferenceMessage(`상품 페이지에서 ${added.length}장의 사진을 더 불러왔어요.`);
+      resetProject();
+    } catch (error) {
+      setReferenceMessage(error instanceof Error ? error.message : "상품 사진을 불러오지 못했어요.");
+    } finally {
+      setProductImagesLoading(false);
+    }
   };
 
   const handleReferenceImages = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -411,13 +552,23 @@ export default function Home() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ url: productUrl.trim() }),
       });
-      const data = await response.json() as { error?: string; name?: string; description?: string; image?: string; price?: string; originalPrice?: string; sourceUrl?: string };
+      const data = await response.json() as { error?: string; name?: string; description?: string; image?: string; images?: string[]; price?: string; originalPrice?: string; sourceUrl?: string };
       if (!response.ok) throw new Error(data.error || "상품 정보를 불러오지 못했어요.");
 
       const imported: string[] = [];
       if (data.name) { setProductName(data.name); imported.push("상품명"); }
       if (data.description) { setBenefit(data.description); imported.push("설명"); }
-      if (data.image) { setUploadedImage(data.image); setFileName("상품 페이지 대표 이미지"); imported.push("이미지"); }
+      if (data.image) {
+        const gallery = [...new Set([...(data.images ?? []), data.image])].slice(0, 5).map((dataUrl, index) => ({
+          id: `imported-product-${Date.now()}-${index}`,
+          name: index === 0 ? "상품 페이지 대표 이미지" : `상품 페이지 이미지 ${index + 1}`,
+          dataUrl,
+        }));
+        setUploadedImage(gallery[0]?.dataUrl ?? data.image);
+        setProductImages(gallery);
+        setFileName("상품 페이지 대표 이미지");
+        imported.push(`이미지 ${gallery.length}장`);
+      }
       if (data.originalPrice) { setNormalPrice(data.originalPrice); imported.push("정상가"); }
       if (data.price) {
         if (data.originalPrice) setSalePrice(data.price);
@@ -453,7 +604,11 @@ export default function Home() {
     setSalePrice("");
     if (product.productImage) {
       setUploadedImage(product.productImage);
+      setProductImages([{ id: `coupang-product-${product.productId}`, name: "쿠팡 상품 대표 이미지", dataUrl: product.productImage }]);
       setFileName("쿠팡 상품 대표 이미지");
+    } else {
+      setUploadedImage(null);
+      setProductImages([]);
     }
     setBenefit(`${product.productName}의 핵심 특징과 실제 사용 장면을 15초 안에 직관적으로 보여주세요.`);
     setHook(`${product.productName}, 요즘 인기 있는 이유`);
@@ -579,16 +734,50 @@ export default function Home() {
               <section className="wizard-stage" aria-label="4단계 Flow 제작안">
                 <section className="reference-section" aria-labelledby="reference-title">
                   <div className="section-heading">
-                    <div><span>04</span><h2 id="reference-title">Flow가 참고할 이미지를 준비해주세요</h2></div>
-                    <p>상품 원본은 정확성, 추가 이미지는 분위기 참고용입니다.</p>
+                    <div><span>04</span><h2 id="reference-title">상품 이미지를 준비하고 내려받으세요</h2></div>
+                    <p>상품 사진 3~5장을 Flow Ingredients에 넣으면 형태를 더 정확하게 유지할 수 있어요.</p>
                   </div>
-                  <div className="reference-grid">
-                    <label className={`reference-card product-reference ${uploadedImage ? "has-image" : "missing"}`}>
-                      <input type="file" accept="image/*" onChange={handleImage} />
-                      {uploadedImage ? <img src={uploadedImage} alt="Flow 상품 기준 이미지" /> : <span className="reference-placeholder">＋</span>}
-                      <span className="reference-card-copy"><b>상품 원본</b><small>{uploadedImage ? "눌러서 교체" : "필수 · 이미지 추가"}</small></span>
-                      <em>MAIN</em>
-                    </label>
+
+                  <div className="product-gallery-block">
+                    <div className="product-gallery-head">
+                      <div><strong>상품 기준 이미지</strong><span>{productImages.length} / 5장</span></div>
+                      <div>
+                        {productUrl && <button type="button" onClick={() => void refreshProductImages()} disabled={productImagesLoading || productImages.length >= 5}>{productImagesLoading ? "사진 찾는 중..." : "상품 페이지에서 더 찾기"}</button>}
+                        <button type="button" onClick={() => void downloadAllProductImages()} disabled={productImages.length === 0}>전체 다운로드</button>
+                      </div>
+                    </div>
+                    <div className="product-reference-grid">
+                      {productImages.map((image, index) => (
+                        <article className={`product-gallery-card ${index === 0 ? "primary" : ""}`} key={image.id}>
+                          <div className="product-gallery-image">
+                            <img src={image.dataUrl} alt={`${productName || "상품"} 기준 이미지 ${index + 1}`} />
+                            <span>{index === 0 ? "MAIN" : String(index + 1).padStart(2, "0")}</span>
+                          </div>
+                          <div className="product-gallery-copy">
+                            <b>{index === 0 ? "대표 상품 이미지" : `상품 이미지 ${index + 1}`}</b>
+                            <small title={image.name}>{image.name}</small>
+                            <div>
+                              <button type="button" onClick={() => void downloadProductImage(image, index)}>다운로드</button>
+                              {index > 0 && <button type="button" onClick={() => makePrimaryProductImage(image.id)}>대표로</button>}
+                              <button className="remove" type="button" onClick={() => removeProductImage(image.id)} aria-label={`${image.name} 제거`}>삭제</button>
+                            </div>
+                          </div>
+                        </article>
+                      ))}
+                      {productImages.length < 5 && (
+                        <label className="product-gallery-add">
+                          <input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={(event) => void handleProductImages(event)} />
+                          <span>＋</span>
+                          <b>상품 사진 추가</b>
+                          <small>최대 {5 - productImages.length}장 더</small>
+                        </label>
+                      )}
+                    </div>
+                    <p className="product-gallery-note"><strong>Flow에는 준비된 상품 사진을 모두 첨부하세요.</strong> 정면·측면·구성품·사용 모습처럼 서로 다른 각도가 좋고, 첫 번째 사진은 대표 기준 이미지로 사용됩니다.</p>
+                  </div>
+
+                  <div className="mood-reference-head"><div><strong>무드 참고 이미지</strong><span>선택 · 최대 4장</span></div><p>제품이 아니라 배경·조명·카메라 분위기만 참고합니다.</p></div>
+                  <div className="reference-grid mood-reference-grid">
                     {referenceImages.map((image, index) => (
                       <article className="reference-card has-image" key={image.id}>
                         <img src={image.dataUrl} alt={`Flow 무드 참고 이미지 ${index + 1}`} />
@@ -604,12 +793,12 @@ export default function Home() {
                       </label>
                     )}
                   </div>
-                  <div className="reference-help"><span>TIP</span><p><strong>배경·조명·색감·카메라 구도가 잘 보이는 이미지를 추천해요.</strong> 상품 원본과 다른 브랜드 제품은 피하고, 참고 이미지는 Flow의 Ingredients에 함께 넣어주세요.</p></div>
+                  <div className="reference-help"><span>TIP</span><p><strong>상품 사진은 제품 고정용, 무드 이미지는 연출 참고용으로 구분하세요.</strong> 프롬프트에도 모든 상품 사진을 최우선 기준으로 삼고 제품의 형태·색상·로고·구성품을 바꾸지 않도록 명시됩니다.</p></div>
                   {referenceMessage && <p className="reference-message" role="status">{referenceMessage}</p>}
                 </section>
 
                 <div className="divider" />
-                <FlowPromptStudio key={`${projectRevision}-${projectId ?? "new"}`} productName={productName} productImage={uploadedImage} benefit={benefit} price={`${salePrice || normalPrice}${salePrice || normalPrice ? "원" : ""}`} hook={hook} tone={tone} concept={concept} referenceImages={referenceImages} initialProject={flowProject} onGenerated={(project) => { setFlowProject(project); setProjectStatus((status) => status === "draft" ? "planning" : status); }} />
+                <FlowPromptStudio key={`${projectRevision}-${projectId ?? "new"}`} productName={productName} productImage={uploadedImage} productImages={productImages} benefit={benefit} price={`${salePrice || normalPrice}${salePrice || normalPrice ? "원" : ""}`} hook={hook} tone={tone} concept={concept} referenceImages={referenceImages} initialProject={flowProject} onGenerated={(project) => { setFlowProject(project); setProjectStatus((status) => status === "draft" ? "planning" : status); }} />
 
                 <footer className="wizard-actions final-actions">
                   <button className="wizard-secondary" type="button" onClick={() => goToStep(2)}>← 콘셉트 수정</button>
