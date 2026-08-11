@@ -433,6 +433,11 @@ h2 {
 .url-field > span { color: #9c9a96; font-size: 12px; }
 .url-field input { min-width: 0; flex: 1; border: 0; outline: 0; padding: 7px 9px; font-size: 10.5px; }
 .url-field button {
+  display: inline-flex;
+  min-width: 66px;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
   border: 0;
   border-radius: 6px;
   background: #f1f0ed;
@@ -440,6 +445,47 @@ h2 {
   font-size: 9px;
   font-weight: 700;
 }
+
+.url-field button:hover:not(:disabled) { background: #e8e7e3; }
+.url-field button:disabled { cursor: wait; opacity: .72; }
+
+.button-spinner {
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid #aaa8a2;
+  border-top-color: #222;
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+
+.import-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 8px;
+  border: 1px solid;
+  border-radius: 8px;
+  padding: 9px 10px;
+  font-size: 8.5px;
+  line-height: 1.45;
+}
+
+.import-status span {
+  display: grid;
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 8px;
+  font-weight: 900;
+}
+
+.import-status p { margin: 1px 0 0; }
+.import-status.success { border-color: #d9e8a4; background: #f6f9eb; color: #61700e; }
+.import-status.success span { background: #ddeaab; }
+.import-status.error { border-color: #f0c6ba; background: #fff6f3; color: #a2442e; }
+.import-status.error span { background: #f7d8cf; }
 
 .or-line { display: flex; align-items: center; gap: 12px; margin: 15px 0; color: #b0afab; font-size: 8.5px; }
 .or-line::before,

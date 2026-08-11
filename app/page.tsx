@@ -73,6 +73,13 @@ export default function Home() {
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [fileName, setFileName] = useState("peach-glow-serum.jpg");
   const [caption, setCaption] = useState("피부가 복숭아처럼 촉촉해지는 18초 🍑");
+  const [productUrl, setProductUrl] = useState("");
+  const [productName, setProductName] = useState("피치 글로우 세라마이드 세럼");
+  const [normalPrice, setNormalPrice] = useState("32,000");
+  const [salePrice, setSalePrice] = useState("22,400");
+  const [benefit, setBenefit] = useState("피치 세라마이드와 8중 히알루론산으로 속건조를 잡아주고, 메이크업이 잘 먹는 촉촉한 피부로 만들어줘요.");
+  const [importing, setImporting] = useState(false);
+  const [importStatus, setImportStatus] = useState<{ kind: "success" | "error"; message: string } | null>(null);
 
   useEffect(() => {
     if (!playing) return;
@@ -97,6 +104,76 @@ export default function Home() {
     if (!file) return;
     setUploadedImage(URL.createObjectURL(file));
     setFileName(file.name);
+    setImportStatus(null);
+  };
+
+  const importProduct = async () => {
+    if (!productUrl.trim()) {
+      setImportStatus({ kind: "error", message: "상품 페이지 주소를 먼저 입력해주세요." });
+      return;
+    }
+
+    setImporting(true);
+    setImportStatus(null);
+
+    try {
+      const response = await fetch("/api/import-product", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ url: productUrl.trim() }),
+      });
+      const data = await response.json() as {
+        error?: string;
+        name?: string;
+        description?: string;
+        image?: string;
+        price?: string;
+        originalPrice?: string;
+        sourceUrl?: string;
+      };
+
+      if (!response.ok) throw new Error(data.error || "상품 정보를 불러오지 못했어요.");
+
+      const imported: string[] = [];
+      if (data.name) {
+        setProductName(data.name);
+        imported.push("상품명");
+      }
+      if (data.description) {
+        setBenefit(data.description);
+        imported.push("설명");
+      }
+      if (data.image) {
+        setUploadedImage(data.image);
+        setFileName("상품 페이지 대표 이미지");
+        imported.push("이미지");
+      }
+      if (data.originalPrice) {
+        setNormalPrice(data.originalPrice);
+        imported.push("정상가");
+      }
+      if (data.price) {
+        if (data.originalPrice) setSalePrice(data.price);
+        else {
+          setNormalPrice(data.price);
+          setSalePrice("");
+        }
+        imported.push(data.originalPrice ? "할인가" : "가격");
+      }
+      if (data.sourceUrl) setProductUrl(data.sourceUrl);
+
+      setImportStatus({
+        kind: "success",
+        message: `${imported.join(" · ")} 정보를 불러왔어요. 내용을 확인한 뒤 AI 쇼츠를 구성해보세요.`,
+      });
+    } catch (error) {
+      setImportStatus({
+        kind: "error",
+        message: error instanceof Error ? error.message : "상품 정보를 불러오지 못했어요.",
+      });
+    } finally {
+      setImporting(false);
+    }
   };
 
   const generate = () => {
@@ -205,9 +282,29 @@ export default function Home() {
             <label className="field-label" htmlFor="product-url">상품 페이지 URL <small>선택</small></label>
             <div className="url-field">
               <span>↗</span>
-              <input id="product-url" defaultValue="https://brand.shop/products/peach-glow" />
-              <button type="button">불러오기</button>
+              <input
+                id="product-url"
+                value={productUrl}
+                onChange={(event) => setProductUrl(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    void importProduct();
+                  }
+                }}
+                placeholder="https://쇼핑몰.com/products/상품주소"
+                inputMode="url"
+              />
+              <button type="button" onClick={() => void importProduct()} disabled={importing}>
+                {importing ? <><span className="button-spinner" /> 읽는 중</> : "불러오기"}
+              </button>
             </div>
+            {importStatus && (
+              <div className={`import-status ${importStatus.kind}`} role="status" aria-live="polite">
+                <span>{importStatus.kind === "success" ? "✓" : "!"}</span>
+                <p>{importStatus.message}</p>
+              </div>
+            )}
 
             <div className="or-line"><span>또는</span></div>
 
@@ -227,16 +324,16 @@ export default function Home() {
 
               <div className="field-stack">
                 <label className="field-label" htmlFor="product-name">상품명</label>
-                <input className="text-field" id="product-name" defaultValue="피치 글로우 세라마이드 세럼" />
+                <input className="text-field" id="product-name" value={productName} onChange={(event) => setProductName(event.target.value)} />
                 <div className="two-fields">
-                  <label><span className="field-label">정상가</span><span className="price-input"><input defaultValue="32,000" /><i>원</i></span></label>
-                  <label><span className="field-label">할인가</span><span className="price-input sale"><input defaultValue="22,400" /><i>원</i></span></label>
+                  <label><span className="field-label">정상가</span><span className="price-input"><input value={normalPrice} onChange={(event) => setNormalPrice(event.target.value)} inputMode="numeric" /><i>원</i></span></label>
+                  <label><span className="field-label">할인가</span><span className="price-input sale"><input value={salePrice} onChange={(event) => setSalePrice(event.target.value)} inputMode="numeric" placeholder="선택" /><i>원</i></span></label>
                 </div>
               </div>
             </div>
 
             <label className="field-label" htmlFor="benefit">핵심 소구점</label>
-            <textarea id="benefit" defaultValue={"피치 세라마이드와 8중 히알루론산으로 속건조를 잡아주고, 메이크업이 잘 먹는 촉촉한 피부로 만들어줘요."} />
+            <textarea id="benefit" value={benefit} onChange={(event) => setBenefit(event.target.value)} />
             <div className="ai-hint"><span>✦</span> AI가 상품 정보를 읽고 3가지 핵심 포인트를 발견했어요.</div>
 
             <div className="divider" />
