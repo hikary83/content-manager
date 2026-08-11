@@ -1,6 +1,7 @@
 "use client";
 
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
+import { ProductDiscovery, type DiscoveryProduct } from "./components/ProductDiscovery";
 
 type Scene = {
   id: number;
@@ -187,6 +188,20 @@ export default function Home() {
     }, 1500);
   };
 
+  const selectCoupangProduct = (product: DiscoveryProduct) => {
+    setProductUrl(product.productUrl);
+    setProductName(product.productName);
+    setNormalPrice(product.productPrice > 0 ? product.productPrice.toLocaleString("ko-KR") : "");
+    setSalePrice("");
+    if (product.productImage) {
+      setUploadedImage(product.productImage);
+      setFileName("쿠팡 상품 대표 이미지");
+    }
+    setBenefit(`${product.productName}의 핵심 특징과 사용 장면을 18초 안에 직관적으로 보여주세요.`);
+    setImportStatus({ kind: "success", message: "선택한 쿠팡 상품 정보를 채웠어요. 가격과 핵심 소구점을 확인해주세요." });
+    window.setTimeout(() => document.getElementById("product-information")?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
+  };
+
   return (
     <main className="app-shell">
       <aside className="sidebar">
@@ -215,7 +230,7 @@ export default function Home() {
             <p>36 / 50개 남음</p>
             <button type="button">플랜 업그레이드 ↗</button>
           </div>
-          <a className="settings-link" href="#settings"><NavIcon>⚙</NavIcon>설정</a>
+          <a className="settings-link" href="#coupang-settings"><NavIcon>⚙</NavIcon>쿠팡 API 설정</a>
           <div className="profile">
             <span className="avatar">민</span>
             <span><strong>김민지</strong><small>minji@hooc.kr</small></span>
@@ -238,23 +253,28 @@ export default function Home() {
 
         <div className="stepper" aria-label="제작 단계">
           {[
-            ["01", "상품 정보"],
-            ["02", "AI 구성"],
-            ["03", "미리보기"],
-            ["04", "내보내기"],
+            ["01", "상품 탐색"],
+            ["02", "상품 정보"],
+            ["03", "AI 구성"],
+            ["04", "미리보기"],
+            ["05", "내보내기"],
           ].map(([number, label], index) => (
             <div className={`step ${index === 0 ? "current" : ""}`} key={number}>
               <span>{number}</span>
               <strong>{label}</strong>
-              {index < 3 && <i />}
+              {index < 4 && <i />}
             </div>
           ))}
         </div>
 
         <div className="studio-grid">
           <section className="form-panel" aria-label="상품 및 쇼츠 설정">
+            <ProductDiscovery onSelect={selectCoupangProduct} />
+
+            <div className="divider" />
+
             <div className="section-heading">
-              <div><span>01</span><h2>어디에 올릴까요?</h2></div>
+              <div><span>02</span><h2>어디에 올릴까요?</h2></div>
               <p>플랫폼에 맞는 화면 비율과 문법으로 만들어요.</p>
             </div>
             <div className="platform-tabs">
@@ -274,8 +294,8 @@ export default function Home() {
 
             <div className="divider" />
 
-            <div className="section-heading product-heading">
-              <div><span>02</span><h2>상품을 알려주세요</h2></div>
+            <div className="section-heading product-heading" id="product-information">
+              <div><span>03</span><h2>상품을 알려주세요</h2></div>
               <p>링크를 붙여 넣거나 직접 상품 정보를 입력하세요.</p>
             </div>
 
@@ -339,7 +359,7 @@ export default function Home() {
             <div className="divider" />
 
             <div className="section-heading">
-              <div><span>03</span><h2>어떤 느낌으로 만들까요?</h2></div>
+              <div><span>04</span><h2>어떤 느낌으로 만들까요?</h2></div>
             </div>
             <div className="tone-row" role="group" aria-label="영상 톤">
               {tones.map((item) => (
