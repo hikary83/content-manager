@@ -160,7 +160,7 @@ Keep the existing music and sound design coherent. No spoken dialogue. Generate 
     `후반 작업 자막: ${scene.caption}`,
   ].join("\n")).join("\n\n");
 
-  const packageText = `[HOOC FLOW 제작 패키지]
+  const packageText = `[HIKARY FLOW 제작 패키지]
 상품: ${cleanProduct}
 콘셉트: ${conceptInfo.label} / ${tone}
 핵심 소구점: ${cleanBenefit}
@@ -220,7 +220,7 @@ export function FlowPromptStudio(props: FlowPromptStudioProps) {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `HOOC-${props.productName.replace(/[^\p{L}\p{N}]+/gu, "-") || "flow-prompt"}.txt`;
+    anchor.download = `HIKARY-${props.productName.replace(/[^\p{L}\p{N}]+/gu, "-") || "flow-prompt"}.txt`;
     anchor.click();
     URL.revokeObjectURL(url);
   };
@@ -288,7 +288,7 @@ export function FlowPromptStudio(props: FlowPromptStudioProps) {
             {props.productImage && <a href={props.productImage} target="_blank" rel="noopener noreferrer">상품 이미지 열기</a>}
             <a className="flow-open" href="https://labs.google/fx/tools/flow" target="_blank" rel="noopener noreferrer">Google Flow 열기 ↗</a>
           </div>
-          <p className="flow-disclaimer">Flow의 모델·크레딧 비용은 생성 전에 Flow 화면에서 확인해주세요. HOOC에서는 이 단계에서 영상 API를 호출하지 않습니다.</p>
+          <p className="flow-disclaimer">Flow의 모델·크레딧 비용은 생성 전에 Flow 화면에서 확인해주세요. HIKARY에서는 이 단계에서 영상 API를 호출하지 않습니다.</p>
         </div>
       )}
 

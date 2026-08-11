@@ -214,31 +214,6 @@ a {
 
 .settings-link { margin-bottom: 8px; }
 
-.profile {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  border-top: 1px solid #303034;
-  padding: 17px 7px 0;
-}
-
-.avatar {
-  display: grid;
-  width: 32px;
-  height: 32px;
-  flex: 0 0 auto;
-  place-items: center;
-  border-radius: 50%;
-  background: #ffba92;
-  color: #512516;
-  font-size: 11px;
-  font-weight: 800;
-}
-
-.profile > span:nth-child(2) { min-width: 0; display: grid; gap: 2px; }
-.profile strong { font-size: 11px; }
-.profile small { overflow: hidden; color: #77767b; font-size: 8.5px; text-overflow: ellipsis; }
-.profile button { margin-left: auto; border: 0; background: transparent; color: #77767b; }
 
 .workspace {
   min-height: 100vh;
@@ -1448,8 +1423,6 @@ textarea {
 .credit-top strong { font-size: 12px; }
 .credit-card p,
 .credit-card button { font-size: 11px; }
-.profile strong { font-size: 13px; }
-.profile small { font-size: 10px; }
 
 .eyebrow { font-size: 11px; }
 .ghost-button,

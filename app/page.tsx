@@ -196,7 +196,7 @@ export default function Home() {
     <main className="app-shell">
       <aside className="sidebar">
         <div>
-          <button className="logo logo-button" type="button" onClick={() => goToStep(0)} aria-label="후크 첫 단계"><BrandMark /><span>HOOC</span></button>
+          <button className="logo logo-button" type="button" onClick={() => goToStep(0)} aria-label="히카리 첫 단계"><BrandMark /><span>HIKARY</span></button>
           <button className="new-project" type="button" onClick={resetAll}><span>＋</span> 새 쇼츠 만들기</button>
           <nav className="nav-list wizard-side-nav" aria-label="제작 단계">
             {wizardSteps.map((step, index) => (
@@ -209,7 +209,6 @@ export default function Home() {
         <div className="sidebar-bottom">
           <div className="workflow-card"><span>STEP {currentStep + 1} / 4</span><strong>{wizardSteps[currentStep].title}</strong><p>입력한 내용은 이전 단계로 돌아가도 그대로 유지됩니다.</p></div>
           <button className="settings-link sidebar-settings" type="button" onClick={() => goToStep(0)}><NavIcon>⚙</NavIcon>쿠팡 API 설정</button>
-          <div className="profile"><span className="avatar">민</span><span><strong>김민지</strong><small>Flow 제작 모드</small></span></div>
         </div>
       </aside>
 

@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 function safeFilename(value: string) {
   const printable = [...value].filter((character) => character.charCodeAt(0) >= 32).join("");
   const cleaned = printable.replace(/[\\/:*?"<>|]/g, " ").replace(/\s+/g, " ").trim().slice(0, 70);
-  return cleaned || "hooc-shopping-short";
+  return cleaned || "hikary-shopping-short";
 }
 
 export async function GET(request: Request, context: { params: Promise<{ jobId: string }> }) {

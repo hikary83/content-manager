@@ -170,7 +170,7 @@ async function fetchPage(initialUrl: URL) {
       signal: AbortSignal.timeout(9_000),
       headers: {
         accept: "text/html,application/xhtml+xml",
-        "user-agent": "Mozilla/5.0 (compatible; HOOCProductImporter/1.0)",
+        "user-agent": "Mozilla/5.0 (compatible; HIKARYProductImporter/1.0)",
       },
     });
 
