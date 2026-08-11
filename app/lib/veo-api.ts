@@ -139,7 +139,7 @@ export async function startVeoVideo(
         durationSeconds: 8,
         resolution: "720p",
         personGeneration: image ? "allow_adult" : "allow_all",
-        numberOfVideos: 1,
+        sampleCount: 1,
       },
     }),
   }) as VeoOperation;
@@ -192,7 +192,7 @@ export async function startVeoExtension(
         prompt,
         video: { uri: videoUri },
       }],
-      parameters: { numberOfVideos: 1, resolution: "720p" },
+      parameters: { sampleCount: 1, resolution: "720p" },
     }),
   }) as VeoOperation;
   if (!operation.name) throw new Error("영상 확장 작업 번호를 받지 못했어요.");
