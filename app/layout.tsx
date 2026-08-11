@@ -22,9 +22,9 @@ export async function generateMetadata(): Promise<Metadata> {
   const origin = safeHost
     ? `${protocol}://${safeHost}`
     : "https://hooc-shopping-shorts.ltd-korea-in-5392.chatgpt.site";
-  const socialImage = new URL("/og.png", origin).href;
-  const title = "HOOC — AI 쇼핑 쇼츠 스튜디오";
-  const description = "상품 링크 하나로 15~20초 쇼핑 쇼츠를 구성하는 AI 콘텐츠 스튜디오";
+  const socialImage = new URL("/og-veo.png", origin).href;
+  const title = "HOOC — 사진 한 장이 15초 쇼츠로";
+  const description = "쿠팡 상품 이미지와 Google Veo 3.1로 실제 움직이는 15초 쇼핑 쇼츠를 만드는 AI 스튜디오";
 
   return {
     title,
@@ -37,7 +37,7 @@ export async function generateMetadata(): Promise<Metadata> {
       title,
       description,
       type: "website",
-      images: [{ url: socialImage, width: 1732, height: 908, alt: "HOOC AI 쇼핑 쇼츠 스튜디오" }],
+      images: [{ url: socialImage, width: 1732, height: 907, alt: "사진 한 장을 15초 쇼츠로 만드는 HOOC" }],
     },
     twitter: {
       card: "summary_large_image",

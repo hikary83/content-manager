@@ -1537,3 +1537,84 @@ textarea { min-height: 84px; line-height: 1.55; }
 .scene-list time { font-size: 9px; }
 .preview-note p { font-size: 9px; }
 .preview-note strong { font-size: 10px; }
+
+/* Veo video generation */
+.veo-creator { scroll-margin-top: 24px; }
+.veo-heading { align-items: center; margin-bottom: 15px; }
+
+.veo-recipe {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 9px;
+  align-items: stretch;
+  border: 1px solid #e5e3de;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #fbfaf7, #f5f7ed);
+  padding: 12px;
+}
+
+.veo-recipe > i { align-self: center; color: #aaa79f; font-size: 13px; font-style: normal; }
+.recipe-step,
+.recipe-result { position: relative; display: flex; min-width: 0; align-items: center; gap: 8px; border-radius: 9px; background: #fff; padding: 10px; }
+.recipe-step > span,
+.recipe-result > span { display: grid; width: 27px; height: 27px; flex: 0 0 auto; place-items: center; border-radius: 8px; background: #efeee9; color: #65625c; font-family: var(--font-geist-mono), monospace; font-size: 8px; font-weight: 850; }
+.recipe-result { background: var(--ink); color: #fff; }
+.recipe-result > span { background: var(--lime); color: #17171b; }
+.recipe-step p,
+.recipe-result p { display: grid; min-width: 0; gap: 3px; margin: 0; }
+.recipe-step strong,
+.recipe-result strong { font-size: 11px; }
+.recipe-step small,
+.recipe-result small { overflow: hidden; color: #96938c; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.recipe-result small { color: #929198; }
+.recipe-step time,
+.recipe-result time { position: absolute; top: 6px; right: 7px; color: #8b8982; font-family: var(--font-geist-mono), monospace; font-size: 8px; }
+.recipe-result time { color: var(--lime); }
+
+.veo-options { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-top: 14px; }
+.veo-options > div:first-child { display: grid; gap: 3px; }
+.veo-options > div:first-child strong { font-size: 12px; }
+.veo-options > div:first-child small { color: #99968f; font-size: 10px; }
+.quality-toggle { display: flex; gap: 5px; border-radius: 9px; background: #f0efeb; padding: 4px; }
+.quality-toggle button { min-height: 34px; border: 0; border-radius: 6px; background: transparent; color: #817e77; padding: 0 11px; font-size: 10px; font-weight: 750; }
+.quality-toggle button.selected { background: #fff; color: #24231f; box-shadow: 0 2px 7px rgba(35, 32, 25, .08); }
+.quality-toggle button small { margin-left: 3px; border-radius: 8px; background: #e9f8a9; color: #657b0a; padding: 2px 4px; font-size: 7px; }
+.quality-toggle button:disabled { cursor: wait; opacity: .65; }
+
+.generation-progress { margin-top: 14px; border: 1px solid #dedbd5; border-radius: 11px; background: #fbfaf8; padding: 12px; }
+.generation-progress.done { border-color: #d9e6a9; background: #f8faef; }
+.progress-copy { display: flex; align-items: center; gap: 10px; }
+.progress-copy > span { display: grid; width: 27px; height: 27px; flex: 0 0 auto; place-items: center; border-radius: 50%; background: var(--ink); color: var(--lime); font-size: 11px; font-weight: 900; }
+.generation-progress:not(.done) .progress-copy > span { animation: spin 1s linear infinite; }
+.generation-progress.done .progress-copy > span { background: #ddebab; color: #5e7111; }
+.progress-copy p { display: grid; flex: 1; gap: 3px; margin: 0; }
+.progress-copy strong { font-size: 11px; }
+.progress-copy small { color: #929089; font-size: 9px; line-height: 1.4; }
+.progress-copy > b { color: #77736c; font-family: var(--font-geist-mono), monospace; font-size: 10px; }
+.progress-track { height: 5px; overflow: hidden; margin-top: 10px; border-radius: 6px; background: #e9e7e1; }
+.progress-track i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #9cc400, var(--lime)); transition: width .45s ease; }
+.video-expiry { margin: 8px 0 0; color: #8a8e76; font-size: 9px; text-align: center; }
+
+.veo-error { display: flex; align-items: flex-start; gap: 8px; margin-top: 12px; border-radius: 9px; background: #fff1ed; color: #9d3d28; padding: 10px; font-size: 10px; line-height: 1.5; }
+.veo-error > span { display: grid; width: 18px; height: 18px; flex: 0 0 auto; place-items: center; border-radius: 50%; background: #ffd7cc; font-weight: 900; }
+.veo-error p { margin: 0; }
+.veo-generate { min-height: 52px; }
+.veo-generate:disabled { cursor: wait; opacity: .7; transform: none; }
+.veo-footnote { margin: 9px 7px 0; color: #9a9790; font-size: 9px; line-height: 1.5; text-align: center; }
+.veo-settings-modal .settings-modal-head > div > span { width: 41px; color: #fff; letter-spacing: -.4px; }
+
+.generated-video { position: absolute; inset: 0; display: block; width: 100%; height: 100%; border: 0; border-radius: 20px; background: #000; object-fit: cover; }
+.video-result-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; border-radius: 9px; background: #f5f8e9; padding: 9px 10px; }
+.video-result-actions span { display: flex; align-items: center; gap: 7px; color: #5f6f1c; font-size: 10px; font-weight: 750; }
+.video-result-actions span i { width: 6px; height: 6px; border-radius: 50%; background: #8fb000; box-shadow: 0 0 0 3px #e1edb6; }
+.video-result-actions a { border-radius: 7px; background: var(--ink); color: #fff; padding: 8px 10px; font-size: 9px; font-weight: 750; }
+
+@media (max-width: 720px) {
+  .veo-recipe { grid-template-columns: 1fr; }
+  .veo-recipe > i { transform: rotate(90deg); justify-self: center; }
+  .recipe-step,
+  .recipe-result { min-height: 60px; }
+  .veo-options { align-items: flex-start; flex-direction: column; }
+  .quality-toggle { width: 100%; }
+  .quality-toggle button { flex: 1; }
+}

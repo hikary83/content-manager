@@ -2,6 +2,7 @@
 
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { ProductDiscovery, type DiscoveryProduct } from "./components/ProductDiscovery";
+import { VeoVideoCreator } from "./components/VeoVideoCreator";
 
 type Scene = {
   id: number;
@@ -31,7 +32,7 @@ const scenes: Scene[] = [
   },
   {
     id: 2,
-    time: "7–14초",
+    time: "7–12초",
     label: "SOLUTION",
     headline: "복숭아 한 병으로\n촉촉하게 차오르게",
     subline: "피치 세라마이드 × 히알루론산",
@@ -39,7 +40,7 @@ const scenes: Scene[] = [
   },
   {
     id: 3,
-    time: "14–18초",
+    time: "12–15초",
     label: "CTA",
     headline: "오늘만\n30% OFF",
     subline: "지금 프로필 링크에서 만나보세요",
@@ -69,11 +70,10 @@ export default function Home() {
   const [tone, setTone] = useState("트렌디");
   const [activeScene, setActiveScene] = useState(0);
   const [playing, setPlaying] = useState(false);
-  const [generating, setGenerating] = useState(false);
-  const [generated, setGenerated] = useState(false);
+  const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [fileName, setFileName] = useState("peach-glow-serum.jpg");
-  const [caption, setCaption] = useState("피부가 복숭아처럼 촉촉해지는 18초 🍑");
+  const [caption, setCaption] = useState("피부가 복숭아처럼 촉촉해지는 15초 🍑");
   const [productUrl, setProductUrl] = useState("");
   const [productName, setProductName] = useState("피치 글로우 세라마이드 세럼");
   const [normalPrice, setNormalPrice] = useState("32,000");
@@ -103,9 +103,19 @@ export default function Home() {
   const handleImage = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    setUploadedImage(URL.createObjectURL(file));
+    if (file.size > 8 * 1024 * 1024) {
+      setImportStatus({ kind: "error", message: "상품 이미지는 8MB 이하로 올려주세요." });
+      event.target.value = "";
+      return;
+    }
+    const reader = new FileReader();
+    reader.addEventListener("load", () => {
+      if (typeof reader.result === "string") setUploadedImage(reader.result);
+    });
+    reader.readAsDataURL(file);
     setFileName(file.name);
     setImportStatus(null);
+    setGeneratedVideoUrl(null);
   };
 
   const importProduct = async () => {
@@ -177,17 +187,6 @@ export default function Home() {
     }
   };
 
-  const generate = () => {
-    if (generating) return;
-    setGenerating(true);
-    setGenerated(false);
-    window.setTimeout(() => {
-      setGenerating(false);
-      setGenerated(true);
-      setActiveScene(0);
-    }, 1500);
-  };
-
   const selectCoupangProduct = (product: DiscoveryProduct) => {
     setProductUrl(product.productUrl);
     setProductName(product.productName);
@@ -197,7 +196,8 @@ export default function Home() {
       setUploadedImage(product.productImage);
       setFileName("쿠팡 상품 대표 이미지");
     }
-    setBenefit(`${product.productName}의 핵심 특징과 사용 장면을 18초 안에 직관적으로 보여주세요.`);
+    setBenefit(`${product.productName}의 핵심 특징과 사용 장면을 15초 안에 직관적으로 보여주세요.`);
+    setGeneratedVideoUrl(null);
     setImportStatus({ kind: "success", message: "선택한 쿠팡 상품 정보를 채웠어요. 가격과 핵심 소구점을 확인해주세요." });
     window.setTimeout(() => document.getElementById("product-information")?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
   };
@@ -206,7 +206,7 @@ export default function Home() {
     <main className="app-shell">
       <aside className="sidebar">
         <div>
-          <a className="logo" href="#" aria-label="후크 홈">
+          <a className="logo" href="#create" aria-label="후크 홈">
             <BrandMark />
             <span>HOOC</span>
           </a>
@@ -230,7 +230,7 @@ export default function Home() {
             <p>36 / 50개 남음</p>
             <button type="button">플랜 업그레이드 ↗</button>
           </div>
-          <a className="settings-link" href="#coupang-settings"><NavIcon>⚙</NavIcon>쿠팡 API 설정</a>
+          <a className="settings-link" href="#veo-settings"><NavIcon>⚙</NavIcon>영상 API 설정</a>
           <div className="profile">
             <span className="avatar">민</span>
             <span><strong>김민지</strong><small>minji@hooc.kr</small></span>
@@ -256,7 +256,7 @@ export default function Home() {
             ["01", "상품 탐색"],
             ["02", "상품 정보"],
             ["03", "AI 구성"],
-            ["04", "미리보기"],
+            ["04", "Veo 생성"],
             ["05", "내보내기"],
           ].map(([number, label], index) => (
             <div className={`step ${index === 0 ? "current" : ""}`} key={number}>
@@ -369,15 +369,21 @@ export default function Home() {
 
             <div className="caption-field">
               <label className="field-label" htmlFor="caption">AI가 만든 첫 문장</label>
-              <div><input id="caption" value={caption} onChange={(event) => setCaption(event.target.value)} /><button type="button" onClick={() => setCaption("요즘 피부가 푸석하다면, 18초만 집중 🍑")}>↻</button></div>
+              <div><input id="caption" value={caption} onChange={(event) => setCaption(event.target.value)} /><button type="button" onClick={() => setCaption("요즘 피부가 푸석하다면, 15초만 집중 🍑")}>↻</button></div>
             </div>
 
-            <button className={`generate-button ${generating ? "loading" : ""}`} type="button" onClick={generate}>
-              <span>{generating ? "◌" : "✦"}</span>
-              {generating ? "AI가 쇼츠를 구성하는 중..." : generated ? "새 버전 다시 만들기" : "AI 쇼츠 구성하기"}
-              {!generating && <small>약 30초</small>}
-            </button>
-            {generated && <p className="success-message">✓ 새로운 대본과 4개 장면 구성이 완성됐어요.</p>}
+            <div className="divider" />
+
+            <VeoVideoCreator
+              productName={productName}
+              productImage={uploadedImage}
+              benefit={benefit}
+              price={`${salePrice || normalPrice}${salePrice || normalPrice ? "원" : ""}`}
+              hook={caption}
+              tone={tone}
+              platform={platform}
+              onVideoReady={setGeneratedVideoUrl}
+            />
           </section>
 
           <aside className="preview-panel" aria-label="쇼츠 미리보기">
@@ -388,7 +394,13 @@ export default function Home() {
 
             <div className="phone-frame">
               <div className="phone-speaker" />
-              <div className={`video-canvas scene-${scenes[activeScene].kind}`}>
+              {generatedVideoUrl ? (
+                /* Veo 프롬프트에서 대사를 금지하고 배경음과 효과음만 생성합니다. */
+                // eslint-disable-next-line jsx-a11y/media-has-caption
+                <video className="generated-video" key={generatedVideoUrl} src={generatedVideoUrl} controls autoPlay playsInline preload="metadata">
+                  브라우저가 영상 재생을 지원하지 않아요.
+                </video>
+              ) : <div className={`video-canvas scene-${scenes[activeScene].kind}`}>
                 <div className="video-topline">
                   <span><BrandMark small /> HOOC</span>
                   <b>{scenes[activeScene].label}</b>
@@ -413,16 +425,23 @@ export default function Home() {
                   {scenes[activeScene].kind === "cta" && <button type="button">지금 구매하기 →</button>}
                 </div>
                 <div className="video-progress"><i style={{ width: `${progress}%` }} /></div>
+              </div>}
+            </div>
+
+            {generatedVideoUrl ? (
+              <div className="video-result-actions">
+                <span><i /> 실제 Veo 영상 · 15초</span>
+                <a href={`${generatedVideoUrl}&download=1`}>MP4 다운로드 ↓</a>
               </div>
-            </div>
+            ) : (
+              <div className="player-controls">
+                <span>00:{activeScene === 0 ? "03" : activeScene === 1 ? "07" : activeScene === 2 ? "12" : "15"}</span>
+                <button type="button" className="play-button" onClick={() => setPlaying((value) => !value)} aria-label={playing ? "일시 정지" : "재생"}>{playing ? "Ⅱ" : "▶"}</button>
+                <span>00:15</span>
+              </div>
+            )}
 
-            <div className="player-controls">
-              <span>00:{activeScene === 0 ? "03" : activeScene === 1 ? "07" : activeScene === 2 ? "14" : "18"}</span>
-              <button type="button" className="play-button" onClick={() => setPlaying((value) => !value)} aria-label={playing ? "일시 정지" : "재생"}>{playing ? "Ⅱ" : "▶"}</button>
-              <span>00:18</span>
-            </div>
-
-            <div className="scenes-heading"><strong>장면 구성</strong><span>총 18초 · 4장면</span></div>
+            <div className="scenes-heading"><strong>장면 구성</strong><span>총 15초 · 4장면</span></div>
             <div className="scene-list">
               {scenes.map((scene) => (
                 <button type="button" className={activeScene === scene.id ? "active" : ""} key={scene.id} onClick={() => { setActiveScene(scene.id); setPlaying(false); }}>
@@ -433,7 +452,7 @@ export default function Home() {
               ))}
             </div>
 
-            <div className="preview-note"><span>i</span><p><strong>미리보기 안내</strong>AI 구성 후 장면별 영상, 자막, 보이스를 세밀하게 편집할 수 있어요.</p></div>
+            <div className="preview-note"><span>i</span><p><strong>{generatedVideoUrl ? "실제 영상 완성" : "구성 미리보기"}</strong>{generatedVideoUrl ? "사진 슬라이드가 아닌 Veo 생성 영상이에요. Google 보관 기간 안에 MP4를 내려받아 주세요." : "아직은 장면 구성안이에요. 왼쪽의 Veo 생성 버튼을 누르면 실제 움직이는 영상으로 교체됩니다."}</p></div>
           </aside>
         </div>
       </section>

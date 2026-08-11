@@ -68,7 +68,7 @@ export function ProductDiscovery({ onSelect }: ProductDiscoveryProps) {
     return () => { cancelled = true; };
   }, []);
 
-  const loadPopular = async () => {
+  async function loadPopular() {
     setMode("popular");
     setLoading(true);
     setError("");
@@ -88,7 +88,7 @@ export function ProductDiscovery({ onSelect }: ProductDiscoveryProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   const searchProducts = async (event?: FormEvent) => {
     event?.preventDefault();
