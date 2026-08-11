@@ -12,6 +12,9 @@ export type DiscoveryProduct = {
   isRocket?: boolean;
   isFreeShipping?: boolean;
   source?: string;
+  shortsScore?: number;
+  shortsReasons?: string[];
+  recommendationType?: "opportunity" | "proven";
 };
 
 type SettingsStatus = {
@@ -37,6 +40,7 @@ export function ProductDiscovery({ onSelect, selectedProductId = null }: Product
   const [savingSettings, setSavingSettings] = useState(false);
   const [settingsMessage, setSettingsMessage] = useState<{ kind: "error" | "success"; text: string } | null>(null);
   const [mode, setMode] = useState<"popular" | "search">("popular");
+  const [recommendationMode, setRecommendationMode] = useState<"opportunity" | "proven">("opportunity");
   const [query, setQuery] = useState("");
   const [products, setProducts] = useState<DiscoveryProduct[]>([]);
   const [loading, setLoading] = useState(false);
@@ -174,7 +178,12 @@ export function ProductDiscovery({ onSelect, selectedProductId = null }: Product
     onSelect(product);
   };
 
-  const shownProducts = products.slice(0, visibleCount);
+  const rankedProducts = mode === "popular"
+    ? [...products].sort((left, right) => recommendationMode === "opportunity"
+      ? (right.shortsScore ?? 0) - (left.shortsScore ?? 0)
+      : (left.rank ?? 999) - (right.rank ?? 999) || Number(right.source === "골드박스") - Number(left.source === "골드박스"))
+    : products;
+  const shownProducts = rankedProducts.slice(0, visibleCount);
 
   return (
     <section className="discovery-section" id="coupang-settings" aria-labelledby="discovery-title">
@@ -217,10 +226,16 @@ export function ProductDiscovery({ onSelect, selectedProductId = null }: Product
       </div>
 
       {mode === "popular" && !loading && products.length > 0 && (
-        <div className="recommendation-meta">
-          <p><strong>지금 쇼츠로 만들기 좋은 아이템</strong> 쿠팡 최신 딜과 카테고리 인기 상품을 모았어요.</p>
-          {refreshedAt && <time>{new Date(refreshedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })} 기준</time>}
-        </div>
+        <>
+          <div className="opportunity-switch" role="group" aria-label="추천 기준">
+            <button type="button" className={recommendationMode === "opportunity" ? "active" : ""} onClick={() => setRecommendationMode("opportunity")}><span>✦</span> 쇼츠 기회형<small>시연성·의외성 우선</small></button>
+            <button type="button" className={recommendationMode === "proven" ? "active" : ""} onClick={() => setRecommendationMode("proven")}><span>✓</span> 판매 검증형<small>쿠팡 순위·딜 우선</small></button>
+          </div>
+          <div className="recommendation-meta">
+            <p><strong>{recommendationMode === "opportunity" ? "영상으로 보여줄 장면이 많은 상품" : "이미 수요가 확인된 안정적인 상품"}</strong> {recommendationMode === "opportunity" ? "가격·배송·상품명 속 시연 키워드로 적합도를 계산했어요." : "쿠팡 순위와 골드박스 상품을 먼저 보여줘요."}</p>
+            {refreshedAt && <time>{new Date(refreshedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })} 기준</time>}
+          </div>
+        </>
       )}
 
       {error && <div className="discovery-error" role="alert"><span>!</span>{error}<button type="button" onClick={() => setShowSettings(true)}>API 설정 확인</button></div>}
@@ -256,9 +271,11 @@ export function ProductDiscovery({ onSelect, selectedProductId = null }: Product
                 <div className="discovery-product-body">
                   <p>{product.productName}</p>
                   <div className="product-flags">
+                    {product.shortsScore && <span className="shorts-score">쇼츠 {product.shortsScore}점</span>}
                     {product.isRocket && <span className="rocket-flag">로켓</span>}
                     {product.isFreeShipping && <span>무료배송</span>}
                   </div>
+                  {product.shortsReasons && <div className="shorts-reasons">{product.shortsReasons.map((reason) => <span key={reason}>{reason}</span>)}</div>}
                   <strong>{product.productPrice > 0 ? `${product.productPrice.toLocaleString("ko-KR")}원` : "가격 확인"}</strong>
                   <div className="product-link-actions">
                     <a href={product.productUrl} target="_blank" rel="noopener noreferrer sponsored">바로가기 ↗</a>

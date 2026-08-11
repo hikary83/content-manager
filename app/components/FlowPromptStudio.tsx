@@ -21,6 +21,14 @@ export type FlowProject = {
   scenes: StoryboardScene[];
   firstPrompt: string;
   extendPrompt: string;
+  voiceoverText: string;
+  srtText: string;
+  social: {
+    title: string;
+    post: string;
+    hashtags: string;
+    disclosure: string;
+  };
   packageText: string;
 };
 
@@ -33,6 +41,7 @@ type FlowPromptStudioProps = {
   tone: string;
   concept: ConceptId;
   referenceImages: Array<{ name: string; dataUrl: string }>;
+  initialProject?: FlowProject | null;
   onGenerated: (project: FlowProject) => void;
 };
 
@@ -160,6 +169,23 @@ Keep the existing music and sound design coherent. No spoken dialogue. Generate 
     `후반 작업 자막: ${scene.caption}`,
   ].join("\n")).join("\n\n");
 
+  const voiceoverText = scenes.map((scene) => scene.narration).join(" ");
+  const srtText = scenes.map((scene, index) => {
+    const ranges = [
+      "00:00:00,000 --> 00:00:03,000",
+      "00:00:03,000 --> 00:00:07,000",
+      "00:00:07,000 --> 00:00:12,000",
+      "00:00:12,000 --> 00:00:15,000",
+    ];
+    return `${index + 1}\n${ranges[index]}\n${scene.caption}`;
+  }).join("\n\n");
+  const social = {
+    title: `${cleanProduct}, 요즘 주목받는 이유｜15초 핵심 리뷰`,
+    post: `${cleanHook}\n\n${cleanBenefit}\n\n직접 확인해보고 싶다면 프로필 링크 또는 아래 구매 링크를 참고해주세요.`,
+    hashtags: `#${cleanProduct.replace(/\s+/g, "")} #쇼핑추천 #제품리뷰 #쇼핑쇼츠 #신상추천 #HIKARY`,
+    disclosure: "이 게시물은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받을 수 있습니다.",
+  };
+
   const packageText = `[HIKARY FLOW 제작 패키지]
 상품: ${cleanProduct}
 콘셉트: ${conceptInfo.label} / ${tone}
@@ -169,11 +195,27 @@ Keep the existing music and sound design coherent. No spoken dialogue. Generate 
 [15초 대본·스토리보드]
 ${storyboardText}
 
+[내레이션 대본]
+${voiceoverText}
+
+[후반 자막 SRT]
+${srtText}
+
 [FLOW 첫 8초 프롬프트]
 ${firstPrompt}
 
 [FLOW 이어 만들기 프롬프트]
 ${extendPrompt}
+
+[SNS 등록 패키지]
+제목: ${social.title}
+
+본문:
+${social.post}
+
+해시태그: ${social.hashtags}
+
+제휴 고지: ${social.disclosure}
 
 [FLOW 설정]
 - 세로 9:16
@@ -190,12 +232,15 @@ ${extendPrompt}
     scenes,
     firstPrompt,
     extendPrompt,
+    voiceoverText,
+    srtText,
+    social,
     packageText,
   };
 }
 
 export function FlowPromptStudio(props: FlowPromptStudioProps) {
-  const [project, setProject] = useState<FlowProject | null>(null);
+  const [project, setProject] = useState<FlowProject | null>(props.initialProject ?? null);
   const [variant, setVariant] = useState(0);
   const [copied, setCopied] = useState<string | null>(null);
   const ready = props.productName.trim().length >= 2 && props.benefit.trim().length >= 5 && Boolean(props.productImage);
@@ -214,13 +259,12 @@ export function FlowPromptStudio(props: FlowPromptStudioProps) {
     window.setTimeout(() => setCopied(null), 1500);
   };
 
-  const download = () => {
-    if (!project) return;
-    const blob = new Blob([project.packageText], { type: "text/plain;charset=utf-8" });
+  const downloadText = (value: string, suffix: string) => {
+    const blob = new Blob([value], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `HIKARY-${props.productName.replace(/[^\p{L}\p{N}]+/gu, "-") || "flow-prompt"}.txt`;
+    anchor.download = `HIKARY-${props.productName.replace(/[^\p{L}\p{N}]+/gu, "-") || "project"}-${suffix}`;
     anchor.click();
     URL.revokeObjectURL(url);
   };
@@ -254,6 +298,25 @@ export function FlowPromptStudio(props: FlowPromptStudioProps) {
             <button type="button" onClick={() => { const next = variant + 1; setVariant(next); generate(next); }}>↻ 새 초안</button>
           </div>
 
+          <div className="storyboard-visual-head"><div><span>CONTI</span><strong>4컷 콘티 스케치</strong></div><p>실제 생성 영상이 아니라 구도와 움직임을 잡는 제작 가이드입니다.</p></div>
+          <div className="storyboard-sketch-grid">
+            {project.scenes.map((scene, index) => {
+              const moodImage = props.referenceImages[index % Math.max(1, props.referenceImages.length)]?.dataUrl;
+              return (
+                <article className={`storyboard-sketch ${scene.kind}`} key={scene.id}>
+                  <div className="sketch-canvas">
+                    {moodImage && <img className="sketch-mood" src={moodImage} alt="" />}
+                    {props.productImage && <img className="sketch-product" src={props.productImage} alt="" />}
+                    <span className="sketch-frame-number">{String(index + 1).padStart(2, "0")}</span>
+                    <i className="sketch-motion">{scene.kind === "hook" ? "↗" : scene.kind === "problem" ? "…" : scene.kind === "solution" ? "↻" : "◎"}</i>
+                    <b>{scene.label}</b>
+                  </div>
+                  <div><strong>{scene.time} · {scene.title}</strong><small>{scene.visual}</small></div>
+                </article>
+              );
+            })}
+          </div>
+
           <div className="storyboard-grid">
             {project.scenes.map((scene) => (
               <article key={scene.id}>
@@ -282,9 +345,19 @@ export function FlowPromptStudio(props: FlowPromptStudioProps) {
             <div><span>3</span><p><strong>Veo 3.1 Lite · Extend</strong><small>두 번째 프롬프트로 약 7초 이어 만들기</small></p></div>
           </div>
 
+          <div className="production-package">
+            <header><div><span>POST</span><strong>대본·자막·SNS 등록 패키지</strong></div><small>영상 완성 후 바로 활용하세요.</small></header>
+            <div className="production-package-grid">
+              <article><div><strong>내레이션 대본</strong><button type="button" onClick={() => void copy("voice", project.voiceoverText)}>{copied === "voice" ? "복사됨 ✓" : "복사"}</button></div><p>{project.voiceoverText}</p></article>
+              <article><div><strong>SNS 제목</strong><button type="button" onClick={() => void copy("social-title", project.social.title)}>{copied === "social-title" ? "복사됨 ✓" : "복사"}</button></div><p>{project.social.title}</p></article>
+              <article className="wide"><div><strong>SNS 등록 글</strong><button type="button" onClick={() => void copy("social-post", `${project.social.post}\n\n${project.social.hashtags}\n\n${project.social.disclosure}`)}>{copied === "social-post" ? "복사됨 ✓" : "전체 복사"}</button></div><p>{project.social.post}</p><small>{project.social.hashtags}</small><em>{project.social.disclosure}</em></article>
+            </div>
+            <div className="package-downloads"><button type="button" onClick={() => downloadText(project.srtText, "captions.srt")}>SRT 자막 저장</button><button type="button" onClick={() => void copy("srt", project.srtText)}>{copied === "srt" ? "SRT 복사됨 ✓" : "SRT 복사"}</button></div>
+          </div>
+
           <div className="flow-actions">
             <button type="button" onClick={() => void copy("all", project.packageText)}>{copied === "all" ? "전체 복사됨 ✓" : "전체 제작안 복사"}</button>
-            <button type="button" onClick={download}>TXT 저장</button>
+            <button type="button" onClick={() => downloadText(project.packageText, "flow-package.txt")}>TXT 저장</button>
             {props.productImage && <a href={props.productImage} target="_blank" rel="noopener noreferrer">상품 이미지 열기</a>}
             <a className="flow-open" href="https://labs.google/fx/tools/flow" target="_blank" rel="noopener noreferrer">Google Flow 열기 ↗</a>
           </div>

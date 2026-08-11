@@ -22,9 +22,9 @@ export async function generateMetadata(): Promise<Metadata> {
   const origin = safeHost
     ? `${protocol}://${safeHost}`
     : "https://hooc-shopping-shorts.ltd-korea-in-5392.chatgpt.site";
-  const socialImage = new URL("/og-hikary.png", origin).href;
-  const title = "HIKARY — 4단계 쇼핑 쇼츠 제작 플래너";
-  const description = "상품 선택부터 콘셉트, 참고 이미지, 자막 없는 Google Flow 프롬프트까지 단계별로 완성하는 쇼핑 쇼츠 기획 도구";
+  const socialImage = new URL("/og-hikary-studio.png", origin).href;
+  const title = "HIKARY — 쇼핑 쇼츠 제작·운영 스튜디오";
+  const description = "쇼츠 기회 상품 추천부터 4컷 콘티, Google Flow 프롬프트, 대본·자막·SNS 글, 게시 링크와 상태 관리까지 한곳에서 완성하세요.";
 
   return {
     title,
@@ -37,7 +37,7 @@ export async function generateMetadata(): Promise<Metadata> {
       title,
       description,
       type: "website",
-      images: [{ url: socialImage, width: 1731, height: 909, alt: "상품 선택부터 Flow 프롬프트까지 완성하는 HIKARY" }],
+      images: [{ url: socialImage, width: 1731, height: 909, alt: "쇼핑 쇼츠를 발견부터 게시까지 관리하는 HIKARY" }],
     },
     twitter: {
       card: "summary_large_image",

@@ -10,6 +10,9 @@ export type CoupangProduct = {
   isRocket?: boolean;
   isFreeShipping?: boolean;
   source?: string;
+  shortsScore?: number;
+  shortsReasons?: string[];
+  recommendationType?: "opportunity" | "proven";
 };
 
 const API_ORIGIN = "https://api-gateway.coupang.com";
@@ -100,7 +103,7 @@ function normalizeProduct(value: unknown, source: string): CoupangProduct | null
   const productUrl = typeof item.productUrl === "string" ? item.productUrl : typeof item.url === "string" ? item.url : "";
   const productPrice = Number(item.productPrice ?? item.price ?? 0);
   if (!productId || !productName || !productUrl) return null;
-  return {
+  const product: CoupangProduct = {
     productId,
     productName,
     productPrice: Number.isFinite(productPrice) ? productPrice : 0,
@@ -110,6 +113,39 @@ function normalizeProduct(value: unknown, source: string): CoupangProduct | null
     isRocket: Boolean(item.isRocket),
     isFreeShipping: Boolean(item.isFreeShipping),
     source,
+  };
+  return scoreForShorts(product);
+}
+
+const demonstrationKeywords = ["자동", "무선", "미니", "휴대", "접이", "원터치", "세척", "청소", "제거", "정리", "수납", "커터", "마사지", "블렌더", "조명", "가습", "충전", "회전", "분사", "다기능"];
+const visualKeywords = ["컬러", "LED", "투명", "거품", "광택", "코팅", "클리너", "브러시", "메이커", "필터", "패드", "스프레이", "팩", "세럼", "크림"];
+const saturatedKeywords = ["생수", "우유", "라면", "화장지", "물티슈", "기저귀", "탄산음료", "즉석밥", "세제 리필"];
+
+function scoreForShorts(product: CoupangProduct): CoupangProduct {
+  const name = product.productName.toLocaleLowerCase("ko-KR");
+  let score = 34;
+  const reasons: string[] = [];
+
+  const demoMatches = demonstrationKeywords.filter((keyword) => name.includes(keyword)).length;
+  const visualMatches = visualKeywords.filter((keyword) => name.includes(keyword)).length;
+  if (demoMatches > 0) { score += Math.min(24, demoMatches * 12); reasons.push("시연 장면이 잘 나옴"); }
+  if (visualMatches > 0) { score += Math.min(16, visualMatches * 8); reasons.push("화면 변화가 뚜렷함"); }
+  if (product.productPrice >= 10_000 && product.productPrice <= 59_000) { score += 14; reasons.push("충동구매 가격대"); }
+  else if (product.productPrice > 0 && product.productPrice < 100_000) score += 7;
+  if (product.isRocket) { score += 7; reasons.push("로켓배송"); }
+  if (product.isFreeShipping) score += 3;
+  if (product.productImage) score += 6;
+  if (product.rank && product.rank <= 10) { score += Math.max(3, 12 - product.rank); reasons.push("판매 순위 검증"); }
+  if (product.source === "골드박스") { score += 7; reasons.push("할인 매력"); }
+  if (saturatedKeywords.some((keyword) => name.includes(keyword))) { score -= 20; reasons.push("경쟁 콘텐츠 많음"); }
+
+  const shortsScore = Math.max(35, Math.min(98, score));
+  if (reasons.length === 0) reasons.push("상품 인기도 기반");
+  return {
+    ...product,
+    shortsScore,
+    shortsReasons: reasons.slice(0, 3),
+    recommendationType: shortsScore >= 72 ? "opportunity" : "proven",
   };
 }
 
@@ -149,7 +185,9 @@ export async function fetchPopularProducts(credentials: CoupangCredentials) {
   for (const product of products) {
     if (!unique.has(product.productId)) unique.set(product.productId, product);
   }
-  return [...unique.values()].slice(0, 40);
+  return [...unique.values()]
+    .sort((left, right) => (right.shortsScore ?? 0) - (left.shortsScore ?? 0))
+    .slice(0, 40);
 }
 
 export async function searchCoupangProducts(credentials: CoupangCredentials, keyword: string) {

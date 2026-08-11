@@ -1,8 +1,9 @@
 "use client";
 
 import { ChangeEvent, useState } from "react";
-import { FlowPromptStudio, type ConceptId } from "./components/FlowPromptStudio";
+import { FlowPromptStudio, type ConceptId, type FlowProject } from "./components/FlowPromptStudio";
 import { ProductDiscovery, type DiscoveryProduct } from "./components/ProductDiscovery";
+import { ProjectLibrary, PublishingManager, type SavedAsset, type SavedProject } from "./components/ProjectWorkspace";
 
 const tones = ["트렌디", "친근한", "전문적인", "유쾌한"];
 const concepts: Array<{ id: ConceptId; icon: string; name: string; description: string; tag?: string }> = [
@@ -23,6 +24,22 @@ type ReferenceImage = {
   id: string;
   name: string;
   dataUrl: string;
+};
+
+type PersistedProjectData = {
+  productUrl: string;
+  productName: string;
+  normalPrice: string;
+  salePrice: string;
+  benefit: string;
+  productImage: string | null;
+  fileName: string;
+  referenceImages: ReferenceImage[];
+  concept: ConceptId;
+  tone: string;
+  hook: string;
+  flowProject: FlowProject | null;
+  notes: string;
 };
 
 function BrandMark() {
@@ -65,9 +82,230 @@ export default function Home() {
   const [benefit, setBenefit] = useState("");
   const [importing, setImporting] = useState(false);
   const [importStatus, setImportStatus] = useState<{ kind: "success" | "error"; message: string } | null>(null);
+  const [flowProject, setFlowProject] = useState<FlowProject | null>(null);
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const [projectStatus, setProjectStatus] = useState("draft");
+  const [affiliateUrl, setAffiliateUrl] = useState("");
+  const [infoqUrl, setInfoqUrl] = useState("");
+  const [publishUrl, setPublishUrl] = useState("");
+  const [publishedDate, setPublishedDate] = useState("");
+  const [notes, setNotes] = useState("");
+  const [pendingVideo, setPendingVideo] = useState<File | null>(null);
+  const [savedAssets, setSavedAssets] = useState<SavedAsset[]>([]);
+  const [savingProject, setSavingProject] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<{ kind: "success" | "error"; text: string } | null>(null);
+  const [showLibrary, setShowLibrary] = useState(false);
+  const [savedProjects, setSavedProjects] = useState<SavedProject[]>([]);
+  const [libraryLoading, setLibraryLoading] = useState(false);
+  const [libraryError, setLibraryError] = useState("");
 
   const productReady = productName.trim().length >= 2 && benefit.trim().length >= 5;
-  const resetProject = () => setProjectRevision((value) => value + 1);
+  const resetProject = () => {
+    setFlowProject(null);
+    setProjectRevision((value) => value + 1);
+  };
+
+  async function loadSavedProjects() {
+    setLibraryLoading(true);
+    setLibraryError("");
+    try {
+      const response = await fetch("/api/projects", { cache: "no-store" });
+      const data = await response.json() as { projects?: SavedProject[]; error?: string };
+      if (!response.ok) throw new Error(data.error || "프로젝트를 불러오지 못했어요.");
+      setSavedProjects(data.projects ?? []);
+    } catch (error) {
+      setLibraryError(error instanceof Error ? error.message : "프로젝트를 불러오지 못했어요.");
+    } finally {
+      setLibraryLoading(false);
+    }
+  }
+
+  const openLibrary = () => {
+    setShowLibrary(true);
+    void loadSavedProjects();
+  };
+
+  function buildProjectData(productImage = uploadedImage, references = referenceImages): PersistedProjectData {
+    return {
+      productUrl,
+      productName,
+      normalPrice,
+      salePrice,
+      benefit,
+      productImage,
+      fileName,
+      referenceImages: references,
+      concept,
+      tone,
+      hook,
+      flowProject,
+      notes,
+    };
+  }
+
+  function projectRequestBody(data: PersistedProjectData) {
+    const conceptLabel = concepts.find((item) => item.id === concept)?.name ?? "쇼츠";
+    return {
+      title: `${productName} · ${conceptLabel}`,
+      productName,
+      status: projectStatus,
+      data,
+      coupangUrl: affiliateUrl,
+      infoqUrl,
+      publishUrl,
+      publishedAt: publishedDate ? new Date(`${publishedDate}T00:00:00+09:00`).getTime() : null,
+    };
+  }
+
+  async function uploadProjectAsset(activeProjectId: string, file: File, kind: string) {
+    const form = new FormData();
+    form.set("file", file);
+    form.set("kind", kind);
+    const response = await fetch(`/api/projects/${activeProjectId}/assets`, { method: "POST", body: form });
+    const data = await response.json() as { asset?: SavedAsset & { url?: string }; error?: string };
+    if (!response.ok || !data.asset) throw new Error(data.error || "파일을 저장하지 못했어요.");
+    return { ...data.asset, url: data.asset.url ?? `/api/projects/${activeProjectId}/assets/${data.asset.id}` };
+  }
+
+  async function dataUrlToFile(dataUrl: string, name: string) {
+    const response = await fetch(dataUrl);
+    const blob = await response.blob();
+    return new File([blob], name || "reference-image.png", { type: blob.type || "image/png" });
+  }
+
+  async function refreshAssets(activeProjectId: string) {
+    const response = await fetch(`/api/projects/${activeProjectId}/assets`, { cache: "no-store" });
+    const data = await response.json() as { assets?: SavedAsset[]; error?: string };
+    if (!response.ok) throw new Error(data.error || "첨부 파일을 불러오지 못했어요.");
+    setSavedAssets((data.assets ?? []).map((asset) => ({ ...asset, url: `/api/projects/${activeProjectId}/assets/${asset.id}` })));
+  }
+
+  const saveCurrentProject = async () => {
+    if (!productReady) {
+      setSaveMessage({ kind: "error", text: "상품명과 핵심 소구점을 먼저 완성해주세요." });
+      return;
+    }
+    setSavingProject(true);
+    setSaveMessage(null);
+    try {
+      let activeProjectId = projectId;
+      const safeProductImage = uploadedImage?.startsWith("data:") ? null : uploadedImage;
+      const safeReferences = referenceImages.map((image) => ({ ...image, dataUrl: image.dataUrl.startsWith("data:") ? "" : image.dataUrl }));
+      const initialBody = projectRequestBody(buildProjectData(safeProductImage, safeReferences));
+      const initialResponse = await fetch(activeProjectId ? `/api/projects/${activeProjectId}` : "/api/projects", {
+        method: activeProjectId ? "PATCH" : "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(initialBody),
+      });
+      const initialData = await initialResponse.json() as { project?: SavedProject; error?: string };
+      if (!initialResponse.ok || !initialData.project) throw new Error(initialData.error || "프로젝트를 저장하지 못했어요.");
+      activeProjectId = initialData.project.id;
+      setProjectId(activeProjectId);
+
+      let persistedProductImage = uploadedImage;
+      const persistedReferences = [...referenceImages];
+      if (uploadedImage?.startsWith("data:")) {
+        const asset = await uploadProjectAsset(activeProjectId, await dataUrlToFile(uploadedImage, fileName), "product");
+        persistedProductImage = asset.url ?? null;
+      }
+      for (let index = 0; index < persistedReferences.length; index += 1) {
+        const reference = persistedReferences[index];
+        if (!reference.dataUrl.startsWith("data:")) continue;
+        const asset = await uploadProjectAsset(activeProjectId, await dataUrlToFile(reference.dataUrl, reference.name), "reference");
+        persistedReferences[index] = { ...reference, id: asset.id, dataUrl: asset.url ?? "" };
+      }
+      if (pendingVideo) {
+        await uploadProjectAsset(activeProjectId, pendingVideo, "video");
+        setPendingVideo(null);
+      }
+
+      const finalBody = projectRequestBody(buildProjectData(persistedProductImage, persistedReferences));
+      const finalResponse = await fetch(`/api/projects/${activeProjectId}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(finalBody),
+      });
+      const finalData = await finalResponse.json() as { project?: SavedProject; error?: string };
+      if (!finalResponse.ok || !finalData.project) throw new Error(finalData.error || "프로젝트 정보를 마무리하지 못했어요.");
+      setUploadedImage(persistedProductImage);
+      setReferenceImages(persistedReferences);
+      await refreshAssets(activeProjectId);
+      setSaveMessage({ kind: "success", text: "프로젝트와 첨부 파일을 저장했어요. 다음 접속에서도 이어서 작업할 수 있어요." });
+      await loadSavedProjects();
+    } catch (error) {
+      setSaveMessage({ kind: "error", text: error instanceof Error ? error.message : "프로젝트를 저장하지 못했어요." });
+    } finally {
+      setSavingProject(false);
+    }
+  };
+
+  const openSavedProject = async (summary: SavedProject) => {
+    setLibraryLoading(true);
+    setLibraryError("");
+    try {
+      const response = await fetch(`/api/projects/${summary.id}`, { cache: "no-store" });
+      const result = await response.json() as { project?: SavedProject; assets?: SavedAsset[]; error?: string };
+      if (!response.ok || !result.project) throw new Error(result.error || "프로젝트를 열지 못했어요.");
+      const data = result.project.data as Partial<PersistedProjectData>;
+      setProjectId(result.project.id);
+      setProductStarted(true);
+      setSelectedProductId(null);
+      setProductUrl(data.productUrl ?? "");
+      setProductName(data.productName ?? result.project.productName);
+      setNormalPrice(data.normalPrice ?? "");
+      setSalePrice(data.salePrice ?? "");
+      setBenefit(data.benefit ?? "");
+      setUploadedImage(data.productImage ?? null);
+      setFileName(data.fileName ?? "저장된 상품 이미지");
+      setReferenceImages(Array.isArray(data.referenceImages) ? data.referenceImages : []);
+      setConcept(data.concept ?? "problem");
+      setTone(data.tone ?? "트렌디");
+      setHook(data.hook ?? "이거, 왜 이제 알았지?");
+      setFlowProject(data.flowProject ?? null);
+      setNotes(data.notes ?? "");
+      setProjectStatus(result.project.status);
+      setAffiliateUrl(result.project.coupangUrl ?? "");
+      setInfoqUrl(result.project.infoqUrl ?? "");
+      setPublishUrl(result.project.publishUrl ?? "");
+      setPublishedDate(result.project.publishedAt ? new Date(result.project.publishedAt).toISOString().slice(0, 10) : "");
+      setSavedAssets((result.assets ?? []).map((asset) => ({ ...asset, url: `/api/projects/${result.project!.id}/assets/${asset.id}` })));
+      setPendingVideo(null);
+      setSaveMessage({ kind: "success", text: "저장된 프로젝트를 불러왔어요." });
+      setCurrentStep(3);
+      setFurthestStep(3);
+      setProjectRevision((value) => value + 1);
+      setShowLibrary(false);
+      window.setTimeout(() => window.scrollTo({ top: 0, behavior: "smooth" }), 0);
+    } catch (error) {
+      setLibraryError(error instanceof Error ? error.message : "프로젝트를 열지 못했어요.");
+    } finally {
+      setLibraryLoading(false);
+    }
+  };
+
+  const deleteSavedProject = async (project: SavedProject) => {
+    if (!window.confirm(`“${project.title}” 프로젝트와 첨부 파일을 삭제할까요?`)) return;
+    const response = await fetch(`/api/projects/${project.id}`, { method: "DELETE" });
+    const data = await response.json() as { error?: string };
+    if (!response.ok) {
+      setLibraryError(data.error || "프로젝트를 삭제하지 못했어요.");
+      return;
+    }
+    if (projectId === project.id) setProjectId(null);
+    await loadSavedProjects();
+  };
+
+  const deleteSavedAsset = async (asset: SavedAsset) => {
+    if (!window.confirm(`“${asset.fileName}” 파일을 삭제할까요?`)) return;
+    const response = await fetch(`/api/projects/${asset.projectId}/assets/${asset.id}`, { method: "DELETE" });
+    if (!response.ok) {
+      const data = await response.json() as { error?: string };
+      setSaveMessage({ kind: "error", text: data.error || "파일을 삭제하지 못했어요." });
+      return;
+    }
+    setSavedAssets((assets) => assets.filter((item) => item.id !== asset.id));
+    setSaveMessage({ kind: "success", text: "첨부 파일을 삭제했어요." });
+  };
 
   const isStepLocked = (step: number) => {
     if (step > furthestStep + 1) return true;
@@ -85,6 +323,10 @@ export default function Home() {
   };
 
   const startManualEntry = () => {
+    setProjectId(null);
+    setSavedAssets([]);
+    setProjectStatus("draft");
+    setSaveMessage(null);
     setProductStarted(true);
     setSelectedProductId(null);
     setImportStatus({ kind: "success", message: "상품 링크나 정보를 직접 입력해주세요." });
@@ -174,9 +416,18 @@ export default function Home() {
   };
 
   const selectCoupangProduct = (product: DiscoveryProduct) => {
+    setProjectId(null);
+    setSavedAssets([]);
+    setProjectStatus("draft");
+    setInfoqUrl("");
+    setPublishUrl("");
+    setPublishedDate("");
+    setNotes("");
+    setSaveMessage(null);
     setSelectedProductId(product.productId);
     setProductStarted(true);
     setProductUrl(product.productUrl);
+    setAffiliateUrl(product.productUrl);
     setProductName(product.productName);
     setNormalPrice(product.productPrice > 0 ? product.productPrice.toLocaleString("ko-KR") : "");
     setSalePrice("");
@@ -200,25 +451,26 @@ export default function Home() {
           <button className="new-project" type="button" onClick={resetAll}><span>＋</span> 새 쇼츠 만들기</button>
           <nav className="nav-list wizard-side-nav" aria-label="제작 단계">
             {wizardSteps.map((step, index) => (
-              <button type="button" className={currentStep === index ? "active" : ""} key={step.number} onClick={() => goToStep(index)} disabled={isStepLocked(index)}>
+              <button type="button" className={!showLibrary && currentStep === index ? "active" : ""} key={step.number} onClick={() => { setShowLibrary(false); goToStep(index); }} disabled={isStepLocked(index)}>
                 <NavIcon>{index < furthestStep ? "✓" : step.number}</NavIcon>{step.title}
               </button>
             ))}
+            <button type="button" className={`library-nav-button ${showLibrary ? "active" : ""}`} onClick={openLibrary}><NavIcon>▤</NavIcon>내 프로젝트</button>
           </nav>
         </div>
         <div className="sidebar-bottom">
-          <div className="workflow-card"><span>STEP {currentStep + 1} / 4</span><strong>{wizardSteps[currentStep].title}</strong><p>입력한 내용은 이전 단계로 돌아가도 그대로 유지됩니다.</p></div>
-          <button className="settings-link sidebar-settings" type="button" onClick={() => goToStep(0)}><NavIcon>⚙</NavIcon>쿠팡 API 설정</button>
+          <div className="workflow-card"><span>{showLibrary ? "PROJECT LIBRARY" : `STEP ${currentStep + 1} / 4`}</span><strong>{showLibrary ? "저장된 쇼츠 운영 현황" : wizardSteps[currentStep].title}</strong><p>{showLibrary ? "기획안·첨부 영상·게시 링크를 다시 열어 관리합니다." : "입력한 내용은 이전 단계로 돌아가도 그대로 유지됩니다."}</p></div>
+          <button className="settings-link sidebar-settings" type="button" onClick={() => { setShowLibrary(false); goToStep(0); }}><NavIcon>⚙</NavIcon>쿠팡 API 설정</button>
         </div>
       </aside>
 
       <section className="workspace wizard-workspace">
         <header className="topbar">
-          <div><p className="eyebrow"><span>AI SHORTS PLANNER</span> / STEP {currentStep + 1}</p><h1>{wizardSteps[currentStep].title}</h1></div>
-          <div className="header-actions"><a className="ghost-button flow-header-link" href="https://labs.google/fx/tools/flow" target="_blank" rel="noopener noreferrer">Google Flow 열기 ↗</a></div>
+          <div><p className="eyebrow"><span>AI SHORTS PLANNER</span> / {showLibrary ? "PROJECTS" : `STEP ${currentStep + 1}`}</p><h1>{showLibrary ? "내 쇼츠 프로젝트" : wizardSteps[currentStep].title}</h1></div>
+          <div className="header-actions"><button className="ghost-button library-header-button" type="button" onClick={() => { if (showLibrary) setShowLibrary(false); else openLibrary(); }}>{showLibrary ? "제작 화면으로" : "내 프로젝트"}</button><a className="ghost-button flow-header-link" href="https://labs.google/fx/tools/flow" target="_blank" rel="noopener noreferrer">Google Flow 열기 ↗</a></div>
         </header>
 
-        <nav className="stepper wizard-stepper" aria-label="쇼츠 제작 진행 단계">
+        {!showLibrary && <nav className="stepper wizard-stepper" aria-label="쇼츠 제작 진행 단계">
           {wizardSteps.map((step, index) => {
             const locked = isStepLocked(index);
             return (
@@ -227,11 +479,12 @@ export default function Home() {
               </button>
             );
           })}
-        </nav>
+        </nav>}
 
         <div className="studio-grid wizard-grid">
           <section className="form-panel wizard-panel" aria-live="polite">
-            {currentStep === 0 && (
+            {showLibrary && <ProjectLibrary projects={savedProjects} loading={libraryLoading} error={libraryError} onClose={() => setShowLibrary(false)} onOpen={(project) => void openSavedProject(project)} onDelete={(project) => void deleteSavedProject(project)} />}
+            {!showLibrary && currentStep === 0 && (
               <section className="wizard-stage" aria-label="1단계 상품 찾기">
                 <ProductDiscovery onSelect={selectCoupangProduct} selectedProductId={selectedProductId} />
                 <footer className="wizard-actions">
@@ -241,7 +494,7 @@ export default function Home() {
               </section>
             )}
 
-            {currentStep === 1 && (
+            {!showLibrary && currentStep === 1 && (
               <section className="wizard-stage" aria-labelledby="product-title">
                 <div className="section-heading product-heading">
                   <div><span>02</span><h2 id="product-title">선택한 상품을 확인해주세요</h2></div>
@@ -282,7 +535,7 @@ export default function Home() {
               </section>
             )}
 
-            {currentStep === 2 && (
+            {!showLibrary && currentStep === 2 && (
               <section className="wizard-stage concept-section" aria-labelledby="concept-title">
                 <div className="section-heading"><div><span>03</span><h2 id="concept-title">어떤 느낌의 쇼츠로 만들까요?</h2></div><p>한 가지 콘셉트를 고르면 대본과 화면 구성이 달라져요.</p></div>
                 <div className="concept-grid" role="radiogroup" aria-label="쇼츠 콘셉트">
@@ -302,7 +555,7 @@ export default function Home() {
               </section>
             )}
 
-            {currentStep === 3 && (
+            {!showLibrary && currentStep === 3 && (
               <section className="wizard-stage" aria-label="4단계 Flow 제작안">
                 <section className="reference-section" aria-labelledby="reference-title">
                   <div className="section-heading">
@@ -336,7 +589,10 @@ export default function Home() {
                 </section>
 
                 <div className="divider" />
-                <FlowPromptStudio key={projectRevision} productName={productName} productImage={uploadedImage} benefit={benefit} price={`${salePrice || normalPrice}${salePrice || normalPrice ? "원" : ""}`} hook={hook} tone={tone} concept={concept} referenceImages={referenceImages} onGenerated={() => undefined} />
+                <FlowPromptStudio key={`${projectRevision}-${projectId ?? "new"}`} productName={productName} productImage={uploadedImage} benefit={benefit} price={`${salePrice || normalPrice}${salePrice || normalPrice ? "원" : ""}`} hook={hook} tone={tone} concept={concept} referenceImages={referenceImages} initialProject={flowProject} onGenerated={(project) => { setFlowProject(project); setProjectStatus((status) => status === "draft" ? "planning" : status); }} />
+
+                <div className="divider" />
+                <PublishingManager projectId={projectId} status={projectStatus} affiliateUrl={affiliateUrl} infoqUrl={infoqUrl} publishUrl={publishUrl} publishedDate={publishedDate} notes={notes} assets={savedAssets} pendingVideo={pendingVideo} saving={savingProject} message={saveMessage} onStatus={setProjectStatus} onAffiliateUrl={setAffiliateUrl} onInfoqUrl={setInfoqUrl} onPublishUrl={setPublishUrl} onPublishedDate={setPublishedDate} onNotes={setNotes} onVideo={setPendingVideo} onSave={() => void saveCurrentProject()} onDeleteAsset={(asset) => void deleteSavedAsset(asset)} onOpenLibrary={openLibrary} />
 
                 <footer className="wizard-actions final-actions">
                   <button className="wizard-secondary" type="button" onClick={() => goToStep(2)}>← 콘셉트 수정</button>
