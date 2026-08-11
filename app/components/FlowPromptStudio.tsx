@@ -180,7 +180,7 @@ ${extendPrompt}
 - 첫 영상 8초
 - 상품 이미지를 핵심 Ingredient 또는 시작 프레임으로 추가
 - 추가 참고 이미지는 조명·배경·색감·카메라 무드용 Ingredient로 추가
-- 첫 영상 생성 후 Extend에서 두 번째 프롬프트 사용
+- 첫 8초 영상 생성 후 Veo 3.1 Lite의 Extend에서 두 번째 프롬프트 사용
 - Flow 영상에는 자막·가격·CTA 등 어떤 화면 글자도 생성하지 않기
 - 아래 스토리보드의 자막 가이드는 영상 완성 후 편집 프로그램에서 별도로 추가`;
 
@@ -237,7 +237,7 @@ export function FlowPromptStudio(props: FlowPromptStudioProps) {
         <i>→</i>
         <div><b>2</b><span><strong>첫 8초</strong><small>Flow 생성 프롬프트</small></span></div>
         <i>→</i>
-        <div><b>3</b><span><strong>이어 만들기</strong><small>약 7초 연장 프롬프트</small></span></div>
+        <div><b>3</b><span><strong>이어 만들기</strong><small>Veo 3.1 Lite로 Extend</small></span></div>
       </div>
 
       <button className="flow-generate-button" type="button" onClick={() => generate()} disabled={!ready}>
@@ -279,7 +279,7 @@ export function FlowPromptStudio(props: FlowPromptStudioProps) {
           <div className="flow-howto">
             <div><span>1</span><p><strong>참고 이미지 추가</strong><small>상품은 핵심 Ingredient, 나머지는 무드 참고로 넣기</small></p></div>
             <div><span>2</span><p><strong>세로 9:16 · 8초</strong><small>첫 번째 프롬프트를 붙여 넣고 생성</small></p></div>
-            <div><span>3</span><p><strong>Extend 선택</strong><small>두 번째 프롬프트로 약 7초 이어 만들기</small></p></div>
+            <div><span>3</span><p><strong>Veo 3.1 Lite · Extend</strong><small>두 번째 프롬프트로 약 7초 이어 만들기</small></p></div>
           </div>
 
           <div className="flow-actions">
