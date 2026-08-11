@@ -124,7 +124,12 @@ export async function startVeoVideo(
   image: InlineMedia | null,
 ) {
   const instance: Record<string, unknown> = { prompt };
-  if (image) instance.image = { inlineData: image };
+  if (image) {
+    instance.image = {
+      bytesBase64Encoded: image.data,
+      mimeType: image.mimeType,
+    };
+  }
   const operation = await googleFetch(apiKey, `models/${model}:predictLongRunning`, {
     method: "POST",
     body: JSON.stringify({
@@ -174,14 +179,18 @@ export async function startVeoExtension(
   apiKey: string,
   model: VeoModel,
   prompt: string,
-  videoBytes: Uint8Array,
+  videoUri: string,
 ) {
+  const url = new URL(videoUri);
+  if (url.protocol !== "https:" || !url.hostname.endsWith("googleapis.com")) {
+    throw new Error("Google 영상 주소가 올바르지 않아요.");
+  }
   const operation = await googleFetch(apiKey, `models/${model}:predictLongRunning`, {
     method: "POST",
     body: JSON.stringify({
       instances: [{
         prompt,
-        video: { inlineData: { mimeType: "video/mp4", data: bytesToBase64(videoBytes) } },
+        video: { uri: videoUri },
       }],
       parameters: { numberOfVideos: 1, resolution: "720p" },
     }),

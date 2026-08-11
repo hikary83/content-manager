@@ -8,7 +8,7 @@ import {
   setVideoJobExtending,
   type VideoJob,
 } from "../../../../lib/gemini-store";
-import { downloadGoogleVideo, getVeoOperation, operationVideoUri, startVeoExtension, type VeoModel } from "../../../../lib/veo-api";
+import { getVeoOperation, operationVideoUri, startVeoExtension, type VeoModel } from "../../../../lib/veo-api";
 
 export const dynamic = "force-dynamic";
 
@@ -47,12 +47,11 @@ export async function GET(_request: Request, context: { params: Promise<{ jobId:
   try {
     if (job.status === "starting_extension") {
       if (!job.baseVideoUri) throw new Error("첫 장면 영상 주소를 찾지 못했어요.");
-      const baseVideo = await downloadGoogleVideo(credentials.apiKey, job.baseVideoUri);
       const extensionOperation = await startVeoExtension(
         credentials.apiKey,
         job.model as VeoModel,
         job.extensionPrompt,
-        baseVideo.bytes,
+        job.baseVideoUri,
       );
       await setVideoJobExtending(user.userId, job.id, extensionOperation);
       job = await getVideoJob(user.userId, job.id) ?? { ...job, status: "extending", operationName: extensionOperation };
@@ -70,12 +69,11 @@ export async function GET(_request: Request, context: { params: Promise<{ jobId:
         job = await getVideoJob(user.userId, job.id) ?? job;
         return Response.json(publicJob(job));
       }
-      const baseVideo = await downloadGoogleVideo(credentials.apiKey, videoUri);
       const extensionOperation = await startVeoExtension(
         credentials.apiKey,
         job.model as VeoModel,
         job.extensionPrompt,
-        baseVideo.bytes,
+        videoUri,
       );
       await setVideoJobExtending(user.userId, job.id, extensionOperation);
       job = await getVideoJob(user.userId, job.id) ?? { ...job, status: "extending", operationName: extensionOperation };
