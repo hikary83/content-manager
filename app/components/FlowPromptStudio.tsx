@@ -345,19 +345,9 @@ export function FlowPromptStudio(props: FlowPromptStudioProps) {
             <div><span>3</span><p><strong>Veo 3.1 Lite · Extend</strong><small>두 번째 프롬프트로 약 7초 이어 만들기</small></p></div>
           </div>
 
-          <div className="production-package">
-            <header><div><span>POST</span><strong>대본·자막·SNS 등록 패키지</strong></div><small>영상 완성 후 바로 활용하세요.</small></header>
-            <div className="production-package-grid">
-              <article><div><strong>내레이션 대본</strong><button type="button" onClick={() => void copy("voice", project.voiceoverText)}>{copied === "voice" ? "복사됨 ✓" : "복사"}</button></div><p>{project.voiceoverText}</p></article>
-              <article><div><strong>SNS 제목</strong><button type="button" onClick={() => void copy("social-title", project.social.title)}>{copied === "social-title" ? "복사됨 ✓" : "복사"}</button></div><p>{project.social.title}</p></article>
-              <article className="wide"><div><strong>SNS 등록 글</strong><button type="button" onClick={() => void copy("social-post", `${project.social.post}\n\n${project.social.hashtags}\n\n${project.social.disclosure}`)}>{copied === "social-post" ? "복사됨 ✓" : "전체 복사"}</button></div><p>{project.social.post}</p><small>{project.social.hashtags}</small><em>{project.social.disclosure}</em></article>
-            </div>
-            <div className="package-downloads"><button type="button" onClick={() => downloadText(project.srtText, "captions.srt")}>SRT 자막 저장</button><button type="button" onClick={() => void copy("srt", project.srtText)}>{copied === "srt" ? "SRT 복사됨 ✓" : "SRT 복사"}</button></div>
-          </div>
-
           <div className="flow-actions">
-            <button type="button" onClick={() => void copy("all", project.packageText)}>{copied === "all" ? "전체 복사됨 ✓" : "전체 제작안 복사"}</button>
-            <button type="button" onClick={() => downloadText(project.packageText, "flow-package.txt")}>TXT 저장</button>
+            <button type="button" onClick={() => void copy("all", `${project.firstPrompt}\n\n${project.extendPrompt}`)}>{copied === "all" ? "전체 복사됨 ✓" : "Flow 프롬프트 전체 복사"}</button>
+            <button type="button" onClick={() => downloadText(`${project.firstPrompt}\n\n${project.extendPrompt}`, "flow-prompts.txt")}>프롬프트 TXT 저장</button>
             {props.productImage && <a href={props.productImage} target="_blank" rel="noopener noreferrer">상품 이미지 열기</a>}
             <a className="flow-open" href="https://labs.google/fx/tools/flow" target="_blank" rel="noopener noreferrer">Google Flow 열기 ↗</a>
           </div>
@@ -366,6 +356,58 @@ export function FlowPromptStudio(props: FlowPromptStudioProps) {
       )}
 
       {!project && <div className="flow-empty"><span>SB</span><p><strong>{conceptLabel} 제작안을 준비할게요</strong><small>상품과 콘셉트를 확인한 뒤 버튼을 누르면 한 번에 생성됩니다.</small></p></div>}
+    </section>
+  );
+}
+
+export function PostProductionPackage({ project, productName }: { project: FlowProject; productName: string }) {
+  const [copied, setCopied] = useState<string | null>(null);
+
+  const copy = async (key: string, value: string) => {
+    await navigator.clipboard.writeText(value);
+    setCopied(key);
+    window.setTimeout(() => setCopied(null), 1500);
+  };
+
+  const downloadText = (value: string, suffix: string) => {
+    const blob = new Blob([value], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `HIKARY-${productName.replace(/[^\p{L}\p{N}]+/gu, "-") || "project"}-${suffix}`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <section className="post-production-workspace" aria-labelledby="post-production-title">
+      <div className="section-heading">
+        <div><span>05</span><h2 id="post-production-title">영상 완성 후 게시까지 정리해요</h2></div>
+        <p>Flow에서 만든 영상을 가져와 자막과 등록 글을 마무리합니다.</p>
+      </div>
+
+      <div className="post-phase-strip">
+        <div><b>1</b><span><strong>Flow 영상 생성</strong><small>저장된 프롬프트 사용</small></span></div>
+        <i>→</i>
+        <div><b>2</b><span><strong>영상·자막 편집</strong><small>SRT와 내레이션 활용</small></span></div>
+        <i>→</i>
+        <div><b>3</b><span><strong>SNS 게시·기록</strong><small>링크와 상태 저장</small></span></div>
+      </div>
+
+      <div className="production-package">
+        <header><div><span>POST</span><strong>대본·자막·SNS 등록 패키지</strong></div><small>복사하거나 파일로 내려받으세요.</small></header>
+        <div className="production-package-grid">
+          <article><div><strong>내레이션 대본</strong><button type="button" onClick={() => void copy("voice", project.voiceoverText)}>{copied === "voice" ? "복사됨 ✓" : "복사"}</button></div><p>{project.voiceoverText}</p></article>
+          <article><div><strong>SNS 제목</strong><button type="button" onClick={() => void copy("social-title", project.social.title)}>{copied === "social-title" ? "복사됨 ✓" : "복사"}</button></div><p>{project.social.title}</p></article>
+          <article className="wide"><div><strong>SNS 등록 글</strong><button type="button" onClick={() => void copy("social-post", `${project.social.post}\n\n${project.social.hashtags}\n\n${project.social.disclosure}`)}>{copied === "social-post" ? "복사됨 ✓" : "전체 복사"}</button></div><p>{project.social.post}</p><small>{project.social.hashtags}</small><em>{project.social.disclosure}</em></article>
+        </div>
+        <div className="package-downloads">
+          <button type="button" onClick={() => downloadText(project.srtText, "captions.srt")}>SRT 자막 저장</button>
+          <button type="button" onClick={() => void copy("srt", project.srtText)}>{copied === "srt" ? "SRT 복사됨 ✓" : "SRT 복사"}</button>
+          <button type="button" onClick={() => downloadText(project.packageText, "production-package.txt")}>전체 패키지 저장</button>
+          <button type="button" onClick={() => void copy("package", project.packageText)}>{copied === "package" ? "전체 복사됨 ✓" : "전체 패키지 복사"}</button>
+        </div>
+      </div>
     </section>
   );
 }

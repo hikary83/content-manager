@@ -46,6 +46,7 @@ export function ProductDiscovery({ onSelect, selectedProductId = null }: Product
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [visibleCount, setVisibleCount] = useState(INITIAL_COUNT);
+  const [recommendationRound, setRecommendationRound] = useState(0);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [refreshedAt, setRefreshedAt] = useState<number | null>(null);
 
@@ -77,6 +78,7 @@ export function ProductDiscovery({ onSelect, selectedProductId = null }: Product
     setLoading(true);
     setError("");
     setVisibleCount(INITIAL_COUNT);
+    setRecommendationRound(0);
     try {
       const response = await fetch("/api/coupang/popular", { cache: "no-store" });
       const data = await response.json() as { products?: DiscoveryProduct[]; refreshedAt?: number; error?: string; code?: string };
@@ -183,7 +185,20 @@ export function ProductDiscovery({ onSelect, selectedProductId = null }: Product
       ? (right.shortsScore ?? 0) - (left.shortsScore ?? 0)
       : (left.rank ?? 999) - (right.rank ?? 999) || Number(right.source === "골드박스") - Number(left.source === "골드박스"))
     : products;
-  const shownProducts = rankedProducts.slice(0, visibleCount);
+  const recommendationOffset = mode === "popular" && rankedProducts.length > INITIAL_COUNT
+    ? (recommendationRound * INITIAL_COUNT) % rankedProducts.length
+    : 0;
+  const rotatedProducts = recommendationOffset > 0
+    ? [...rankedProducts.slice(recommendationOffset), ...rankedProducts.slice(0, recommendationOffset)]
+    : rankedProducts;
+  const shownProducts = rotatedProducts.slice(0, visibleCount);
+
+  const refreshRecommendations = () => {
+    setRecommendationRound((round) => round + 1);
+    setVisibleCount(INITIAL_COUNT);
+    setCopiedId(null);
+    window.setTimeout(() => document.getElementById("recommendation-list")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+  };
 
   return (
     <section className="discovery-section" id="coupang-settings" aria-labelledby="discovery-title">
@@ -228,12 +243,15 @@ export function ProductDiscovery({ onSelect, selectedProductId = null }: Product
       {mode === "popular" && !loading && products.length > 0 && (
         <>
           <div className="opportunity-switch" role="group" aria-label="추천 기준">
-            <button type="button" className={recommendationMode === "opportunity" ? "active" : ""} onClick={() => setRecommendationMode("opportunity")}><span>✦</span> 쇼츠 기회형<small>시연성·의외성 우선</small></button>
-            <button type="button" className={recommendationMode === "proven" ? "active" : ""} onClick={() => setRecommendationMode("proven")}><span>✓</span> 판매 검증형<small>쿠팡 순위·딜 우선</small></button>
+            <button type="button" className={recommendationMode === "opportunity" ? "active" : ""} onClick={() => { setRecommendationMode("opportunity"); setRecommendationRound(0); setVisibleCount(INITIAL_COUNT); }}><span>✦</span> 쇼츠 기회형<small>시연성·의외성 우선</small></button>
+            <button type="button" className={recommendationMode === "proven" ? "active" : ""} onClick={() => { setRecommendationMode("proven"); setRecommendationRound(0); setVisibleCount(INITIAL_COUNT); }}><span>✓</span> 판매 검증형<small>쿠팡 순위·딜 우선</small></button>
           </div>
           <div className="recommendation-meta">
             <p><strong>{recommendationMode === "opportunity" ? "영상으로 보여줄 장면이 많은 상품" : "이미 수요가 확인된 안정적인 상품"}</strong> {recommendationMode === "opportunity" ? "가격·배송·상품명 속 시연 키워드로 적합도를 계산했어요." : "쿠팡 순위와 골드박스 상품을 먼저 보여줘요."}</p>
-            {refreshedAt && <time>{new Date(refreshedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })} 기준</time>}
+            <div>
+              {refreshedAt && <time>{new Date(refreshedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })} 기준</time>}
+              <button type="button" className="refresh-recommendations" onClick={refreshRecommendations} disabled={products.length <= INITIAL_COUNT}><span>↻</span> 다른 10개 추천</button>
+            </div>
           </div>
         </>
       )}
@@ -260,7 +278,7 @@ export function ProductDiscovery({ onSelect, selectedProductId = null }: Product
 
       {!loading && shownProducts.length > 0 && (
         <>
-          <div className="product-discovery-grid">
+          <div className="product-discovery-grid" id="recommendation-list">
             {shownProducts.map((product, index) => (
               <article className={`discovery-product-card ${selectedProductId === product.productId ? "selected" : ""}`} key={product.productId}>
                 <div className="discovery-product-image">
@@ -289,7 +307,7 @@ export function ProductDiscovery({ onSelect, selectedProductId = null }: Product
             ))}
           </div>
 
-          {visibleCount < products.length && (
+          {visibleCount < rotatedProducts.length && (
             <button className="load-more-products" type="button" onClick={() => setVisibleCount((count) => count + 10)}>
               10개 더보기 <span>＋</span>
             </button>
