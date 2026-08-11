@@ -31,8 +31,8 @@ type FlowPromptStudioProps = {
   price: string;
   hook: string;
   tone: string;
-  platform: string;
   concept: ConceptId;
+  referenceImages: Array<{ name: string; dataUrl: string }>;
   onGenerated: (project: FlowProject) => void;
 };
 
@@ -64,8 +64,8 @@ function short(value: string, max: number) {
   return normalized.length > max ? `${normalized.slice(0, max).trim()}…` : normalized;
 }
 
-function makeFlowProject(input: Omit<FlowPromptStudioProps, "onGenerated" | "productImage">, variant: number): FlowProject {
-  const { productName, benefit, price, hook, tone, platform, concept } = input;
+function makeFlowProject(input: FlowPromptStudioProps, variant: number): FlowProject {
+  const { productName, benefit, price, hook, tone, concept, referenceImages } = input;
   const conceptInfo = conceptCopy[concept];
   const cleanProduct = short(productName, 70) || "선택한 상품";
   const cleanBenefit = short(benefit, 180) || `${cleanProduct}의 핵심 장점을 직관적으로 보여준다.`;
@@ -121,7 +121,11 @@ function makeFlowProject(input: Omit<FlowPromptStudioProps, "onGenerated" | "pro
     },
   ];
 
-  const firstPrompt = `Create the first 8 seconds of a vertical 9:16 Korean shopping short for ${platform}.
+  const referenceDirection = referenceImages.length > 0
+    ? `${referenceImages.length} additional visual reference image${referenceImages.length > 1 ? "s are" : " is"} attached. Use them only as references for lighting, color palette, environment, composition, and camera mood. Never copy or replace the real product design from those images.`
+    : "No additional mood references are attached. Build a clean commercial environment that supports the selected concept.";
+
+  const firstPrompt = `Create the first 8 seconds of a vertical 9:16 Korean shopping short.
 
 PRODUCT: ${cleanProduct}
 KEY BENEFIT: ${cleanBenefit}
@@ -129,36 +133,38 @@ CREATIVE CONCEPT: ${conceptInfo.label} / ${tone}
 DIRECTION: ${conceptInfo.direction}
 
 Use the uploaded product image as the exact visual reference and starting frame. Preserve the real packaging, logo placement, proportions, and colors. Do not invent or alter any brand text.
+${referenceDirection}
 
 SHOT PLAN
-0-3s: ${scenes[0].visual}. The visual hook is: “${cleanHook}”.
+0-3s: ${scenes[0].visual}. Communicate the hook idea through action and composition only. Do not display the hook sentence in the video.
 3-7s: ${scenes[1].visual}.
 7-8s: Begin the solution reveal with the product in active use.
 
 CAMERA: ${conceptInfo.camera}.
 STYLE: premium ecommerce commercial, realistic materials and physics, clean vertical composition, strong first-frame impact, smooth continuous motion.
 AUDIO: upbeat commercial music and tactile product sound effects only. No spoken dialogue.
-IMPORTANT: no captions, no readable on-screen text, no extra logos, no distorted packaging. Keep clear negative space in the lower third for Korean captions added later.`;
+TEXT RULE: generate absolutely no captions, subtitles, title cards, prices, call-to-action text, or other readable on-screen text. Do not render any Korean or English words. Keep clear negative space in the lower third so captions can be added separately in post-production.
+IMPORTANT: no extra logos and no distorted packaging.`;
 
   const extendPrompt = `Extend this Veo-generated clip for about 7 more seconds to complete a 15-second vertical shopping short. Continue seamlessly from the final frame with the exact same product, lighting, set, colors, and camera language.
 
-7-12s: ${scenes[2].visual}. Make the benefit “${cleanBenefit}” immediately understandable through action, not text.
+7-12s: ${scenes[2].visual}. Make the product benefit immediately understandable through action only. Do not display the benefit sentence.
 12-15s: ${scenes[3].visual}. End with the product centered and held still long enough for a purchase call-to-action.
 
-Keep the existing music and sound design coherent. No spoken dialogue, no captions, no readable text, no invented logos, no packaging distortion. Maintain 9:16 framing and leave clean lower-third space for Korean captions.`;
+Keep the existing music and sound design coherent. No spoken dialogue. Generate absolutely no captions, subtitles, title cards, prices, call-to-action text, or other readable on-screen text. Do not render any Korean or English words. No invented logos or packaging distortion. Maintain 9:16 framing and leave clean lower-third space for captions added separately in post-production.`;
 
   const storyboardText = scenes.map((scene) => [
     `${scene.time} · ${scene.label}`,
     `화면: ${scene.visual}`,
     `내레이션: ${scene.narration}`,
-    `자막: ${scene.caption}`,
+    `후반 작업 자막: ${scene.caption}`,
   ].join("\n")).join("\n\n");
 
   const packageText = `[HOOC FLOW 제작 패키지]
 상품: ${cleanProduct}
-플랫폼: ${platform}
 콘셉트: ${conceptInfo.label} / ${tone}
 핵심 소구점: ${cleanBenefit}
+참고 이미지: 상품 원본 1장 + 무드 참고 ${referenceImages.length}장
 
 [15초 대본·스토리보드]
 ${storyboardText}
@@ -172,13 +178,15 @@ ${extendPrompt}
 [FLOW 설정]
 - 세로 9:16
 - 첫 영상 8초
-- 상품 이미지를 시작 프레임 또는 Ingredient로 추가
+- 상품 이미지를 핵심 Ingredient 또는 시작 프레임으로 추가
+- 추가 참고 이미지는 조명·배경·색감·카메라 무드용 Ingredient로 추가
 - 첫 영상 생성 후 Extend에서 두 번째 프롬프트 사용
-- 영상 안 글자는 생성하지 않고, 한국어 자막은 완성 후 별도로 추가`;
+- Flow 영상에는 자막·가격·CTA 등 어떤 화면 글자도 생성하지 않기
+- 아래 스토리보드의 자막 가이드는 영상 완성 후 편집 프로그램에서 별도로 추가`;
 
   return {
     title: `${cleanProduct} · ${conceptInfo.label} 쇼츠`,
-    summary: `${platform}용 15초 ${tone} 쇼츠 · 첫 영상 8초 + 이어 만들기`,
+    summary: `세로 9:16 · 15초 ${tone} 쇼츠 · 참고 이미지 ${referenceImages.length + 1}장`,
     scenes,
     firstPrompt,
     extendPrompt,
@@ -190,7 +198,7 @@ export function FlowPromptStudio(props: FlowPromptStudioProps) {
   const [project, setProject] = useState<FlowProject | null>(null);
   const [variant, setVariant] = useState(0);
   const [copied, setCopied] = useState<string | null>(null);
-  const ready = props.productName.trim().length >= 2 && props.benefit.trim().length >= 5;
+  const ready = props.productName.trim().length >= 2 && props.benefit.trim().length >= 5 && Boolean(props.productImage);
   const conceptLabel = useMemo(() => conceptCopy[props.concept].label, [props.concept]);
 
   const generate = (version = variant) => {
@@ -225,19 +233,19 @@ export function FlowPromptStudio(props: FlowPromptStudioProps) {
       </div>
 
       <div className="flow-plan-strip">
-        <div><b>1</b><span><strong>15초 구성</strong><small>4장면 대본·자막</small></span></div>
+        <div><b>1</b><span><strong>15초 구성</strong><small>4장면 대본·후반 자막</small></span></div>
         <i>→</i>
         <div><b>2</b><span><strong>첫 8초</strong><small>Flow 생성 프롬프트</small></span></div>
         <i>→</i>
         <div><b>3</b><span><strong>이어 만들기</strong><small>약 7초 연장 프롬프트</small></span></div>
       </div>
 
-      <button className="flow-generate-button" type="button" onClick={generate} disabled={!ready}>
+      <button className="flow-generate-button" type="button" onClick={() => generate()} disabled={!ready}>
         <span>✦</span>
         {project ? "다른 버전으로 다시 만들기" : "제작 패키지 만들기"}
         <small>무료 · API 연결 필요 없음</small>
       </button>
-      {!ready && <p className="flow-ready-note">상품명과 핵심 소구점을 먼저 채워주세요.</p>}
+      {!ready && <p className="flow-ready-note">상품명·핵심 소구점·상품 이미지를 먼저 준비해주세요.</p>}
 
       {project && (
         <div className="flow-result" id="flow-result">
@@ -253,7 +261,7 @@ export function FlowPromptStudio(props: FlowPromptStudioProps) {
                 <strong>{scene.title}</strong>
                 <p><b>화면</b>{scene.visual}</p>
                 <p><b>대사</b>{scene.narration}</p>
-                <small>자막 · {scene.caption}</small>
+                <small>후반 자막 가이드 · {scene.caption}</small>
               </article>
             ))}
           </div>
@@ -269,7 +277,7 @@ export function FlowPromptStudio(props: FlowPromptStudioProps) {
           </div>
 
           <div className="flow-howto">
-            <div><span>1</span><p><strong>상품 사진 추가</strong><small>Flow에서 시작 프레임 또는 Ingredient로 넣기</small></p></div>
+            <div><span>1</span><p><strong>참고 이미지 추가</strong><small>상품은 핵심 Ingredient, 나머지는 무드 참고로 넣기</small></p></div>
             <div><span>2</span><p><strong>세로 9:16 · 8초</strong><small>첫 번째 프롬프트를 붙여 넣고 생성</small></p></div>
             <div><span>3</span><p><strong>Extend 선택</strong><small>두 번째 프롬프트로 약 7초 이어 만들기</small></p></div>
           </div>

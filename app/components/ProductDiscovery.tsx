@@ -22,11 +22,12 @@ type SettingsStatus = {
 
 type ProductDiscoveryProps = {
   onSelect: (product: DiscoveryProduct) => void;
+  selectedProductId?: string | null;
 };
 
 const INITIAL_COUNT = 10;
 
-export function ProductDiscovery({ onSelect }: ProductDiscoveryProps) {
+export function ProductDiscovery({ onSelect, selectedProductId = null }: ProductDiscoveryProps) {
   const [settings, setSettings] = useState<SettingsStatus>({ configured: false, accessKeyHint: null, updatedAt: null });
   const [settingsLoading, setSettingsLoading] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
@@ -42,7 +43,6 @@ export function ProductDiscovery({ onSelect }: ProductDiscoveryProps) {
   const [error, setError] = useState("");
   const [visibleCount, setVisibleCount] = useState(INITIAL_COUNT);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [refreshedAt, setRefreshedAt] = useState<number | null>(null);
 
   useEffect(() => {
@@ -171,7 +171,6 @@ export function ProductDiscovery({ onSelect }: ProductDiscoveryProps) {
   };
 
   const selectProduct = (product: DiscoveryProduct) => {
-    setSelectedId(product.productId);
     onSelect(product);
   };
 
@@ -248,7 +247,7 @@ export function ProductDiscovery({ onSelect }: ProductDiscoveryProps) {
         <>
           <div className="product-discovery-grid">
             {shownProducts.map((product, index) => (
-              <article className={`discovery-product-card ${selectedId === product.productId ? "selected" : ""}`} key={product.productId}>
+              <article className={`discovery-product-card ${selectedProductId === product.productId ? "selected" : ""}`} key={product.productId}>
                 <div className="discovery-product-image">
                   {product.productImage ? <img src={product.productImage} alt="" loading="lazy" /> : <span>NO IMAGE</span>}
                   <b>{String(index + 1).padStart(2, "0")}</b>
@@ -266,7 +265,7 @@ export function ProductDiscovery({ onSelect }: ProductDiscoveryProps) {
                     <button type="button" onClick={() => void copyLink(product)}>{copiedId === product.productId ? "복사됨 ✓" : "링크 복사"}</button>
                   </div>
                   <button className="use-product-button" type="button" onClick={() => selectProduct(product)}>
-                    {selectedId === product.productId ? "선택 완료 ✓" : "이 상품으로 쇼츠 만들기"}
+                    {selectedProductId === product.productId ? "선택 완료 ✓" : "이 상품으로 쇼츠 만들기"}
                   </button>
                 </div>
               </article>

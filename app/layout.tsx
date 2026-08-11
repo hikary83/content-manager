@@ -22,9 +22,9 @@ export async function generateMetadata(): Promise<Metadata> {
   const origin = safeHost
     ? `${protocol}://${safeHost}`
     : "https://hooc-shopping-shorts.ltd-korea-in-5392.chatgpt.site";
-  const socialImage = new URL("/og-flow.png", origin).href;
-  const title = "HOOC — 쇼핑 쇼츠 Flow 제작 플래너";
-  const description = "상품을 찾고 콘셉트를 고르면 15초 대본·스토리보드와 Google Flow 프롬프트를 한 번에 만드는 쇼핑 쇼츠 기획 도구";
+  const socialImage = new URL("/og-wizard.png", origin).href;
+  const title = "HOOC — 4단계 쇼핑 쇼츠 제작 플래너";
+  const description = "상품 선택부터 콘셉트, 참고 이미지, 자막 없는 Google Flow 프롬프트까지 단계별로 완성하는 쇼핑 쇼츠 기획 도구";
 
   return {
     title,
