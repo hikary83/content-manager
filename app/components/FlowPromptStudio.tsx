@@ -155,12 +155,32 @@ AUDIO: upbeat commercial music and tactile product sound effects only. No spoken
 TEXT RULE: generate absolutely no captions, subtitles, title cards, prices, call-to-action text, or other readable on-screen text. Do not render any Korean or English words. Keep clear negative space in the lower third so captions can be added separately in post-production.
 IMPORTANT: no extra logos and no distorted packaging.`;
 
-  const extendPrompt = `Extend this Veo-generated clip for about 7 more seconds to complete a 15-second vertical shopping short. Continue seamlessly from the final frame with the exact same product, lighting, set, colors, and camera language.
+  const extendPrompt = `CONTINUATION TASK — THIS IS NOT A NEW OR UNRELATED VIDEO.
+Extend the existing Veo-generated 8-second clip for about 7 more seconds and complete one continuous 15-second vertical shopping short.
 
-7-12s: ${scenes[2].visual}. Make the product benefit immediately understandable through action only. Do not display the benefit sentence.
-12-15s: ${scenes[3].visual}. End with the product centered and held still long enough for a purchase call-to-action.
+PRODUCT IDENTITY — KEEP THIS CONTEXT ACTIVE FOR EVERY NEW FRAME
+PRODUCT: ${cleanProduct}
+KEY BENEFIT: ${cleanBenefit}
+CREATIVE CONCEPT: ${conceptInfo.label} / ${tone}
+The product already visible in the source clip is the only hero product. Preserve its exact category, purpose, silhouette, packaging, materials, colors, proportions, logo placement, label layout, and all visible design details. Never replace it with another product, generic object, container, appliance, cosmetic, or package.
+If the original product image is attached again, use it as the highest-priority identity reference. If it is not attached, use the product shown in the source clip's final frame as the visual ground truth.
 
-Keep the existing music and sound design coherent. No spoken dialogue. Generate absolutely no captions, subtitles, title cards, prices, call-to-action text, or other readable on-screen text. Do not render any Korean or English words. No invented logos or packaging distortion. Maintain 9:16 framing and leave clean lower-third space for captions added separately in post-production.`;
+PREVIOUS 8-SECOND CLIP RECAP
+0-3s: ${scenes[0].visual}.
+3-7s: ${scenes[1].visual}.
+7-8s: The same product begins the solution reveal in active use.
+
+SEAMLESS CONTINUITY LOCK
+Begin on the exact final frame, product position, hand position, action, camera angle, focal length, lighting direction, background set, color grade, motion speed, and audio beat of the source clip. Continue the same action naturally without a cut, reset, scene restart, time jump, new location, new actor, or new product reveal.
+
+NEXT SHOTS
+8-12s: ${scenes[2].visual}. Demonstrate this exact product's benefit — ${cleanBenefit} — through clear physical action only. Do not display the benefit sentence.
+12-15s: ${scenes[3].visual}. End with the same product centered and held still long enough for a purchase call-to-action to be added later.
+
+CAMERA AND STYLE: Continue ${conceptInfo.camera}. Match the existing premium ecommerce commercial, realistic materials, physics, lighting, and vertical composition.
+AUDIO: Continue the existing music and tactile sound design from the same beat. No spoken dialogue and no sudden change of music.
+TEXT RULE: Generate absolutely no captions, subtitles, title cards, prices, call-to-action text, or other readable on-screen text. Do not render any Korean or English words. Keep clean lower-third space for captions added separately in post-production.
+FINAL CONSISTENCY CHECK: same product, same set, same visual identity, same clip. No invented logos, packaging distortion, object substitution, duplicate product, or unrelated footage. Maintain 9:16 framing.`;
 
   const storyboardText = scenes.map((scene) => [
     `${scene.time} · ${scene.label}`,
