@@ -1414,3 +1414,101 @@ textarea {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
 }
+
+/* Readability pass: keep working text comfortably legible at 100% browser zoom. */
+.nav-list a,
+.settings-link { min-height: 46px; font-size: 14px; }
+.new-project { min-height: 44px; font-size: 14px; }
+.credit-top,
+.credit-top strong { font-size: 12px; }
+.credit-card p,
+.credit-card button { font-size: 11px; }
+.profile strong { font-size: 13px; }
+.profile small { font-size: 10px; }
+
+.eyebrow { font-size: 11px; }
+.ghost-button,
+.help-button { min-height: 40px; font-size: 13px; }
+.step { font-size: 12px; }
+.step span { width: 29px; height: 29px; font-size: 10px; }
+
+h2 { font-size: 18px; }
+.section-heading > div > span { width: 29px; height: 29px; font-size: 10px; }
+.section-heading p { font-size: 12px; line-height: 1.45; }
+.field-label { margin-bottom: 9px; font-size: 12px; }
+.field-label small { font-size: 10px; }
+.text-field,
+.price-input,
+.caption-field > div { min-height: 44px; }
+.text-field,
+.price-input input,
+.url-field input,
+.caption-field input,
+textarea { font-size: 13px; }
+.price-input i { font-size: 11px; }
+textarea { min-height: 84px; line-height: 1.55; }
+.url-field { min-height: 46px; }
+.url-field button { min-width: 78px; min-height: 36px; font-size: 11px; }
+.or-line { font-size: 11px; }
+.upload-copy strong { font-size: 12px; }
+.upload-copy small { font-size: 10px; }
+.ai-hint { font-size: 11px; line-height: 1.45; }
+.platform-tabs button { min-height: 48px; font-size: 12px; }
+.platform-tabs small { font-size: 10px; }
+.tone-row button { min-height: 40px; font-size: 12px; }
+.generate-button { min-height: 48px; font-size: 13px; }
+.generate-button small { font-size: 10px; }
+.success-message { font-size: 11px; }
+.import-status { font-size: 11px; }
+
+.api-connection { min-height: 32px; font-size: 10px; }
+.api-connection button { min-height: 24px; font-size: 10px; }
+.discovery-tabs button { min-height: 40px; font-size: 11px; }
+.coupang-search { min-height: 46px; }
+.coupang-search input { font-size: 12px; }
+.coupang-search button { min-width: 64px; min-height: 36px; font-size: 11px; }
+.recommendation-meta { font-size: 10px; line-height: 1.45; }
+.recommendation-meta strong { font-size: 12px; }
+.recommendation-meta time { font-size: 9px; }
+.api-empty-state strong { font-size: 13px; }
+.api-empty-state p { font-size: 11px; line-height: 1.45; }
+.api-empty-state > button { min-height: 38px; font-size: 11px; }
+.discovery-error,
+.no-products { font-size: 11px; line-height: 1.45; }
+.discovery-error button { font-size: 10px; }
+
+.discovery-product-body { padding: 12px; }
+.discovery-product-body > p { min-height: 38px; font-size: 12px; line-height: 1.55; }
+.product-flags { min-height: 18px; }
+.product-flags span { font-size: 9px; }
+.discovery-product-body > strong { font-size: 15px; }
+.product-link-actions a,
+.product-link-actions button { min-height: 32px; font-size: 10px; }
+.use-product-button { min-height: 36px; font-size: 11px; }
+.discovery-product-image em { font-size: 9px; }
+.load-more-products { min-height: 44px; font-size: 12px; }
+.affiliate-disclosure { font-size: 9px; line-height: 1.6; }
+
+.settings-modal-head p { font-size: 11px; }
+.settings-modal h3 { font-size: 18px; }
+.configured-key strong { font-size: 11px; }
+.configured-key small { font-size: 10px; }
+.settings-modal form > label { font-size: 12px; }
+.settings-modal form > label small { font-size: 10px; }
+.settings-modal input { height: 46px; font-size: 12px; }
+.security-note p { font-size: 10px; }
+.security-note strong { font-size: 11px; }
+.settings-message { font-size: 11px; }
+.save-api-button { min-height: 46px; font-size: 12px; }
+.settings-modal-foot a,
+.settings-modal-foot button { font-size: 10px; }
+
+.preview-heading { font-size: 10px; }
+.scenes-heading strong { font-size: 12px; }
+.scenes-heading span { font-size: 10px; }
+.scene-list > button { min-height: 48px; }
+.scene-list > button strong { font-size: 11px; }
+.scene-list > button small { font-size: 9px; }
+.scene-list time { font-size: 9px; }
+.preview-note p { font-size: 9px; }
+.preview-note strong { font-size: 10px; }
