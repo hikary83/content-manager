@@ -40,3 +40,9 @@ yarn-error.log*
 /.wrangler/
 /outputs/
 /work/
+
+# Project-specific Google login and local clasp binding
+.clasp.json
+.clasprc.json
+.clasprc.*.json
+tsconfig.tsbuildinfo

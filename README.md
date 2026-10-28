@@ -1,4 +1,24 @@
-# vinext-starter
+# HIKARY 콘텐츠 매니저
+
+서비스 버전 **v1.0.0** · 2026-10-28
+
+현재 개발 구조는 `docs/` 정적 화면 + `backend/` Apps Script + Google Sheets + Gemini입니다.
+신규 설정·로컬 실행·배포·변경 이력은 [SETUP.md](SETUP.md)를 참고하세요.
+
+```powershell
+node scripts/preview-content.mjs
+node --test tests/content-backend.test.mjs
+```
+
+로컬 화면: http://127.0.0.1:4173/ · GitHub Pages 배포 대상: `main /docs`.
+이미지와 영상은 로컬에서 관리하고 AI가 만든 초안은 검토 후 등록합니다.
+운영대장에는 콘텐츠 ID·등록일·카테고리·상품명·원본/변환 링크·대본·플랫폼별 게시글/상태·비고를 저장합니다.
+Gemini 키·접속 코드는 새 Apps Script 스크립트 속성에서만 설정합니다.
+
+이전 Sites 소스는 아래 설명과 `app/`, `worker/`, `db/`에 보존되어 있으며 Pages 배포 대상이 아닙니다.
+백업 태그: `legacy-chatgpt-sites-2026-08-11`.
+
+## 이전 Sites 스타터 참고
 
 A clean full-stack starter running on
 [vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and
