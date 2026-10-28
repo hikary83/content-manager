@@ -7,7 +7,7 @@
 
 ```powershell
 node scripts/preview-content.mjs
-node --test tests/content-backend.test.mjs
+node --test tests/content-backend.test.mjs tests/content-client.test.mjs
 ```
 
 로컬 화면: http://127.0.0.1:4173/ · GitHub Pages 배포 대상: `main /docs`.

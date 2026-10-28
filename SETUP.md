@@ -7,7 +7,7 @@
 - `docs/`: 빌드 없는 신규 화면. Pages 설정은 `main` / `/docs`.
 - `backend/`: 전용 Apps Script 서버 소스.
 - `scripts/preview-content.mjs`: 로컬 서버 (`node scripts/preview-content.mjs` → http://127.0.0.1:4173/).
-- `tests/content-backend.test.mjs`: 시트 저장·인증·분석 검증 (`node --test tests/content-backend.test.mjs`).
+- `tests/content-backend.test.mjs`, `tests/content-client.test.mjs`: 시트 저장·인증·분석·화면 통신 검증 (`node --test tests/content-backend.test.mjs tests/content-client.test.mjs`).
 - `app/`, `worker/`, `db/` 등은 이전 Sites/React 코드입니다. Pages 배포에는 포함하지 않습니다. 백업 태그: `legacy-chatgpt-sites-2026-08-11`.
 
 상품 링크 분석 → 상세 이미지/설명 확인 → Gemini 초안 → 사용자 검토 → Sheets 등록.
@@ -67,12 +67,17 @@
 - [ ] 초기화 함수 실행·Gemini 키 입력
 - [ ] 웹앱 배포 및 접속 코드로 연결
 - [ ] 테스트 데이터로 등록·조회·수정·AI 분석 검증
-- [ ] GitHub Pages 배포 및 실제 API 통신 확인
+- [x] GitHub Pages `main /docs` 설정
+- [ ] 공개 화면 확인 및 실제 API 통신 검증
 
 ## 변경 이력
 
 v1.0.0: 등록/관리 화면, 상세 이미지 수집, Gemini 이미지 분석과 대본·플랫폼 게시글, 접속 코드 인증, 검토형 시트 저장, 중복 저장 및 동시 수정 방지.
 
 Apps Script 배포 버전: **v1** (`HIKARY v1.0.0 initial backend`). 배포 레코드 생성과 코드 업로드 완료. 실제 `/exec` 호출은 접근 거부 상태라 편집기 초기화·권한 승인과 Gemini 키 설정 후 재검증이 필요합니다.
+
+자동 테스트 12개 통과. 실제 시트에 테스트 데이터를 기록하지 않았으며 Gemini 유료 호출도 아직 수행하지 않았습니다.
+
+공개 화면: https://hikary83.github.io/content-manager/
 
 새 프로젝트 편집기: https://script.google.com/d/1zlxCdIDGbHfnl2j4JSkTKy1GAPdcDtEDO4iL6RMqVabbIJfxv4BA5h5D/edit
