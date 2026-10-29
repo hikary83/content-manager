@@ -1,13 +1,13 @@
 # HIKARY 콘텐츠 매니저
 
-서비스 버전 **v1.0.2** · 2026-10-29
+서비스 버전 **v1.1.0** · 2026-10-29
 
 현재 개발 구조는 `docs/` 정적 화면 + `backend/` Apps Script + Google Sheets + Gemini입니다.
 신규 설정·로컬 실행·배포·변경 이력은 [SETUP.md](SETUP.md)를 참고하세요.
 
 ```powershell
 node scripts/preview-content.mjs
-node --test tests/content-backend.test.mjs tests/content-client.test.mjs
+node --test tests/content-backend.test.mjs tests/content-client.test.mjs tests/travel-extraction.test.mjs tests/image-analysis.test.mjs
 ```
 
 로컬 화면: http://127.0.0.1:4173/ · GitHub Pages 배포 대상: `main /docs`.

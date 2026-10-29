@@ -82,59 +82,81 @@
     void task(async () => {
       const result = await HikaryApi.request('analyze', { url: $('sourceUrl').value.trim() });
       $('productName').value = result.name || ''; $('description').value = result.description || '';
-      clearImages(); images = result.images.map((url, index) => ({ url, name: `상품 이미지 ${index + 1}`, selected: index < 4 })); renderImages(); dirty = true;
-      notice(`상품정보와 이미지 ${images.length}장을 불러왔어요. 상세 설명을 확인한 뒤 Gemini 분석을 진행해주세요.`);
+      clearImages();
+      const assets = result.imageAssets || result.images.map(url => ({ url, kind: 'product' }));
+      let productCount = 0; let detailCount = 0;
+      images = assets.map(asset => {
+        const detail = asset.kind === 'detail'; const index = detail ? ++detailCount : ++productCount;
+        return { url: asset.url, kind: detail ? 'detail' : 'product', name: `${detail ? '상세 설명' : '상품 사진'} ${index}`, selected: detail ? detailCount <= 2 : productCount <= 2 };
+      });
+      renderImages(); dirty = true;
+      const warnings = Array.isArray(result.warnings) ? result.warnings.join('\n') : '';
+      $('analysisEvidence').textContent = result.extraction === 'coupang-travel-data' ? `쿠팡 트래블 상품 데이터에서 소개·이용안내·취소조건을 추출했어요.\n상품 사진 ${productCount}장 · 상세 설명 이미지 ${detailCount}장\n${warnings}` : warnings;
+      notice(`상품 사진 ${productCount}장과 상세 설명 이미지 ${detailCount}장을 불러왔어요. 긴 상세 이미지는 Gemini 분석 시 자동으로 나눠 읽습니다.${warnings ? '\n' + warnings : ''}`);
     });
   };
   $('imageInput').onchange = async event => {
     if (busy) return;
     const files = Array.from(event.target.files); event.target.value = '';
     for (const file of files) {
-      if (images.length >= 10) { notice('이미지는 최대 10장까지 추가할 수 있어요.', true); break; }
-      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 2 * 1024 * 1024) { notice('JPG·PNG·WEBP 이미지를 장당 2MB 이하로 추가해주세요.', true); continue; }
-      images.push({ url: URL.createObjectURL(file), file, name: file.name, selected: images.filter(image => image.selected).length < 4 });
+      if (images.length >= 20) { notice('원본 이미지는 최대 20장까지 추가할 수 있어요.', true); break; }
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 12 * 1024 * 1024) { notice('JPG·PNG·WEBP 이미지를 장당 12MB 이하로 추가해주세요.', true); continue; }
+      images.push({ url: URL.createObjectURL(file), file, kind: 'manual', name: file.name, selected: images.filter(image => image.selected).length < 4 });
     }
     dirty = true; renderImages();
   };
   function renderImages() {
     $('images').replaceChildren();
     if (!images.length) { const empty = document.createElement('p'); empty.className = 'empty'; empty.textContent = '상품 링크를 분석하거나 상세페이지 캡처를 추가해주세요.'; $('images').append(empty); }
-    images.forEach((image, index) => {
+    const displayed = ['product', 'detail', 'manual'].flatMap(kind => images.filter(image => (image.kind || 'product') === kind));
+    let previousKind = '';
+    displayed.forEach(image => {
+      if (previousKind !== image.kind) {
+        const heading = document.createElement('h3'); heading.style.gridColumn = '1 / -1'; heading.style.margin = '12px 0 0'; heading.style.fontSize = '14px';
+        heading.textContent = image.kind === 'detail' ? '상세 설명 이미지 · 정보 분석용' : image.kind === 'manual' ? '직접 추가한 이미지' : '상품 사진 · 영상 제작 참고용';
+        $('images').append(heading); previousKind = image.kind;
+      }
       const article = document.createElement('article'); const img = document.createElement('img'); img.src = image.url; img.alt = image.name; img.referrerPolicy = 'no-referrer';
       const label = document.createElement('label'); const check = document.createElement('input'); check.type = 'checkbox'; check.checked = image.selected;
       check.onchange = () => { image.selected = check.checked; dirty = true; }; label.append(check, document.createTextNode(image.name));
-      const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = '제거'; remove.onclick = () => { if (image.file) URL.revokeObjectURL(image.url); images.splice(index, 1); dirty = true; renderImages(); };
+      const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = '제거'; remove.onclick = () => { if (image.file) URL.revokeObjectURL(image.url); images = images.filter(item => item !== image); dirty = true; renderImages(); };
       article.append(img, label, remove); $('images').append(article);
     });
   }
-  async function inlineFile(file) {
-    const buffer = new Uint8Array(await file.arrayBuffer()); let binary = '';
-    for (let offset = 0; offset < buffer.length; offset += 32768) binary += String.fromCharCode(...buffer.subarray(offset, offset + 32768));
-    return { mimeType: file.type, data: btoa(binary) };
+  async function imageBlob(image) {
+    if (image.file) return image.file;
+    if (image.blob) return image.blob;
+    const data = await HikaryApi.request('image', { url: image.url });
+    const bytes = Uint8Array.from(atob(data.data), char => char.charCodeAt(0));
+    image.blob = new Blob([bytes], { type: data.mimeType });
+    return image.blob;
   }
   $('generateButton').onclick = () => {
     if (!$('productName').value.trim()) { notice('상품명을 입력해주세요.', true); return; }
-    if (images.filter(image => image.selected).length > 4) { notice('AI 분석용 이미지는 최대 4장을 선택해주세요.', true); return; }
+    if (images.filter(image => image.selected).length > 4) { notice('AI 분석용 원본은 최대 4장을 선택해주세요. 긴 이미지는 자동으로 분할됩니다.', true); return; }
     if (!$('description').value.trim() && !images.some(image => image.selected)) { notice('상세 설명 또는 분석할 이미지를 추가해주세요.', true); return; }
     if (['script', 'youtube', 'instagram', 'tiktok'].some(key => $(key).value) && !confirm('현재 대본과 플랫폼별 게시글을 AI 초안으로 바꿀까요?')) return;
     void task(async () => {
-      const selected = [];
-      for (const image of images.filter(image => image.selected)) selected.push(image.file ? { inline: await inlineFile(image.file) } : { url: image.url });
+      const selected = []; let base64Length = 0;
+      for (const image of images.filter(image => image.selected)) {
+        notice(`${image.name} 준비 중… 긴 상세 이미지는 글자를 읽을 수 있도록 분할합니다.`);
+        const prepared = await HikaryImages.prepare(await imageBlob(image));
+        for (const part of prepared.parts) { selected.push({ inline: part }); base64Length += part.data.length; }
+        if (selected.length > 24) throw new Error('분할 이미지가 24장을 넘어요. 상세 설명 이미지 1장부터 선택해서 분석해주세요.');
+        if (base64Length > 11000000) throw new Error('분석 자료의 용량이 너무 커요. 선택한 원본 이미지 수를 줄여주세요.');
+      }
+      notice(`분석용 이미지 ${selected.length}개 구간을 Gemini가 읽고 있어요…`);
       const data = await HikaryApi.request('generate', { productName: $('productName').value, category: $('category').value, description: $('description').value, images: selected });
       for (const key of ['script', 'youtube', 'instagram', 'tiktok']) $(key).value = data[key] || '';
       $('analysisEvidence').textContent = `AI가 확인한 내용\n${data.summary || ''}\n\n확인이 필요한 내용\n${(data.warnings || []).join('\n') || '가격·이용조건·제휴 고지문은 게시 전에 다시 확인해주세요.'}`;
-      dirty = true; notice('AI 초안이 준비됐어요. 내용을 확인하고 수정한 뒤 등록해주세요.');
+      dirty = true; notice(`이미지 ${selected.length}개 구간을 읽고 AI 초안을 준비했어요. 확인된 내용과 주의사항을 검토한 뒤 등록해주세요.`);
     });
   };
   $('downloadImages').onclick = () => void task(async () => {
     const selected = images.filter(image => image.selected);
     if (!selected.length) throw new Error('내려받을 이미지를 선택해주세요.');
     for (const image of selected) {
-      let blob = image.file;
-      if (!blob) {
-        const data = await HikaryApi.request('image', { url: image.url });
-        const bytes = Uint8Array.from(atob(data.data), char => char.charCodeAt(0)); blob = new Blob([bytes], { type: data.mimeType });
-      }
+      const blob = await imageBlob(image);
       const url = URL.createObjectURL(blob); const anchor = document.createElement('a'); anchor.href = url;
       const extension = blob.type.includes('png') ? 'png' : blob.type.includes('webp') ? 'webp' : 'jpg'; anchor.download = `HIKARY-${image.name.replace(/\.(png|jpe?g|webp)$/i, '')}.${extension}`;
       anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 2000);

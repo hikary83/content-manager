@@ -23,6 +23,7 @@ function safeFetchUrl_(value, kind) {
 function resolveUrl_(value, base) {
   var input = unescapeHtml_(value).trim(); var parts = hostParts_(base);
   if (input.startsWith('//')) return 'https:' + input;
+  if (/^http:\/\/[^/]*coupangcdn\.com\//i.test(input)) return input.replace(/^http:/i, 'https:');
   if (input.startsWith('https://')) return input;
   if (input.startsWith('/')) return parts.origin + input;
   if (/^[a-z]+:/i.test(input) || !input) return '';
@@ -46,9 +47,53 @@ function fetchPublic_(value, kind) {
   }
   throw userError_('상품 주소의 이동 횟수가 너무 많아요.');
 }
+function cleanProductText_(value) {
+  return unescapeHtml_(String(value || '').replace(/<br\s*\/?\s*>/gi, '\n').replace(/<\/(?:p|div|li)>/gi, '\n').replace(/<[^>]*>/g, ' ')).replace(/[ \t]+/g, ' ').replace(/\n\s*\n/g, '\n').trim();
+}
+function parseTravelProduct_(html, base) {
+  if (!/(^|\.)trip\.coupang\.com$/.test(hostParts_(base).host)) return null;
+  var scripts = html.match(/<script\b[^>]*>[\s\S]*?<\/script>/gi) || [];
+  var tag = scripts.find(function(script) { return attribute_(script.split('>')[0] + '>', 'id') === 'travel-detail-product-data'; });
+  if (!tag) return null;
+  var data;
+  try { data = JSON.parse(tag.replace(/^<script[^>]*>|<\/script>$/gi, '')); } catch (_) { return null; }
+  var product = data.product;
+  if (!product || typeof product !== 'object' || !product.productName) return null;
+  var sections = [];
+  function section(title, text) { var value = cleanProductText_(text); if (value) sections.push('[' + title + ']\n' + value); }
+  section('상품명', product.productName);
+  (product.introductions || []).forEach(function(item) { section(item.title || '상품 소개', item.description); });
+  if (product.location) section('위치', product.location.address);
+  (product.keyInfos || []).forEach(function(item) { section(item.title || '이용 정보', item.description); });
+  (product.policies || []).forEach(function(item) { section(item.title || '예약 안내', item.description); });
+  (product.facilities || []).forEach(function(group) { section(group.title || '시설', (group.facilities || []).map(function(item) { return item.description || ''; }).join(', ')); });
+  // Keep representative option conditions explicitly labelled, not universal claims.
+  if (product.representativeVendorItem) section('대표 옵션 조건 — 다른 옵션에 동일 적용 여부 확인 필요', (product.representativeVendorItem.descriptions || []).join('\n'));
+  (product.cancelPolicies || []).forEach(function(item) { section(item.title || '취소 안내', item.description); });
+  var assets = [];
+  function addImage(value, kind) {
+    try {
+      var url = safeFetchUrl_(resolveUrl_(String(value || ''), base), 'image');
+      if (!/\.(?:jpe?g|png|webp)(?:[?#]|$)/i.test(url) || assets.some(function(item) { return item.url === url; })) return;
+      if (assets.length < 20) assets.push({ url: url, kind: kind });
+    } catch (_) {}
+  }
+  (product.imageGroups || []).forEach(function(group) { (group.images || []).forEach(function(image) { addImage(image.originImagePath || image.largeThumbnailPath || image.smallThumbnailPath, 'product'); }); });
+  var content = product.content && product.content.content;
+  if (typeof content === 'string') {
+    section('상세 설명', content);
+    (content.match(/<img\b[^>]*>/gi) || []).forEach(function(img) { addImage(attribute_(img, 'data-origin') || attribute_(img, 'data-original') || attribute_(img, 'data-src') || attribute_(img, 'src'), 'detail'); });
+  }
+  var warnings = [];
+  if (product.onSale === false) warnings.push('판매 중이 아닌 것으로 표시되어 있어요. 현재 판매 상태를 확인해주세요.');
+  if (!assets.some(function(item) { return item.kind === 'detail'; })) warnings.push('상세 설명 이미지를 찾지 못했어요. 필요한 캡처를 직접 추가해주세요.');
+  return { name: cleanProductText_(product.productName).slice(0, 200), description: sections.join('\n\n').slice(0, 18000), images: assets.map(function(item) { return item.url; }), imageAssets: assets, sourceUrl: base, extraction: 'coupang-travel-data', warnings: warnings };
+}
 function parseProduct_(html, base) {
+  var travel = parseTravelProduct_(html, base);
+  if (travel) return travel;
   var metas = html.match(/<meta\b[^>]*>/gi) || [];
-  function meta(names) { for (var i = 0; i < metas.length; i++) { var tag = metas[i]; var key = (attribute_(tag, 'property') || attribute_(tag, 'name')).toLowerCase(); if (names.indexOf(key) >= 0) return attribute_(tag, 'content'); } return ''; }
+  function meta(names) { for (var i = metas.length - 1; i >= 0; i--) { var tag = metas[i]; var key = (attribute_(tag, 'property') || attribute_(tag, 'name')).toLowerCase(); var content = attribute_(tag, 'content'); if (names.indexOf(key) >= 0 && content) return content; } return ''; }
   var title = meta(['og:title','twitter:title']) || (html.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1] || '';
   var summary = meta(['og:description','description','twitter:description']);
   var visible = html.replace(/<(script|style|nav|header|footer)\b[^>]*>[\s\S]*?<\/\1>/gi, ' ').replace(/<[^>]+>/g, ' ');
@@ -65,12 +110,12 @@ function parseProduct_(html, base) {
   }
   scripts.forEach(function(script) { try { scan(JSON.parse(script.replace(/^<script[^>]*>|<\/script>$/gi, '')), 0); } catch (_) {} });
   (html.match(/<img\b[^>]*>/gi) || []).forEach(function(tag) {
-    if (/logo|icon|sprite|banner/i.test(attribute_(tag, 'class') + ' ' + attribute_(tag, 'src'))) return;
+    if (/logo|icon|sprite|banner|\/static\/media\/(?:search|person|cart)|img_fb_like|\/displayitem\//i.test(attribute_(tag, 'class') + ' ' + attribute_(tag, 'src'))) return;
     var source = attribute_(tag, 'data-origin') || attribute_(tag, 'data-original') || attribute_(tag, 'data-src') || attribute_(tag, 'src');
     if (source) candidates.push(source);
   });
   var images = [];
-  candidates.forEach(function(value) { try { var url = safeFetchUrl_(resolveUrl_(String(value || ''), base), 'image'); if (images.indexOf(url) < 0 && images.length < 10) images.push(url); } catch (_) {} });
+  candidates.forEach(function(value) { try { var url = safeFetchUrl_(resolveUrl_(String(value || ''), base), 'image'); if (/logo|\/icons?\/|img_fb_like|\/displayitem\//i.test(url)) return; if (images.indexOf(url) < 0 && images.length < 10) images.push(url); } catch (_) {} });
   return { name: unescapeHtml_(title).replace(/<[^>]*>/g, '').trim().slice(0, 200), description: description, images: images, sourceUrl: base };
 }
 function analyzeProduct_(url) {
@@ -84,6 +129,6 @@ function analyzeProduct_(url) {
 function readImage_(url) {
   var fetched = fetchPublic_(url, 'image');
   if (['image/jpeg','image/png','image/webp'].indexOf(fetched.type) < 0) throw userError_('JPG·PNG·WEBP 이미지만 읽을 수 있어요.');
-  var bytes = fetched.response.getContent(); if (bytes.length > 2 * 1024 * 1024) throw userError_('이미지가 2MB보다 커요. 크기를 줄여 직접 추가해주세요.');
+  var bytes = fetched.response.getContent(); if (bytes.length > 12 * 1024 * 1024) throw userError_('원본 이미지는 12MB 이하로 준비해주세요.');
   return { mimeType: fetched.type, data: Utilities.base64Encode(bytes) };
 }
