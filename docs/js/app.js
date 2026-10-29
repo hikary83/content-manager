@@ -10,6 +10,16 @@
   let dirty = false;
   let saveUncertain = false;
   let lastSave = null;
+  const production = HikaryProduction.create({
+    images: () => images, blob: imageBlob, task, notice, changed,
+    productName: () => $('productName').value, script: () => $('script').value,
+    narration: text => { $('script').value = text; },
+    addCrop(file) {
+      if (images.length >= 40) throw new Error('사진이 너무 많아요. 불필요한 사진을 제거한 뒤 다시 잘라주세요.');
+      const image = { id: crypto.randomUUID(), url: URL.createObjectURL(file), file, kind: 'video', name: file.name, selected: false };
+      images.push(image); renderImages(); return image;
+    }
+  });
   for (const select of document.querySelectorAll('.status-select')) for (const status of ['미업로드', '업로드완료', '보류']) select.add(new Option(status, status));
   function notice(text, error = false) { $('notice').hidden = !text; $('notice').className = error ? 'error' : ''; $('notice').textContent = text; }
   function validUrl(value) { try { const url = new URL(value); return url.protocol === 'https:' && !url.username && !url.password; } catch { return false; } }
@@ -63,8 +73,10 @@
         if (dirty && !confirm('작성 중인 내용을 닫고 저장한 콘텐츠를 열까요?')) return;
         if (saveUncertain && !confirm('이전 저장 응답이 확인되지 않았어요. 다른 내용을 열기 전에 같은 항목인지 확인해주세요. 계속할까요?')) return;
         for (const key of fields) $(key).value = row[key] || '';
+        const restored = HikaryProduction.unpack(row.script || ''); $('script').value = restored.script;
         contentId = row.id; revision = row.revision; saveUncertain = false; lastSave = null; dirty = false;
         $('description').value = ''; $('analysisEvidence').textContent = ''; clearImages();
+        production.set(restored.plan);
         $('saveButton').textContent = '수정 내용 저장 →'; notice('저장된 내용을 열었어요. 원본 이미지는 로컬에서 다시 추가할 수 있어요.'); switchView('registration');
       };
       $('entries').append(button);
@@ -75,6 +87,7 @@
     if ((dirty || saveUncertain) && !confirm('저장되지 않은 내용이 있을 수 있어요. 새로 작성할까요?')) return;
     $('contentForm').reset(); contentId = crypto.randomUUID(); revision = null; dirty = false; saveUncertain = false; lastSave = null;
     $('analysisEvidence').textContent = ''; clearImages(); notice(''); $('saveButton').textContent = '콘텐츠 등록 →';
+    production.set(null);
   };
   $('analyzeButton').onclick = () => {
     if (!validUrl($('sourceUrl').value.trim())) { notice('https로 시작하는 상품 링크를 입력해주세요.', true); return; }
@@ -87,7 +100,7 @@
       let productCount = 0; let detailCount = 0;
       images = assets.map(asset => {
         const detail = asset.kind === 'detail'; const index = detail ? ++detailCount : ++productCount;
-        return { url: asset.url, kind: detail ? 'detail' : 'product', name: `${detail ? '상세 설명' : '상품 사진'} ${index}`, selected: detail ? detailCount <= 2 : productCount <= 2 };
+        return { id: crypto.randomUUID(), url: asset.url, kind: detail ? 'detail' : 'product', name: `${detail ? '상세 설명' : '상품 사진'} ${index}`, selected: detail ? detailCount <= 2 : productCount <= 2 };
       });
       renderImages(); dirty = true;
       const warnings = Array.isArray(result.warnings) ? result.warnings.join('\n') : '';
@@ -101,27 +114,29 @@
     for (const file of files) {
       if (images.length >= 20) { notice('원본 이미지는 최대 20장까지 추가할 수 있어요.', true); break; }
       if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 12 * 1024 * 1024) { notice('JPG·PNG·WEBP 이미지를 장당 12MB 이하로 추가해주세요.', true); continue; }
-      images.push({ url: URL.createObjectURL(file), file, kind: 'manual', name: file.name, selected: images.filter(image => image.selected).length < 4 });
+      images.push({ id: crypto.randomUUID(), url: URL.createObjectURL(file), file, kind: 'manual', name: file.name, selected: images.filter(image => image.selected).length < 4 });
     }
     dirty = true; renderImages();
   };
   function renderImages() {
     $('images').replaceChildren();
     if (!images.length) { const empty = document.createElement('p'); empty.className = 'empty'; empty.textContent = '상품 링크를 분석하거나 상세페이지 캡처를 추가해주세요.'; $('images').append(empty); }
-    const displayed = ['product', 'detail', 'manual'].flatMap(kind => images.filter(image => (image.kind || 'product') === kind));
+    const displayed = ['product', 'detail', 'manual', 'video'].flatMap(kind => images.filter(image => (image.kind || 'product') === kind));
     let previousKind = '';
     displayed.forEach(image => {
       if (previousKind !== image.kind) {
         const heading = document.createElement('h3'); heading.style.gridColumn = '1 / -1'; heading.style.margin = '12px 0 0'; heading.style.fontSize = '14px';
-        heading.textContent = image.kind === 'detail' ? '상세 설명 이미지 · 정보 분석용' : image.kind === 'manual' ? '직접 추가한 이미지' : '상품 사진 · 영상 제작 참고용';
+        heading.textContent = image.kind === 'detail' ? '상세 설명 이미지 · 정보 분석용' : image.kind === 'manual' ? '직접 추가한 이미지' : image.kind === 'video' ? '잘라낸 영상용 사진 · 로컬 다운로드 필요' : '상품 사진 · 영상 제작 참고용';
         $('images').append(heading); previousKind = image.kind;
       }
       const article = document.createElement('article'); const img = document.createElement('img'); img.src = image.url; img.alt = image.name; img.referrerPolicy = 'no-referrer';
       const label = document.createElement('label'); const check = document.createElement('input'); check.type = 'checkbox'; check.checked = image.selected;
       check.onchange = () => { image.selected = check.checked; dirty = true; }; label.append(check, document.createTextNode(image.name));
       const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = '제거'; remove.onclick = () => { if (image.file) URL.revokeObjectURL(image.url); images = images.filter(item => item !== image); dirty = true; renderImages(); };
-      article.append(img, label, remove); $('images').append(article);
+      const crop = document.createElement('button'); crop.type = 'button'; crop.textContent = '영상용 잘라내기'; crop.onclick = () => void task(() => production.crop(image));
+      article.append(img, label, crop, remove); $('images').append(article);
     });
+    production.refresh();
   }
   async function imageBlob(image) {
     if (image.file) return image.file;
@@ -135,21 +150,24 @@
     if (!$('productName').value.trim()) { notice('상품명을 입력해주세요.', true); return; }
     if (images.filter(image => image.selected).length > 4) { notice('AI 분석용 원본은 최대 4장을 선택해주세요. 긴 이미지는 자동으로 분할됩니다.', true); return; }
     if (!$('description').value.trim() && !images.some(image => image.selected)) { notice('상세 설명 또는 분석할 이미지를 추가해주세요.', true); return; }
-    if (['script', 'youtube', 'instagram', 'tiktok'].some(key => $(key).value) && !confirm('현재 대본과 플랫폼별 게시글을 AI 초안으로 바꿀까요?')) return;
+    if (['script', 'youtube', 'instagram', 'tiktok'].some(key => $(key).value) && !confirm('현재 대본·4컷 제작안·플랫폼별 게시글을 AI 초안으로 바꿀까요?')) return;
     void task(async () => {
       const selected = []; let base64Length = 0;
-      for (const image of images.filter(image => image.selected)) {
+      const sources = images.filter(image => image.selected);
+      for (const [sourceIndex, image] of sources.entries()) {
         notice(`${image.name} 준비 중… 긴 상세 이미지는 글자를 읽을 수 있도록 분할합니다.`);
         const prepared = await HikaryImages.prepare(await imageBlob(image));
-        for (const part of prepared.parts) { selected.push({ inline: part }); base64Length += part.data.length; }
+        for (const part of prepared.parts) { selected.push({ inline: part, sourceImage: sourceIndex + 1 }); base64Length += part.data.length; }
         if (selected.length > 24) throw new Error('분할 이미지가 24장을 넘어요. 상세 설명 이미지 1장부터 선택해서 분석해주세요.');
         if (base64Length > 11000000) throw new Error('분석 자료의 용량이 너무 커요. 선택한 원본 이미지 수를 줄여주세요.');
       }
       notice(`분석용 이미지 ${selected.length}개 구간을 Gemini가 읽고 있어요…`);
-      const data = await HikaryApi.request('generate', { productName: $('productName').value, category: $('category').value, description: $('description').value, images: selected });
+      const data = await HikaryApi.request('generate', { productName: $('productName').value, category: $('category').value, description: $('description').value, images: selected, sources: sources.map(image => ({ name: image.name, kind: image.kind })) });
+      if (!Array.isArray(data.scenes) || data.scenes.length !== 4) throw new Error('서버 버전이 맞지 않아요. 새로고침하고 서버 1.2.0 연결을 확인해주세요.');
       for (const key of ['script', 'youtube', 'instagram', 'tiktok']) $(key).value = data[key] || '';
+      production.set({ highlights: data.highlights, scenes: data.scenes }, sources);
       $('analysisEvidence').textContent = `AI가 확인한 내용\n${data.summary || ''}\n\n확인이 필요한 내용\n${(data.warnings || []).join('\n') || '가격·이용조건·제휴 고지문은 게시 전에 다시 확인해주세요.'}`;
-      dirty = true; notice(`이미지 ${selected.length}개 구간을 읽고 AI 초안을 준비했어요. 확인된 내용과 주의사항을 검토한 뒤 등록해주세요.`);
+      dirty = true; notice(`이미지 ${selected.length}개 구간에서 대본·4컷 제작안을 만들었어요. 컷별 사진을 고르고, 상세 이미지 속 사진은 필요한 부분을 잘라 사용해주세요.`);
     });
   };
   $('downloadImages').onclick = () => void task(async () => {
@@ -168,6 +186,8 @@
     if (busy) return;
     const payload = { id: contentId, revision };
     for (const key of fields) payload[key] = $(key).value.trim();
+    payload.script = HikaryProduction.pack(payload.script, production.get());
+    if (payload.script.length > 12000) { notice('대본과 제작안이 너무 길어요. 합계 12,000자 이내로 줄여주세요.', true); return; }
     if (!payload.productName || !payload.script || !validUrl(payload.sourceUrl) || (payload.affiliateUrl && !validUrl(payload.affiliateUrl))) { notice('상품명·대본과 https 링크를 확인해주세요.', true); return; }
     if (saveUncertain && JSON.stringify(payload) !== lastSave) { notice('이전 저장 결과가 확인되지 않았어요. 관리 목록에서 해당 콘텐츠를 열어 확인한 뒤 수정해주세요.', true); return; }
     lastSave = JSON.stringify(payload); saveUncertain = true;
