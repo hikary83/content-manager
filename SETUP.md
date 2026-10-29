@@ -1,4 +1,4 @@
-# HIKARY 콘텐츠 매니저 v1.0.0
+# HIKARY 콘텐츠 매니저 v1.0.1
 
 2026-10-28 · GitHub Pages + Google Apps Script + Google Sheets + Gemini
 
@@ -17,7 +17,7 @@
 
 1. 콘텐츠 매니저 전용 **새** Apps Script 프로젝트를 만듭니다. 기존 KIC 프로젝트 설정을 복사하지 않습니다.
 2. `.clasp.example.json`을 참고해 로컬 `.clasp.json`에 **새 Script ID**와 `rootDir: backend`를 지정합니다. 해당 파일은 Git에서 제외합니다.
-3. `clasp status`로 `Code.js`, `Product.js`, `Gemini.js`, `appsscript.json`만 업로드되는지 확인하고 `clasp push`를 실행합니다.
+3. 개인 인증은 `clasp --auth .clasprc.hikary-personal.json login`으로 별도 보관합니다. 이후 모든 HIKARY clasp 명령에는 `--auth .clasprc.hikary-personal.json`을 붙입니다. 기본 업무용 인증은 사용하지 않습니다. `status`로 `Code.js`, `Product.js`, `Gemini.js`, `appsscript.json`만 업로드되는지 확인하고 `push`를 실행합니다.
 4. 새 프로젝트 편집기에서 `initializeProject`를 한 번 실행하고 권한을 승인합니다. 이 함수는 시트 데이터를 수정하지 않고 스크립트 속성만 초기화합니다.
 5. 프로젝트 설정 → 스크립트 속성에서 `GEMINI_API_KEY`를 입력합니다. 생성된 `APP_ACCESS_TOKEN`은 화면 로그인에 사용합니다. 값은 Git·채팅에 붙여넣지 않습니다.
 6. 신규 웹앱으로 배포하고 최종 `/exec` 주소를 확인합니다. `clasp push`만으로 운영 웹앱이 갱신되지는 않습니다.
@@ -63,7 +63,8 @@
 
 - [x] 전용 GitHub 저장소와 시트 준비
 - [x] 정적 화면·Apps Script 코드 작성
-- [x] 새 Apps Script 생성·연결·업로드
+- [x] 사용자가 생성한 개인 계정의 새 Apps Script에 로컬 연결
+- [ ] 분리된 개인 계정 clasp 로그인·업로드
 - [ ] 초기화 함수 실행·Gemini 키 입력
 - [ ] 웹앱 배포 및 접속 코드로 연결
 - [ ] 테스트 데이터로 등록·조회·수정·AI 분석 검증
@@ -74,10 +75,10 @@
 
 v1.0.0: 등록/관리 화면, 상세 이미지 수집, Gemini 이미지 분석과 대본·플랫폼 게시글, 접속 코드 인증, 검토형 시트 저장, 중복 저장 및 동시 수정 방지.
 
-Apps Script 배포 버전: **v1** (`HIKARY v1.0.0 initial backend`). 배포 레코드 생성과 코드 업로드 완료. 실제 `/exec` 호출은 접근 거부 상태라 편집기 초기화·권한 승인과 Gemini 키 설정 후 재검증이 필요합니다.
+v1.0.1: 개인 계정의 사용자 생성 프로젝트로 이전. 업무용 계정에서 생성했던 API 주소는 화면에서 제거했습니다. 개인 계정 인증 후 코드 업로드와 신규 배포가 필요합니다. 아직 개인 프로젝트의 배포 버전은 없습니다.
 
 자동 테스트 12개 통과. 실제 시트에 테스트 데이터를 기록하지 않았으며 Gemini 유료 호출도 아직 수행하지 않았습니다.
 
 공개 화면: https://hikary83.github.io/content-manager/
 
-새 프로젝트 편집기: https://script.google.com/d/1zlxCdIDGbHfnl2j4JSkTKy1GAPdcDtEDO4iL6RMqVabbIJfxv4BA5h5D/edit
+개인 프로젝트 편집기: https://script.google.com/d/1SOENT-Zs4l_7MDBtFXWxPuh7Fkism_Fx6gLpAcUmIRgZjkp8PHmH2PoC/edit

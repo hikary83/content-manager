@@ -1,5 +1,5 @@
 /* Public configuration only. Never put API keys or access codes in this file. */
-window.HIKARY_CONFIG = Object.freeze({ version: '1.0.0', apiUrl: 'https://script.google.com/macros/s/AKfycbzdPqE-s4cdJT6QyesEFJrLDhpa_-lRtJzzMJTTqx2z8Et8JqEj1lGGbxIHt3r3i7st4w/exec' });
+window.HIKARY_CONFIG = Object.freeze({ version: '1.0.1', apiUrl: '' });
 
 window.HikaryApi = (() => {
   let endpoint = window.HIKARY_CONFIG.apiUrl || '';

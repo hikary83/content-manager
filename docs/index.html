@@ -1,6 +1,6 @@
 <!doctype html>
-<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>HIKARY 콘텐츠 매니저</title><link rel="stylesheet" href="css/app.css?v=1.0.0"></head>
-<body><aside><a class="brand" href="./">▥ HIKARY</a><small>CONTENT MANAGER · v1.0.0</small><nav><button id="registrationTab" class="active">＋ 콘텐츠 등록</button><button id="managementTab">▤ 콘텐츠 관리</button></nav><button id="settingsButton" class="settings">⚙ 연결 설정</button><p id="connectionState">서버 연결이 필요합니다.</p></aside>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>HIKARY 콘텐츠 매니저</title><link rel="stylesheet" href="css/app.css?v=1.0.1"></head>
+<body><aside><a class="brand" href="./">▥ HIKARY</a><small>CONTENT MANAGER · v1.0.1</small><nav><button id="registrationTab" class="active">＋ 콘텐츠 등록</button><button id="managementTab">▤ 콘텐츠 관리</button></nav><button id="settingsButton" class="settings">⚙ 연결 설정</button><p id="connectionState">서버 연결이 필요합니다.</p></aside>
 <main><header><div><small>WORKSPACE / CONTENTS</small><h1 id="pageTitle">콘텐츠 등록</h1><p>좋은 상품을 발견했다면, 링크 하나로 시작하세요.</p></div><a id="sheetLink" href="https://docs.google.com/spreadsheets/d/1ZSB7FBZTWdT_eLlo3kpom-u2yM5UwHitG059Zci6TUc/edit" target="_blank" rel="noreferrer">운영대장 ↗</a></header>
 <div id="notice" role="status" aria-live="polite" hidden></div>
 <section id="registration"><form id="contentForm"><section class="card"><h2><b>01</b> 상품 링크 분석</h2><p class="hint">페이지를 읽지 못하면 설명을 붙여넣거나 상세페이지 캡처를 추가해주세요.</p><label for="sourceUrl">원본 링크 <em>필수</em></label><div class="url-row"><input id="sourceUrl" type="url" required placeholder="https:// 상품 상세 페이지 주소"><button id="analyzeButton" type="button" data-request>링크 분석하기 ↗</button></div></section>
@@ -11,4 +11,4 @@
 <section id="management" hidden><section class="card"><div class="actions"><input id="search" placeholder="상품명·카테고리 검색" aria-label="콘텐츠 검색"><button id="refreshList" data-request>새로고침</button></div><p class="hint">항목을 열어 대본·게시글·업로드 상태를 수정할 수 있습니다.</p><div id="entries" class="entries"></div></section></section>
 </main>
 <dialog id="settingsDialog"><form method="dialog"><h2>서버 연결 설정</h2><p class="hint">새 콘텐츠 매니저 전용 Apps Script 주소와 접속 코드를 입력하세요.</p><label>Apps Script 웹앱 주소<input id="apiUrl" type="url" placeholder="https://script.google.com/macros/s/…/exec" required></label><label>접속 코드<input id="accessToken" type="password" autocomplete="off" required minlength="32" placeholder="스크립트 속성 APP_ACCESS_TOKEN"></label><p class="hint">Gemini API 키를 입력하는 칸이 아닙니다. 접속 코드는 현재 탭의 메모리에만 보관합니다.</p><div class="actions"><button id="connectButton" type="button">연결 확인</button><button value="cancel" formnovalidate class="secondary">닫기</button></div></form></dialog>
-<script src="js/config.js?v=1.0.0"></script><script src="js/app.js?v=1.0.0"></script></body></html>
+<script src="js/config.js?v=1.0.1"></script><script src="js/app.js?v=1.0.1"></script></body></html>
