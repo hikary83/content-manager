@@ -36,6 +36,7 @@ window.HikaryReference = (() => {
     const root=document.getElementById('referenceMount');
     root.innerHTML=`<section class="card"><h2>레퍼런스 영상 분석 <small>선택</small></h2><p class="hint">다른 영상의 문장을 베끼지 않고 훅·CTA·전환 패턴만 참고합니다. 아래 제작안 생성 전에 분석해주세요.</p><label>레퍼런스 링크<input id="referenceUrl" type="url" maxlength="2000" placeholder="https://… SNS 링크는 원본 확인용이며 자동 다운로드하지 않습니다."></label><div class="actions"><button id="referenceOpen" type="button" class="secondary">원본 링크 열기 ↗</button><label class="file-button">영상 파일 선택<input id="referenceFile" type="file" accept="video/mp4,video/webm,.mp4,.webm"></label><button id="referenceClear" type="button" class="secondary">레퍼런스 비우기</button></div><p id="referenceFileState" class="hint">사용 권한이 있는 MP4·WebM · 최대 40MB / 180초. 링크만으로는 분석하지 않습니다.</p><video id="referencePreview" controls playsinline preload="metadata" hidden style="width:100%;max-height:360px"></video><label>대사·음성 전사 (선택)<textarea id="referenceTranscript" maxlength="6000" rows="3" placeholder="음성은 자동으로 듣지 않습니다. 직접 확인한 대사를 붙여넣으면 보완 자료로 사용합니다."></textarea></label><label><input id="referenceConsent" type="checkbox"> 사용 권한을 확인했으며, 추출 화면과 입력 대사를 Google Gemini로 보내는 데 동의합니다.</label><p class="hint">Gemini 사용량/요금이 발생할 수 있어요. 원본 영상·분석 결과는 서버나 시트에 저장하지 않습니다. URL은 Gemini에 전송하지 않습니다.</p><button id="referenceAnalyze" type="button">Gemini로 레퍼런스 분석</button><div id="referenceResults" hidden><h3>분석 초안 · 직접 확인해주세요</h3><pre id="referenceReport" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre><p class="hint">샘플 프레임 기반이라 빠른 컷·음성 CTA를 놓칠 수 있어요. 실제 재생/청취 후 활용할 메모를 수정해주세요.</p><button id="referenceApply" type="button" class="secondary">검토한 패턴을 제작안 메모에 반영</button></div></section>`;
     const $=id=>document.getElementById(id);let file=null,url='',result=null;
+    const back=document.createElement('button');back.type='button';back.className='secondary';back.textContent='콘텐츠 등록으로 돌아가기';back.onclick=()=>options.onBack?.();root.querySelector('section').append(back);
     $('referenceConsent').style.width='auto';$('referenceConsent').parentElement.style.display='flex';$('referenceConsent').parentElement.style.gap='10px';$('referenceConsent').parentElement.style.alignItems='center';
     function invalidate(){result=null;$('referenceResults').hidden=true;$('referenceReport').textContent='';}
     function clear(){if(url)URL.revokeObjectURL(url);url='';file=null;invalidate();$('referenceFile').value='';$('referenceUrl').value='';$('referenceTranscript').value='';$('referenceConsent').checked=false;$('referencePreview').pause();$('referencePreview').removeAttribute('src');$('referencePreview').load();$('referencePreview').hidden=true;$('referenceFileState').textContent='MP4·WebM · 최대 40MB / 180초. 링크는 원본 확인용입니다.';}
@@ -66,6 +67,7 @@ window.HikaryReference = (() => {
       if(!result)return;
       const input=$('referenceNotes');if(input.value&&!confirm('기존 연출 메모를 분석 패턴으로 바꿀까요?'))return;
       input.value=notes(result);options.changed();options.notice('연출 메모에 반영했어요. 메모를 검토하고 쇼츠 제작안을 생성해주세요.');
+      options.onApply?.();
     };
     return {clear};
   }

@@ -1,6 +1,6 @@
 # HIKARY 콘텐츠 매니저
 
-서비스 버전 **v1.4.0** · 2026-10-31
+화면 버전 **v1.4.1** / 서버 **v1.4.0** · 2026-10-31
 
 현재 개발 구조는 `docs/` 정적 화면 + `backend/` Apps Script + Google Sheets + Gemini입니다.
 신규 설정·로컬 실행·배포·변경 이력은 [SETUP.md](SETUP.md)를 참고하세요.

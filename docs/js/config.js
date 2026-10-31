@@ -1,5 +1,5 @@
 /* Public configuration only. Never put API keys or access codes in this file. */
-window.HIKARY_CONFIG = Object.freeze({ version: '1.4.0', apiUrl: 'https://script.google.com/macros/s/AKfycbzN9mw2OKRKHdEYjUCqv3sYOsp5LPKRLhBP7yR_8pwfK3j1FKY-4eUc5hdG6FOLov1z/exec' });
+window.HIKARY_CONFIG = Object.freeze({ version: '1.4.1', apiUrl: 'https://script.google.com/macros/s/AKfycbzN9mw2OKRKHdEYjUCqv3sYOsp5LPKRLhBP7yR_8pwfK3j1FKY-4eUc5hdG6FOLov1z/exec' });
 
 window.HikaryApi = (() => {
   let endpoint = window.HIKARY_CONFIG.apiUrl || '';
