@@ -70,8 +70,8 @@ test('Gemini 이미지·본문 요청은 시트를 수정하지 않는다', () =
   const env=runtime();env.props.set('GEMINI_API_KEY','test-only');env.props.set('GEMINI_MODEL','gemini-2.5-flash');
   const expected={summary:'확인된 정보',warnings:['가격 재확인'],highlights:['실제 장점'],scenes:Array.from({length:4},(_,i)=>({title:'장면 '+i,voiceover:'내레이션 '+i,caption:'후반 자막',visual:'실제 상품 사진',motion:'느린 줌',sourceImage:1})),script:'내레이션',youtube:'제목',instagram:'본문',tiktok:'짧은 글'};let captured;
   env.context.UrlFetchApp.fetch=(url,options)=>{captured=JSON.parse(options.payload);return {getResponseCode:()=>200,getContentText:()=>JSON.stringify({candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify(expected)}]}}]})};};
-  const data=env.context.generateContent_({productName:'테스트',description:'실제 설명',images:[{inline:{mimeType:'image/png',data:'aW1hZ2U='}}]});
-  assert.equal(data.script,expected.scenes.map(scene=>scene.voiceover).join('\n'));assert.equal(data.scenes.length,4);assert.equal(data.scenes[0].sourceImage,0);assert.equal(captured.contents[0].parts.length,2);assert.equal(captured.generationConfig.responseMimeType,'application/json');assert.equal(env.writes(),0);
+  const data=env.context.generateContent_({productName:'테스트',description:'실제 설명',referenceNotes:'결과 사진 먼저',images:[{inline:{mimeType:'image/png',data:'aW1hZ2U='}}]});
+  assert.equal(data.script,expected.scenes.map(scene=>scene.voiceover).join('\n'));assert.equal(data.scenes.length,4);assert.equal(data.scenes[0].sourceImage,0);assert.equal(captured.contents[0].parts.length,3);assert.match(captured.contents[0].parts[1].text,/독립적인 대본/);assert.equal(captured.generationConfig.responseMimeType,'application/json');assert.equal(env.writes(),0);
 });
 test('Gemini 오류에서 키·제공자 원문을 노출하지 않는다', () => {
   const env=runtime();env.props.set('GEMINI_API_KEY','secret-example');env.props.set('GEMINI_MODEL','gemini-2.5-flash');

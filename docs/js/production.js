@@ -34,6 +34,11 @@ window.HikaryProduction = (() => {
   function flowPrompt(productName, scene) {
     return `Create one vertical 9:16 commercial shot for this specific product: ${productName}.\nUse the attached selected reference image as the product/location identity source. Preserve actual appearance, architecture, objects, colors and logos; do not invent facilities, animals, views or product features.\nScene: ${scene.title}\nVisual direction: ${scene.visual}\nCamera and motion: ${scene.motion}\nNo on-screen captions, subtitles, prices, title cards, or added readable text. No voiceover. Captions and narration will be added in post-production.\nIf using a travel reference, do not present imagined scenes as documentary footage of the actual venue.`;
   }
+  function videoJob(productName, script, plan, files) {
+    if (!plan || plan.scenes.length !== 4 || files.length !== 4) throw new Error('4컷 제작안과 이미지를 준비해주세요.');
+    if (script.trim() !== plan.scenes.map(scene => scene.voiceover).join('\n').trim()) throw new Error('전체 대본과 컷별 대사가 달라요. 컷별 대사를 먼저 맞춰주세요.');
+    return { schema: 'hikary-video/1', productName, captions: false, fps: 30, scenes: plan.scenes.map((scene, i) => ({ role: ['hook','benefit','evidence','cta'][i], duration: [3,4,5,6][i], image: files[i], voiceover: scene.voiceover, visual: scene.visual, motion: 'push-in', transition: 'cut' })) };
+  }
   function create(options) {
     const root = document.getElementById('production');
     const cards = document.getElementById('sceneCards');
@@ -79,6 +84,15 @@ window.HikaryProduction = (() => {
         actions.append(crop, download, prompt); card.append(actions); cards.append(card);
       });
     }
+    document.getElementById('videoJobDownload').onclick = () => void options.task(async () => {
+      if (!plan || plan.scenes.some(scene => !resolve(scene))) throw new Error('모든 컷에 이미지를 선택해주세요.');
+      const media = await Promise.all(plan.scenes.map(scene => options.blob(resolve(scene))));
+      const files = media.map((blob, i) => `HIKARY-CUT-${i + 1}.${blob.type.includes('png') ? 'png' : blob.type.includes('webp') ? 'webp' : 'jpg'}`);
+      const job = videoJob(options.productName(), options.script(), snapshot(), files);
+      saveText(JSON.stringify(job, null, 2), 'video-job.json', 'application/json');
+      media.forEach((blob, i) => downloadBlob(blob, files[i]));
+      options.notice('JSON과 사진 4장을 같은 로컬 폴더에 보관해주세요. Windows 제작 도구에서 MP4로 만들 수 있어요. 여러 파일 다운로드를 허용해주세요.');
+    });
     document.getElementById('highlights').oninput = event => { if (plan) { plan.highlights = event.target.value.split('\n').filter(Boolean).slice(0, 5); options.changed(); } };
     document.getElementById('planTextDownload').onclick = () => {
       if (!plan) return;
@@ -144,5 +158,5 @@ window.HikaryProduction = (() => {
       crop: (image, sceneIndex = -1) => openCrop(image, sceneIndex)
     };
   }
-  return { pack, unpack, cropRect, flowPrompt, create };
+  return { pack, unpack, cropRect, flowPrompt, videoJob, create };
 })();

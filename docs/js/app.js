@@ -76,7 +76,7 @@
         const restored = HikaryProduction.unpack(row.script || ''); $('script').value = restored.script;
         contentId = row.id; revision = row.revision; saveUncertain = false; lastSave = null; dirty = false;
         $('description').value = ''; $('analysisEvidence').textContent = ''; clearImages();
-        production.set(restored.plan);
+        production.set(restored.plan); $('referenceNotes').value = '';
         $('saveButton').textContent = '수정 내용 저장 →'; notice('저장된 내용을 열었어요. 원본 이미지는 로컬에서 다시 추가할 수 있어요.'); switchView('registration');
       };
       $('entries').append(button);
@@ -162,8 +162,8 @@
         if (base64Length > 11000000) throw new Error('분석 자료의 용량이 너무 커요. 선택한 원본 이미지 수를 줄여주세요.');
       }
       notice(`분석용 이미지 ${selected.length}개 구간을 Gemini가 읽고 있어요…`);
-      const data = await HikaryApi.request('generate', { productName: $('productName').value, category: $('category').value, description: $('description').value, images: selected, sources: sources.map(image => ({ name: image.name, kind: image.kind })) });
-      if (!Array.isArray(data.scenes) || data.scenes.length !== 4) throw new Error('서버 버전이 맞지 않아요. 새로고침하고 서버 1.2.0 연결을 확인해주세요.');
+      const data = await HikaryApi.request('generate', { productName: $('productName').value, category: $('category').value, description: $('description').value, referenceNotes: $('referenceNotes').value, images: selected, sources: sources.map(image => ({ name: image.name, kind: image.kind })) });
+      if (!Array.isArray(data.scenes) || data.scenes.length !== 4) throw new Error('서버 버전이 맞지 않아요. 새로고침하고 서버 1.3.0 연결을 확인해주세요.');
       for (const key of ['script', 'youtube', 'instagram', 'tiktok']) $(key).value = data[key] || '';
       production.set({ highlights: data.highlights, scenes: data.scenes }, sources);
       $('analysisEvidence').textContent = `AI가 확인한 내용\n${data.summary || ''}\n\n확인이 필요한 내용\n${(data.warnings || []).join('\n') || '가격·이용조건·제휴 고지문은 게시 전에 다시 확인해주세요.'}`;
