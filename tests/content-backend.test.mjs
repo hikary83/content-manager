@@ -33,7 +33,7 @@ const sample = () => ({id:randomUUID(),category:'여행',productName:'제주 숙
 
 test('인증 없는 요청은 시트와 AI를 호출하지 않는다', () => {
   const env=runtime();
-  for(const action of ['save','generate','analyze','list','image','reference']) {
+  for(const action of ['save','generate','analyze','list','image','reference','carousel']) {
     const result=JSON.parse(env.context.doPost({postData:{contents:JSON.stringify({action,payload:sample(),token:'wrong'})}}).text);
     assert.equal(result.ok,false); assert.match(result.error,/접속 코드/);
   }
@@ -84,4 +84,11 @@ test('레퍼런스 분석은 인증 후 프레임만 Gemini에 전달하고 시�
   env.context.UrlFetchApp.fetch=(url,options)=>{captured=JSON.parse(options.payload);return {getResponseCode:()=>200,getContentText:()=>JSON.stringify({candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({hook:'결과 사진',cta:'확인 불가',patterns:['결과 우선'],warnings:['음성 미청취'],transitions:[]})}]}}]})};};
   const response=JSON.parse(env.context.doPost({postData:{contents:JSON.stringify({token:'a'.repeat(64),action:'reference',payload:{duration:18,frames:[{time:0,mimeType:'image/jpeg',data:'aW1hZ2U='}],url:'https://not-sent.invalid',transcript:''}})}}).text);
   assert.equal(response.ok,true);assert.match(response.data.basis,/음성 미청취/);assert.ok(!JSON.stringify(captured).includes('not-sent.invalid'));assert.equal(env.writes(),0);assert.equal(captured.contents[0].parts.length,3);
+});
+
+test('캐러셀 생성은 상품 설명으로 5장 초안을 만들고 저장하지 않는다',()=>{
+  const env=runtime();env.props.set('GEMINI_API_KEY','test-only');env.props.set('GEMINI_MODEL','test-model');let captured;
+  env.context.UrlFetchApp.fetch=(url,options)=>{captured=JSON.parse(options.payload);return {getResponseCode:()=>200,getContentText:()=>JSON.stringify({candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({slides:Array.from({length:5},()=>({heading:'확인된 상품',body:'상품 설명'})),caption:'게시글',warnings:['고지 확인']})}]}}]})};};
+  const response=JSON.parse(env.context.doPost({postData:{contents:JSON.stringify({token:'a'.repeat(64),action:'carousel',payload:{productName:'테스트 상품',description:'확인된 상세 정보'}})}}).text);
+  assert.equal(response.ok,true);assert.equal(response.data.slides.length,5);assert.equal(env.writes(),0);assert.match(captured.systemInstruction.parts[0].text,/추측하거나 만들어내지/);
 });

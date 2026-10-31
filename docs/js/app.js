@@ -10,6 +10,8 @@
   let dirty = false;
   let saveUncertain = false;
   let lastSave = null;
+  let carouselDirty = false;
+  HikaryCarousel.create({task,notice,changed:()=>{carouselDirty=true;},onClear:()=>{carouselDirty=false;},request:(action,payload)=>HikaryApi.request(action,payload)});
   const reference = HikaryReference.create({task,notice,changed,request:(action,payload)=>HikaryApi.request(action,payload),onApply:()=>{switchView('registration');$('referenceNotes').scrollIntoView({behavior:'smooth',block:'center'});$('referenceNotes').focus({preventScroll:true});},onBack:()=>switchView('registration')});
   const production = HikaryProduction.create({
     images: () => images, blob: imageBlob, task, notice, changed,
@@ -34,17 +36,19 @@
     finally { busy = false; controls.forEach(control => { control.disabled = false; }); }
   }
   function switchView(view) {
+    $('carouselMount').hidden = view !== 'carousel';
     $('referenceMount').hidden = view !== 'reference';
     $('registration').hidden = view !== 'registration'; $('management').hidden = view !== 'management';
     $('registrationTab').classList.toggle('active', view === 'registration'); $('managementTab').classList.toggle('active', view === 'management');
     $('referenceTab').classList.toggle('active', view === 'reference');
-    $('pageTitle').textContent = {registration:'콘텐츠 등록',reference:'레퍼런스 분석',management:'콘텐츠 관리'}[view];
-    document.querySelector('header p').textContent = {registration:'좋은 상품을 발견했다면, 링크 하나로 시작하세요.',reference:'참고 영상의 훅·CTA·화면 전환을 분석하고 제작안에 활용하세요.',management:'등록한 콘텐츠와 플랫폼별 게시 상태를 확인하세요.'}[view];
+    $('carouselTab').classList.toggle('active', view === 'carousel');
+    $('pageTitle').textContent = {registration:'콘텐츠 등록',reference:'레퍼런스 분석',carousel:'캐러셀 만들기',management:'콘텐츠 관리'}[view];
+    document.querySelector('header p').textContent = {registration:'좋은 상품을 발견했다면, 링크 하나로 시작하세요.',reference:'참고 영상의 훅·CTA·화면 전환을 분석하고 제작안에 활용하세요.',carousel:'상품 링크 하나로 넘겨보는 5장 이미지 콘텐츠를 만드세요.',management:'등록한 콘텐츠와 플랫폼별 게시 상태를 확인하세요.'}[view];
     if(view!=='reference') $('referencePreview').pause();
   }
   function changed() { dirty = true; }
   $('contentForm').addEventListener('input', changed);
-  window.addEventListener('beforeunload', event => { if (dirty || busy || saveUncertain) { event.preventDefault(); event.returnValue = ''; } });
+  window.addEventListener('beforeunload', event => { if (dirty || carouselDirty || busy || saveUncertain) { event.preventDefault(); event.returnValue = ''; } });
   $('settingsButton').onclick = () => $('settingsDialog').showModal();
   $('apiUrl').value = window.HIKARY_CONFIG.apiUrl;
   $('connectButton').onclick = async () => {
@@ -59,6 +63,7 @@
   };
   $('registrationTab').onclick = () => switchView('registration');
   $('referenceTab').onclick = () => switchView('reference');
+  $('carouselTab').onclick = () => switchView('carousel');
   async function loadEntries() {
     const data = await HikaryApi.request('list'); rows = data.entries; renderEntries(); notice(`${rows.length}건을 불러왔어요.`);
   }

@@ -1,13 +1,13 @@
 # HIKARY 콘텐츠 매니저
 
-화면 버전 **v1.4.1** / 서버 **v1.4.0** · 2026-10-31
+서비스 버전 **v1.5.0** · 2026-10-31
 
 현재 개발 구조는 `docs/` 정적 화면 + `backend/` Apps Script + Google Sheets + Gemini입니다.
 신규 설정·로컬 실행·배포·변경 이력은 [SETUP.md](SETUP.md)를 참고하세요.
 
 ```powershell
 node scripts/preview-content.mjs
-node --test tests/content-backend.test.mjs tests/content-client.test.mjs tests/travel-extraction.test.mjs tests/image-analysis.test.mjs tests/production.test.mjs tests/reel.test.mjs tests/reference.test.mjs
+node --test tests/content-backend.test.mjs tests/content-client.test.mjs tests/travel-extraction.test.mjs tests/image-analysis.test.mjs tests/production.test.mjs tests/reel.test.mjs tests/reference.test.mjs tests/carousel.test.mjs
 ```
 
 로컬 화면: http://127.0.0.1:4173/ · GitHub Pages 배포 대상: `main /docs`.
@@ -17,6 +17,7 @@ node --test tests/content-backend.test.mjs tests/content-client.test.mjs tests/t
 레퍼런스 MP4·WebM(40MB/180초 이내)을 웹에서 선택해 재생하고 주요 화면을 Gemini로 분석할 수 있습니다. 화면·선택 입력 전사의 전송 동의 후 실행되며 사용량/요금이 발생할 수 있습니다. 링크는 원본 확인용이며 SNS 영상을 자동 다운로드하지 않습니다. 음성 자동 청취/전사는 지원하지 않습니다. 분석 초안을 확인하고 연출 패턴을 메모로 반영한 뒤 제작안을 생성하세요.
 운영대장에는 콘텐츠 ID·등록일·카테고리·상품명·원본/변환 링크·대본·플랫폼별 게시글/상태·비고를 저장합니다.
 Gemini 키·접속 코드는 새 Apps Script 스크립트 속성에서만 설정합니다.
+`캐러셀 만들기`: 상품 링크 → 기존 상품 분석 → Gemini 5장 문구 → 1080×1350 PNG 5장. 제목/본문/사진/게시글/하단 고지를 수정하고 PNG·TXT를 내려받습니다. 사진은 실제 상품 사진을 사용하며 AI로 새 이미지를 그리지 않습니다. 초안은 탭 메모리에만 유지되고 기존 쇼츠 등록/시트 저장/자동 게시와 분리됩니다.
 
 이전 Sites 소스는 아래 설명과 `app/`, `worker/`, `db/`에 보존되어 있으며 Pages 배포 대상이 아닙니다.
 백업 태그: `legacy-chatgpt-sites-2026-08-11`.

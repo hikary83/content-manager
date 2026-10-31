@@ -1,5 +1,5 @@
 /* HIKARY only. No credentials or endpoints from kic-worktools. */
-var SERVICE_VERSION = '1.4.0';
+var SERVICE_VERSION = '1.5.0';
 var CONTENT_HEADERS = ['콘텐츠 ID', '등록일', '카테고리', '상품명', '원본 링크', '변환 링크', '대본', 'YouTube 게시글', 'YouTube 상태', 'Instagram 게시글', 'Instagram 상태', 'TikTok 게시글', 'TikTok 상태', '비고'];
 var CONTENT_KEYS = ['id', 'createdAt', 'category', 'productName', 'sourceUrl', 'affiliateUrl', 'script', 'youtube', 'youtubeStatus', 'instagram', 'instagramStatus', 'tiktok', 'tiktokStatus', 'notes'];
 var CONTENT_STATUSES = ['미업로드', '업로드완료', '보류'];
@@ -33,13 +33,14 @@ function doPost(event) {
     else if (action === 'image') data = readImage_(payload.url);
     else if (action === 'generate') data = generateContent_(payload);
     else if (action === 'reference') data = analyzeReference_(payload);
+    else if (action === 'carousel') data = generateCarousel_(payload);
     else throw new Error('지원하지 않는 요청입니다.');
     result = { ok: true, requestId: requestId, data: data };
   } catch (error) {
     // Do not log exception text: UrlFetch errors can contain credentials or URLs.
     result = { ok: false, requestId: requestId, error: safeError_(error) };
   }
-  console.info(JSON.stringify({ requestId: requestId, action: ['status','list','save','analyze','image','generate','reference'].indexOf(action) >= 0 ? action : 'unknown', elapsedMs: Date.now() - started, ok: result.ok }));
+  console.info(JSON.stringify({ requestId: requestId, action: ['status','list','save','analyze','image','generate','reference','carousel'].indexOf(action) >= 0 ? action : 'unknown', elapsedMs: Date.now() - started, ok: result.ok }));
   return jsonResponse_(result);
 }
 

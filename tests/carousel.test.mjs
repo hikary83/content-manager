@@ -1,0 +1,8 @@
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import vm from 'node:vm';
+const window={};vm.runInNewContext(fs.readFileSync(new URL('../docs/js/carousel.js',import.meta.url),'utf8'),{window});const api=window.HikaryCarousel;
+const server=vm.createContext({});vm.runInContext(fs.readFileSync(new URL('../backend/Gemini.js',import.meta.url),'utf8'),server);
+const sample=()=>({slides:Array.from({length:5},()=>({heading:'실제 상품',body:'확인된 설명'})),caption:'게시 전 확인',warnings:['조건 확인']});
+test('캐러셀은 독립 메뉴·숨김 영역과 연결된다',()=>{const html=fs.readFileSync(new URL('../docs/index.html',import.meta.url),'utf8');assert.match(html,/id="carouselTab"/);assert.match(html,/id="carouselMount" hidden/);});
+test('AI는 정확히 5장의 짧은 제목·본문만 수용한다',()=>{assert.equal(server.validateCarousel_(sample()).slides.length,5);let data=sample();data.slides.pop();assert.throws(()=>server.validateCarousel_(data));data=sample();data.slides[0].body='가'.repeat(161);assert.throws(()=>server.validateCarousel_(data));});
+test('한글·줄바꿈을 보존하며 긴 문구는 영역 초과를 표시한다',()=>{const c={measureText:t=>({width:t.length*10}),fillText(){}};assert.equal(api.wrap(c,'가나다\n라마',20).join('|'),'가나|다|라마');assert.equal(api.textBlock(c,'가'.repeat(100),{x:0,y:0,width:20,maxLines:2,maxSize:30,minSize:20,color:'black'}),true);});
+test('PNG 캔버스는 1080×1350이며 사진 없이도 안전하게 그린다',()=>{const c={measureText:t=>({width:t.length*20}),fillText(){},fillRect(){},drawImage(){throw new Error('no photo');}};const canvas={getContext:()=>c};assert.equal(api.paint(canvas,sample().slides[0],0,null,''),false);assert.equal(canvas.width,1080);assert.equal(canvas.height,1350);});
