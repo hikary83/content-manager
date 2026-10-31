@@ -10,6 +10,7 @@
   let dirty = false;
   let saveUncertain = false;
   let lastSave = null;
+  const reference = HikaryReference.create({task,notice,changed,request:(action,payload)=>HikaryApi.request(action,payload)});
   const production = HikaryProduction.create({
     images: () => images, blob: imageBlob, task, notice, changed,
     productName: () => $('productName').value, script: () => $('script').value,
@@ -33,6 +34,7 @@
     finally { busy = false; controls.forEach(control => { control.disabled = false; }); }
   }
   function switchView(view) {
+    $('referenceMount').hidden = view !== 'registration';
     $('registration').hidden = view !== 'registration'; $('management').hidden = view !== 'management';
     $('registrationTab').classList.toggle('active', view === 'registration'); $('managementTab').classList.toggle('active', view === 'management');
     $('pageTitle').textContent = view === 'registration' ? '콘텐츠 등록' : '콘텐츠 관리';
@@ -76,7 +78,7 @@
         const restored = HikaryProduction.unpack(row.script || ''); $('script').value = restored.script;
         contentId = row.id; revision = row.revision; saveUncertain = false; lastSave = null; dirty = false;
         $('description').value = ''; $('analysisEvidence').textContent = ''; clearImages();
-        production.set(restored.plan); $('referenceNotes').value = '';
+        production.set(restored.plan); reference.clear(); $('referenceNotes').value = '';
         $('saveButton').textContent = '수정 내용 저장 →'; notice('저장된 내용을 열었어요. 원본 이미지는 로컬에서 다시 추가할 수 있어요.'); switchView('registration');
       };
       $('entries').append(button);
@@ -87,7 +89,7 @@
     if ((dirty || saveUncertain) && !confirm('저장되지 않은 내용이 있을 수 있어요. 새로 작성할까요?')) return;
     $('contentForm').reset(); contentId = crypto.randomUUID(); revision = null; dirty = false; saveUncertain = false; lastSave = null;
     $('analysisEvidence').textContent = ''; clearImages(); notice(''); $('saveButton').textContent = '콘텐츠 등록 →';
-    production.set(null);
+    production.set(null); reference.clear();
   };
   $('analyzeButton').onclick = () => {
     if (!validUrl($('sourceUrl').value.trim())) { notice('https로 시작하는 상품 링크를 입력해주세요.', true); return; }
@@ -163,7 +165,7 @@
       }
       notice(`분석용 이미지 ${selected.length}개 구간을 Gemini가 읽고 있어요…`);
       const data = await HikaryApi.request('generate', { productName: $('productName').value, category: $('category').value, description: $('description').value, referenceNotes: $('referenceNotes').value, images: selected, sources: sources.map(image => ({ name: image.name, kind: image.kind })) });
-      if (!Array.isArray(data.scenes) || data.scenes.length !== 4) throw new Error('서버 버전이 맞지 않아요. 새로고침하고 서버 1.3.0 연결을 확인해주세요.');
+      if (!Array.isArray(data.scenes) || data.scenes.length !== 4) throw new Error('서버 버전이 맞지 않아요. 새로고침하고 서버 1.4.0 연결을 확인해주세요.');
       for (const key of ['script', 'youtube', 'instagram', 'tiktok']) $(key).value = data[key] || '';
       production.set({ highlights: data.highlights, scenes: data.scenes }, sources);
       $('analysisEvidence').textContent = `AI가 확인한 내용\n${data.summary || ''}\n\n확인이 필요한 내용\n${(data.warnings || []).join('\n') || '가격·이용조건·제휴 고지문은 게시 전에 다시 확인해주세요.'}`;

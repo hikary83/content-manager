@@ -33,7 +33,7 @@ const sample = () => ({id:randomUUID(),category:'여행',productName:'제주 숙
 
 test('인증 없는 요청은 시트와 AI를 호출하지 않는다', () => {
   const env=runtime();
-  for(const action of ['save','generate','analyze','list','image']) {
+  for(const action of ['save','generate','analyze','list','image','reference']) {
     const result=JSON.parse(env.context.doPost({postData:{contents:JSON.stringify({action,payload:sample(),token:'wrong'})}}).text);
     assert.equal(result.ok,false); assert.match(result.error,/접속 코드/);
   }
@@ -77,4 +77,11 @@ test('Gemini 오류에서 키·제공자 원문을 노출하지 않는다', () =
   const env=runtime();env.props.set('GEMINI_API_KEY','secret-example');env.props.set('GEMINI_MODEL','gemini-2.5-flash');
   env.context.UrlFetchApp.fetch=()=>({getResponseCode:()=>403,getContentText:()=>'{"error":"secret-example"}'});
   assert.throws(()=>env.context.generateContent_({productName:'테스트',description:'설명',images:[]}),error=>!error.message.includes('secret-example')&&error.message.includes('403'));
+});
+
+test('레퍼런스 분석은 인증 후 프레임만 Gemini에 전달하고 시트를 쓰지 않는다',()=>{
+  const env=runtime();env.props.set('GEMINI_API_KEY','test-only');env.props.set('GEMINI_MODEL','test-model');let captured;
+  env.context.UrlFetchApp.fetch=(url,options)=>{captured=JSON.parse(options.payload);return {getResponseCode:()=>200,getContentText:()=>JSON.stringify({candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({hook:'결과 사진',cta:'확인 불가',patterns:['결과 우선'],warnings:['음성 미청취'],transitions:[]})}]}}]})};};
+  const response=JSON.parse(env.context.doPost({postData:{contents:JSON.stringify({token:'a'.repeat(64),action:'reference',payload:{duration:18,frames:[{time:0,mimeType:'image/jpeg',data:'aW1hZ2U='}],url:'https://not-sent.invalid',transcript:''}})}}).text);
+  assert.equal(response.ok,true);assert.match(response.data.basis,/음성 미청취/);assert.ok(!JSON.stringify(captured).includes('not-sent.invalid'));assert.equal(env.writes(),0);assert.equal(captured.contents[0].parts.length,3);
 });

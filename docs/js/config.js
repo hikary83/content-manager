@@ -1,5 +1,5 @@
 /* Public configuration only. Never put API keys or access codes in this file. */
-window.HIKARY_CONFIG = Object.freeze({ version: '1.3.0', apiUrl: 'https://script.google.com/macros/s/AKfycbzN9mw2OKRKHdEYjUCqv3sYOsp5LPKRLhBP7yR_8pwfK3j1FKY-4eUc5hdG6FOLov1z/exec' });
+window.HIKARY_CONFIG = Object.freeze({ version: '1.4.0', apiUrl: 'https://script.google.com/macros/s/AKfycbzN9mw2OKRKHdEYjUCqv3sYOsp5LPKRLhBP7yR_8pwfK3j1FKY-4eUc5hdG6FOLov1z/exec' });
 
 window.HikaryApi = (() => {
   let endpoint = window.HIKARY_CONFIG.apiUrl || '';
@@ -20,7 +20,7 @@ window.HikaryApi = (() => {
         method: 'POST', redirect: 'follow', credentials: 'omit',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ action, payload, token, requestId }),
-        signal: AbortSignal.timeout(action === 'generate' ? 150000 : 60000)
+        signal: AbortSignal.timeout(['generate','reference'].includes(action) ? 150000 : 60000)
       });
       if (!response.ok) throw new Error(`서버 응답 오류 (${response.status})`);
       let result;
