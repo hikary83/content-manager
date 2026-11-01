@@ -43,7 +43,7 @@
     $('referenceTab').classList.toggle('active', view === 'reference');
     $('carouselTab').classList.toggle('active', view === 'carousel');
     $('pageTitle').textContent = {registration:'콘텐츠 등록',reference:'레퍼런스 분석',carousel:'캐러셀 만들기',management:'콘텐츠 관리'}[view];
-    document.querySelector('header p').textContent = {registration:'좋은 상품을 발견했다면, 링크 하나로 시작하세요.',reference:'참고 영상의 훅·CTA·화면 전환을 분석하고 제작안에 활용하세요.',carousel:'상품 링크 하나로 넘겨보는 5장 이미지 콘텐츠를 만드세요.',management:'등록한 콘텐츠와 플랫폼별 게시 상태를 확인하세요.'}[view];
+    document.querySelector('header p').textContent = {registration:'좋은 상품을 발견했다면, 링크 하나로 시작하세요.',reference:'참고 영상의 훅·CTA·화면 전환을 분석하고 제작안에 활용하세요.',carousel:'상품 링크 하나로 넘겨보는 카드뉴스 이미지를 만드세요.',management:'등록한 콘텐츠와 플랫폼별 게시 상태를 확인하세요.'}[view];
     if(view!=='reference') $('referencePreview').pause();
   }
   function changed() { dirty = true; }

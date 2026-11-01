@@ -86,9 +86,12 @@ test('레퍼런스 분석은 인증 후 프레임만 Gemini에 전달하고 시�
   assert.equal(response.ok,true);assert.match(response.data.basis,/음성 미청취/);assert.ok(!JSON.stringify(captured).includes('not-sent.invalid'));assert.equal(env.writes(),0);assert.equal(captured.contents[0].parts.length,3);
 });
 
-test('캐러셀 생성은 상품 설명으로 5장 초안을 만들고 저장하지 않는다',()=>{
+test('캐러셀 생성은 상품 설명으로 공통 블록 초안을 만들고 저장하지 않는다',()=>{
   const env=runtime();env.props.set('GEMINI_API_KEY','test-only');env.props.set('GEMINI_MODEL','test-model');let captured;
-  env.context.UrlFetchApp.fetch=(url,options)=>{captured=JSON.parse(options.payload);return {getResponseCode:()=>200,getContentText:()=>JSON.stringify({candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({slides:Array.from({length:5},()=>({heading:'확인된 상품',body:'상품 설명'})),caption:'게시글',warnings:['고지 확인']})}]}}]})};};
+  const fill=spec=>typeof spec==='number'?'확인된 내용':Array.isArray(spec)?[fill(spec[1])]:Object.fromEntries(Object.keys(spec).map(key=>[key,fill(spec[key])]));
+  env.context.UrlFetchApp.fetch=(url,options)=>{captured=JSON.parse(options.payload);return {getResponseCode:()=>200,getContentText:()=>JSON.stringify({candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({content:fill(env.context.CAROUSEL_SPEC_),caption:'게시글',warnings:['고지 확인']})}]}}]})};};
   const response=JSON.parse(env.context.doPost({postData:{contents:JSON.stringify({token:'a'.repeat(64),action:'carousel',payload:{productName:'테스트 상품',description:'확인된 상세 정보'}})}}).text);
-  assert.equal(response.ok,true);assert.equal(response.data.slides.length,5);assert.equal(env.writes(),0);assert.match(captured.systemInstruction.parts[0].text,/추측하거나 만들어내지/);
+  assert.equal(response.ok,true);assert.equal(response.data.content.points.items.length,1);assert.equal(env.writes(),0);
+  assert.match(captured.systemInstruction.parts[0].text,/추측하거나 만들어내지/);assert.match(captured.systemInstruction.parts[0].text,/DM 보상/);
+  assert.equal(captured.generationConfig.responseSchema.properties.content.properties.facts.properties.items.maxItems,4);
 });
