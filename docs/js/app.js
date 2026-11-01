@@ -51,16 +51,21 @@
   window.addEventListener('beforeunload', event => { if (dirty || carouselDirty || busy || saveUncertain) { event.preventDefault(); event.returnValue = ''; } });
   $('settingsButton').onclick = () => $('settingsDialog').showModal();
   $('apiUrl').value = window.HIKARY_CONFIG.apiUrl;
+  async function checkConnection() {
+    const status = await HikaryApi.request('status');
+    $('connectionState').textContent = `연결됨 · 서버 ${status.version}`;
+    return status;
+  }
   $('connectButton').onclick = async () => {
     $('connectButton').disabled = true;
     try {
-      HikaryApi.configure($('apiUrl').value.trim(), $('accessToken').value.trim());
-      const status = await HikaryApi.request('status');
-      $('accessToken').value = ''; $('settingsDialog').close();
-      $('connectionState').textContent = `연결됨 · 서버 ${status.version}`;
+      HikaryApi.configure($('apiUrl').value.trim());
+      const status = await checkConnection(); $('settingsDialog').close();
       notice(status.aiConfigured ? '시트·Gemini 연결 설정을 확인했어요.' : '시트 연결 완료. Gemini 키는 스크립트 속성에 추가해주세요.');
     } catch (error) { alert(error.message); } finally { $('connectButton').disabled = false; }
   };
+  // No access code: connect to the configured server on load and only report the result in the sidebar.
+  checkConnection().catch(() => { $('connectionState').textContent = '서버에 연결하지 못했어요. 연결 설정을 확인해주세요.'; });
   $('registrationTab').onclick = () => switchView('registration');
   $('referenceTab').onclick = () => switchView('reference');
   $('carouselTab').onclick = () => switchView('carousel');

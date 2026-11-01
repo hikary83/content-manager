@@ -1,17 +1,15 @@
-/* Public configuration only. Never put API keys or access codes in this file. */
-window.HIKARY_CONFIG = Object.freeze({ version: '1.6.0', apiUrl: 'https://script.google.com/macros/s/AKfycbzN9mw2OKRKHdEYjUCqv3sYOsp5LPKRLhBP7yR_8pwfK3j1FKY-4eUc5hdG6FOLov1z/exec' });
+/* Public configuration only. Never put API keys in this file. The server needs no access code (v1.6.1). */
+window.HIKARY_CONFIG = Object.freeze({ version: '1.6.1', apiUrl: 'https://script.google.com/macros/s/AKfycbzN9mw2OKRKHdEYjUCqv3sYOsp5LPKRLhBP7yR_8pwfK3j1FKY-4eUc5hdG6FOLov1z/exec' });
 
 window.HikaryApi = (() => {
   let endpoint = window.HIKARY_CONFIG.apiUrl || '';
-  let token = '';
   const pending = new Set();
-  function configure(url, code) {
+  function configure(url) {
     if (!/^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(url)) throw new Error('콘텐츠 매니저 전용 Apps Script /exec 주소를 입력해주세요.');
-    if (code.length < 32) throw new Error('접속 코드는 32자 이상이어야 합니다.');
-    endpoint = url; token = code;
+    endpoint = url;
   }
   async function request(action, payload = {}) {
-    if (!endpoint || !token) throw new Error('연결 설정에서 웹앱 주소와 접속 코드를 입력해주세요.');
+    if (!endpoint) throw new Error('연결 설정에서 웹앱 주소를 입력해주세요.');
     const requestId = crypto.randomUUID();
     const startedAt = performance.now();
     pending.add(requestId);
@@ -19,7 +17,7 @@ window.HikaryApi = (() => {
       const response = await fetch(endpoint, {
         method: 'POST', redirect: 'follow', credentials: 'omit',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action, payload, token, requestId }),
+        body: JSON.stringify({ action, payload, requestId }),
         signal: AbortSignal.timeout(['generate','reference','carousel'].includes(action) ? 150000 : 60000)
       });
       if (!response.ok) throw new Error(`서버 응답 오류 (${response.status})`);

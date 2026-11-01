@@ -1,5 +1,5 @@
 /* HIKARY only. No credentials or endpoints from kic-worktools. */
-var SERVICE_VERSION = '1.6.0';
+var SERVICE_VERSION = '1.6.1';
 var CONTENT_HEADERS = ['콘텐츠 ID', '등록일', '카테고리', '상품명', '원본 링크', '변환 링크', '대본', 'YouTube 게시글', 'YouTube 상태', 'Instagram 게시글', 'Instagram 상태', 'TikTok 게시글', 'TikTok 상태', '비고'];
 var CONTENT_KEYS = ['id', 'createdAt', 'category', 'productName', 'sourceUrl', 'affiliateUrl', 'script', 'youtube', 'youtubeStatus', 'instagram', 'instagramStatus', 'tiktok', 'tiktokStatus', 'notes'];
 var CONTENT_STATUSES = ['미업로드', '업로드완료', '보류'];
@@ -9,8 +9,7 @@ function initializeProject() {
   var props = PropertiesService.getScriptProperties();
   var defaults = { SHEET_ID: '1ZSB7FBZTWdT_eLlo3kpom-u2yM5UwHitG059Zci6TUc', SHEET_NAME: '콘텐츠 관리', GEMINI_MODEL: 'gemini-2.5-flash', GEMINI_DAILY_LIMIT: '40' };
   Object.keys(defaults).forEach(function(key) { if (!props.getProperty(key)) props.setProperty(key, defaults[key]); });
-  if (!props.getProperty('APP_ACCESS_TOKEN')) props.setProperty('APP_ACCESS_TOKEN', Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, ''));
-  console.info('초기 설정 완료. 프로젝트 설정 > 스크립트 속성에서 접속 코드를 확인하고 GEMINI_API_KEY를 추가하세요.');
+  console.info('초기 설정 완료. 프로젝트 설정 > 스크립트 속성에 GEMINI_API_KEY를 추가하세요.');
 }
 
 function jsonResponse_(value) { return ContentService.createTextOutput(JSON.stringify(value)).setMimeType(ContentService.MimeType.JSON); }
@@ -22,7 +21,7 @@ function doPost(event) {
     if (!text || text.length > 12000000) throw new Error('요청 용량을 확인해주세요.');
     var input = JSON.parse(text);
     if (/^[a-zA-Z0-9-]{1,64}$/.test(input.requestId || '')) requestId = input.requestId;
-    authenticate_(input.token);
+    // Public by the owner's choice (v1.6.1): no access code. The daily AI limit is the remaining cost guard.
     var payload = input.payload || {};
     action = String(input.action || '');
     var data;
@@ -46,13 +45,6 @@ function doPost(event) {
 
 function userError_(message) { var error = new Error(message); error.userSafe = true; return error; }
 function safeError_(error) { return error && error.userSafe ? error.message : '요청을 처리하지 못했어요. 서버 설정과 요청 내용을 확인해주세요.'; }
-function authenticate_(token) {
-  var expected = PropertiesService.getScriptProperties().getProperty('APP_ACCESS_TOKEN');
-  if (!expected || expected.length < 32) throw userError_('서버 접속 코드가 설정되지 않았어요.');
-  var actualHash = hash_(typeof token === 'string' ? token : ''); var expectedHash = hash_(expected); var difference = 0;
-  for (var i = 0; i < expectedHash.length; i++) difference |= expectedHash.charCodeAt(i) ^ actualHash.charCodeAt(i);
-  if (difference !== 0) throw userError_('접속 코드가 올바르지 않아요.');
-}
 function hash_(value) { return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, value, Utilities.Charset.UTF_8).map(function(byte) { return ('0' + ((byte + 256) % 256).toString(16)).slice(-2); }).join(''); }
 function getContentSheet_() {
   var props = PropertiesService.getScriptProperties();

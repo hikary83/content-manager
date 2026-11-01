@@ -6,7 +6,7 @@ import { createHash, randomUUID } from 'node:crypto';
 
 function runtime() {
   const rows = [['콘텐츠 ID','등록일','카테고리','상품명','원본 링크','변환 링크','대본','YouTube 게시글','YouTube 상태','Instagram 게시글','Instagram 상태','TikTok 게시글','TikTok 상태','비고']];
-  const props = new Map([['SHEET_ID','test'],['SHEET_NAME','콘텐츠 관리'],['APP_ACCESS_TOKEN','a'.repeat(64)]]);
+  const props = new Map([['SHEET_ID','test'],['SHEET_NAME','콘텐츠 관리']]);
   let writes = 0; let fetches = 0;
   const sheet = { getLastRow: () => rows.length, getMaxRows: () => 1000,
     getRange(row, col, height = 1, width = 1) { return {
@@ -31,12 +31,10 @@ function runtime() {
 }
 const sample = () => ({id:randomUUID(),category:'여행',productName:'제주 숙소',sourceUrl:'https://trip.coupang.com/product',affiliateUrl:'',script:'실제 상품정보 기반 대본',youtube:'',instagram:'',tiktok:'',notes:''});
 
-test('인증 없는 요청은 시트와 AI를 호출하지 않는다', () => {
-  const env=runtime();
-  for(const action of ['save','generate','analyze','list','image','reference','carousel']) {
-    const result=JSON.parse(env.context.doPost({postData:{contents:JSON.stringify({action,payload:sample(),token:'wrong'})}}).text);
-    assert.equal(result.ok,false); assert.match(result.error,/접속 코드/);
-  }
+test('접속 코드 없이 요청을 처리하고 지원하지 않는 요청은 시트·AI 호출 없이 거절한다', () => {
+  const env=runtime();const call=body=>JSON.parse(env.context.doPost({postData:{contents:JSON.stringify(body)}}).text);
+  assert.equal(call({action:'status'}).ok,true);
+  const unknown=call({action:'deleteAll',payload:sample()});assert.equal(unknown.ok,false);
   assert.equal(env.writes(),0); assert.equal(env.fetches(),0);
 });
 test('저장 응답 유실 후 재시도해도 같은 ID·내용은 한 행만 생성한다', () => {
@@ -82,7 +80,7 @@ test('Gemini 오류에서 키·제공자 원문을 노출하지 않는다', () =
 test('레퍼런스 분석은 인증 후 프레임만 Gemini에 전달하고 시트를 쓰지 않는다',()=>{
   const env=runtime();env.props.set('GEMINI_API_KEY','test-only');env.props.set('GEMINI_MODEL','test-model');let captured;
   env.context.UrlFetchApp.fetch=(url,options)=>{captured=JSON.parse(options.payload);return {getResponseCode:()=>200,getContentText:()=>JSON.stringify({candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({hook:'결과 사진',cta:'확인 불가',patterns:['결과 우선'],warnings:['음성 미청취'],transitions:[]})}]}}]})};};
-  const response=JSON.parse(env.context.doPost({postData:{contents:JSON.stringify({token:'a'.repeat(64),action:'reference',payload:{duration:18,frames:[{time:0,mimeType:'image/jpeg',data:'aW1hZ2U='}],url:'https://not-sent.invalid',transcript:''}})}}).text);
+  const response=JSON.parse(env.context.doPost({postData:{contents:JSON.stringify({action:'reference',payload:{duration:18,frames:[{time:0,mimeType:'image/jpeg',data:'aW1hZ2U='}],url:'https://not-sent.invalid',transcript:''}})}}).text);
   assert.equal(response.ok,true);assert.match(response.data.basis,/음성 미청취/);assert.ok(!JSON.stringify(captured).includes('not-sent.invalid'));assert.equal(env.writes(),0);assert.equal(captured.contents[0].parts.length,3);
 });
 
@@ -90,7 +88,7 @@ test('캐러셀 생성은 상품 설명으로 공통 블록 초안을 만들고 
   const env=runtime();env.props.set('GEMINI_API_KEY','test-only');env.props.set('GEMINI_MODEL','test-model');let captured;
   const fill=spec=>typeof spec==='number'?'확인된 내용':Array.isArray(spec)?[fill(spec[1])]:Object.fromEntries(Object.keys(spec).map(key=>[key,fill(spec[key])]));
   env.context.UrlFetchApp.fetch=(url,options)=>{captured=JSON.parse(options.payload);return {getResponseCode:()=>200,getContentText:()=>JSON.stringify({candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({content:fill(env.context.CAROUSEL_SPEC_),caption:'게시글',warnings:['고지 확인']})}]}}]})};};
-  const response=JSON.parse(env.context.doPost({postData:{contents:JSON.stringify({token:'a'.repeat(64),action:'carousel',payload:{productName:'테스트 상품',description:'확인된 상세 정보'}})}}).text);
+  const response=JSON.parse(env.context.doPost({postData:{contents:JSON.stringify({action:'carousel',payload:{productName:'테스트 상품',description:'확인된 상세 정보'}})}}).text);
   assert.equal(response.ok,true);assert.equal(response.data.content.points.items.length,1);assert.equal(env.writes(),0);
   assert.match(captured.systemInstruction.parts[0].text,/추측하거나 만들어내지/);assert.match(captured.systemInstruction.parts[0].text,/DM 보상/);
   assert.equal(captured.generationConfig.responseSchema.properties.content.properties.facts.properties.items.maxItems,4);
