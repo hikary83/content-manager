@@ -10,9 +10,17 @@
   let dirty = false;
   let saveUncertain = false;
   let lastSave = null;
+  // Upload date/link columns are edited in the upload dialog; keep them so an editor save does not erase them.
+  const UPLOAD_KEYS = ['youtubeDate', 'youtubeLink', 'instagramDate', 'instagramLink', 'tiktokDate', 'tiktokLink'];
+  const PLATFORMS = [['youtube', 'YT'], ['instagram', 'IG'], ['tiktok', 'TT']];
+  let uploadMeta = {};
+  let view = 'create';
+  let format = 'shorts';
   let carouselDirty = false;
-  HikaryCarousel.create({task,notice,changed:()=>{carouselDirty=true;},onClear:()=>{carouselDirty=false;},request:(action,payload)=>HikaryApi.request(action,payload)});
-  const reference = HikaryReference.create({task,notice,changed,request:(action,payload)=>HikaryApi.request(action,payload),onApply:()=>{switchView('registration');$('referenceNotes').scrollIntoView({behavior:'smooth',block:'center'});$('referenceNotes').focus({preventScroll:true});},onBack:()=>switchView('registration')});
+  const carousel = HikaryCarousel.create({task,notice,changed:()=>{carouselDirty=true;},onClear:()=>{carouselDirty=false;},onSaved:()=>{carouselDirty=false;},request:(action,payload)=>HikaryApi.request(action,payload),
+    product:()=>({category:$('category').value,productName:$('productName').value.trim(),description:$('description').value,sourceUrl:$('sourceUrl').value.trim(),affiliateUrl:$('affiliateUrl').value.trim()}),
+    images:()=>images,blob:imageBlob});
+  const reference = HikaryReference.create({task,notice,changed,request:(action,payload)=>HikaryApi.request(action,payload),onApply:()=>{$('referenceDialog').close();$('referenceNotes').focus();},onBack:()=>$('referenceDialog').close()});
   const production = HikaryProduction.create({
     images: () => images, blob: imageBlob, task, notice, changed,
     productName: () => $('productName').value, script: () => $('script').value,
@@ -35,16 +43,19 @@
     try { await work(); } catch (error) { notice(error.message || '처리 중 오류가 발생했어요.', true); }
     finally { busy = false; controls.forEach(control => { control.disabled = false; }); }
   }
-  function switchView(view) {
-    $('carouselMount').hidden = view !== 'carousel';
-    $('referenceMount').hidden = view !== 'reference';
-    $('registration').hidden = view !== 'registration'; $('management').hidden = view !== 'management';
-    $('registrationTab').classList.toggle('active', view === 'registration'); $('managementTab').classList.toggle('active', view === 'management');
-    $('referenceTab').classList.toggle('active', view === 'reference');
-    $('carouselTab').classList.toggle('active', view === 'carousel');
-    $('pageTitle').textContent = {registration:'콘텐츠 등록',reference:'레퍼런스 분석',carousel:'캐러셀 만들기',management:'콘텐츠 관리'}[view];
-    document.querySelector('header p').textContent = {registration:'좋은 상품을 발견했다면, 링크 하나로 시작하세요.',reference:'참고 영상의 훅·CTA·화면 전환을 분석하고 제작안에 활용하세요.',carousel:'상품 링크 하나로 넘겨보는 카드뉴스 이미지를 만드세요.',management:'등록한 콘텐츠와 플랫폼별 게시 상태를 확인하세요.'}[view];
-    if(view!=='reference') $('referencePreview').pause();
+  // Two menus: 새 콘텐츠 (product on top, then the shorts or carousel editor) and 업로드 관리.
+  function showView() {
+    const creating = view === 'create';
+    $('create').hidden = !creating; $('registration').hidden = !creating || format !== 'shorts'; $('carouselMount').hidden = !creating || format !== 'carousel'; $('management').hidden = creating;
+    $('createTab').classList.toggle('active', creating); $('managementTab').classList.toggle('active', !creating);
+    $('pageTitle').textContent = creating ? '새 콘텐츠' : '업로드 관리';
+    $('pageHint').textContent = creating ? '쿠팡 링크 하나로 쇼츠·캐러셀을 만드세요.' : '상품별로 만든 콘텐츠와 플랫폼별 업로드 기록을 확인하세요.';
+  }
+  function switchView(next) { view = next; showView(); }
+  function setFormat(next) {
+    format = next;
+    for (const [id, value] of [['formatShorts', 'shorts'], ['formatCarousel', 'carousel']]) { $(id).classList.toggle('active', format === value); $(id).setAttribute('aria-pressed', String(format === value)); }
+    showView(); if (format === 'carousel') carousel.show();
   }
   function changed() { dirty = true; }
   $('contentForm').addEventListener('input', changed);
@@ -66,44 +77,95 @@
   };
   // No access code: connect to the configured server on load and only report the result in the sidebar.
   checkConnection().catch(() => { $('connectionState').textContent = '서버에 연결하지 못했어요. 연결 설정을 확인해주세요.'; });
-  $('registrationTab').onclick = () => switchView('registration');
-  $('referenceTab').onclick = () => switchView('reference');
-  $('carouselTab').onclick = () => switchView('carousel');
+  $('createTab').onclick = () => switchView('create');
+  $('formatShorts').onclick = () => setFormat('shorts');
+  $('formatCarousel').onclick = () => setFormat('carousel');
+  $('referenceOpenButton').onclick = () => $('referenceDialog').showModal();
+  $('referenceDialog').addEventListener('close', () => $('referencePreview').pause());
   async function loadEntries() {
     const data = await HikaryApi.request('list'); rows = data.entries; renderEntries(); notice(`${rows.length}건을 불러왔어요.`);
   }
   $('managementTab').onclick = () => { switchView('management'); void task(loadEntries); };
   $('refreshList').onclick = () => void task(loadEntries);
   $('search').oninput = renderEntries;
+  function element(tag, className, text) { const node = document.createElement(tag); if (className) node.className = className; if (text !== undefined) node.textContent = text; return node; }
+  function action(text, onclick) { const button = element('button', 'secondary', text); button.type = 'button'; button.onclick = onclick; return button; }
+  // One group per product (same original link), one line per saved shorts or carousel.
   function renderEntries() {
     $('entries').replaceChildren();
     const query = $('search').value.trim().toLowerCase();
     const filtered = rows.filter(row => `${row.productName} ${row.category}`.toLowerCase().includes(query));
-    if (!filtered.length) { const empty = document.createElement('p'); empty.className = 'empty'; empty.textContent = '등록된 콘텐츠가 없어요.'; $('entries').append(empty); }
-    for (const row of filtered) {
-      const button = document.createElement('button'); button.className = 'entry';
-      const title = document.createElement('span'); const meta = document.createElement('small');
-      title.textContent = row.productName; meta.textContent = `${row.category} · ${row.createdAt} · YT ${row.youtubeStatus} / IG ${row.instagramStatus} / TT ${row.tiktokStatus}`; title.append(meta);
-      const arrow = document.createElement('span'); arrow.textContent = '조회·수정 →'; button.append(title, arrow);
-      button.onclick = () => {
-        if (dirty && !confirm('작성 중인 내용을 닫고 저장한 콘텐츠를 열까요?')) return;
-        if (saveUncertain && !confirm('이전 저장 응답이 확인되지 않았어요. 다른 내용을 열기 전에 같은 항목인지 확인해주세요. 계속할까요?')) return;
-        for (const key of fields) $(key).value = row[key] || '';
-        const restored = HikaryProduction.unpack(row.script || ''); $('script').value = restored.script;
-        contentId = row.id; revision = row.revision; saveUncertain = false; lastSave = null; dirty = false;
-        $('description').value = ''; $('analysisEvidence').textContent = ''; clearImages();
-        production.set(restored.plan); reference.clear(); $('referenceNotes').value = '';
-        $('saveButton').textContent = '수정 내용 저장 →'; notice('저장된 내용을 열었어요. 원본 이미지는 로컬에서 다시 추가할 수 있어요.'); switchView('registration');
-      };
-      $('entries').append(button);
+    if (!filtered.length) $('entries').append(element('p', 'empty', '등록된 콘텐츠가 없어요.'));
+    const groups = new Map();
+    for (const row of filtered) { const key = row.sourceUrl || row.productName; if (!groups.has(key)) groups.set(key, []); groups.get(key).push(row); }
+    for (const items of groups.values()) {
+      const group = element('article', 'entry-group'); const head = element('div', 'entry-head');
+      head.append(element('strong', '', items[0].productName), element('small', '', `${items[0].category} · ${items.length}건`), action('＋ 이 상품으로 새로 만들기', () => startFrom(items[0])));
+      group.append(head);
+      for (const row of items) {
+        const line = element('div', 'entry-line'); const chips = element('span', 'chips');
+        for (const [key, label] of PLATFORMS) {
+          const status = row[key + 'Status']; const link = /^https:\/\//i.test(row[key + 'Link'] || '') ? row[key + 'Link'] : '';
+          const chip = element(link ? 'a' : 'span', status === '업로드완료' ? 'chip done' : 'chip', `${label} ${status === '업로드완료' ? '완료' : status === '보류' ? '보류' : '—'}${row[key + 'Date'] ? ' · ' + row[key + 'Date'].slice(5) : ''}`);
+          if (link) { chip.href = link; chip.target = '_blank'; chip.rel = 'noopener noreferrer'; }
+          chips.append(chip);
+        }
+        line.append(element('span', 'badge', row.format || '쇼츠'), element('span', 'muted', row.createdAt), chips, action('열기', () => openRow(row)), action('업로드 기록', () => openUpload(row)));
+        group.append(line);
+      }
+      $('entries').append(group);
     }
   }
+  function leaveDraft() {
+    if ((dirty || carouselDirty) && !confirm('작성 중인 내용을 닫고 다른 콘텐츠를 열까요?')) return false;
+    return !saveUncertain || confirm('이전 저장 응답이 확인되지 않았어요. 다른 내용을 열기 전에 같은 항목인지 확인해주세요. 계속할까요?');
+  }
+  function loadProduct(row) { for (const key of ['category', 'productName', 'sourceUrl', 'affiliateUrl']) $(key).value = row[key] || ''; $('description').value = ''; $('analysisEvidence').textContent = ''; clearImages(); }
+  function resetShorts() {
+    for (const key of ['script', 'youtube', 'instagram', 'tiktok', 'notes', 'referenceNotes']) $(key).value = '';
+    for (const key of ['youtubeStatus', 'instagramStatus', 'tiktokStatus']) $(key).value = '미업로드';
+    contentId = crypto.randomUUID(); revision = null; uploadMeta = {}; saveUncertain = false; lastSave = null; dirty = false;
+    production.set(null); reference.clear(); $('saveButton').textContent = '쇼츠 저장 →';
+  }
+  function openRow(row) {
+    if (!leaveDraft()) return;
+    loadProduct(row); resetShorts(); carousel.reset(); carouselDirty = false;
+    if (row.format === '캐러셀') {
+      if (!carousel.open(row)) { notice('캐러셀 저장 내용을 읽지 못했어요. 시트의 대본 칸을 확인해주세요.', true); return; }
+      setFormat('carousel');
+    } else {
+      for (const key of fields) $(key).value = row[key] || '';
+      const restored = HikaryProduction.unpack(row.script || ''); $('script').value = restored.script;
+      contentId = row.id; revision = row.revision; uploadMeta = Object.fromEntries(UPLOAD_KEYS.map(key => [key, row[key] || '']));
+      production.set(restored.plan); $('saveButton').textContent = '수정 내용 저장 →'; setFormat('shorts');
+    }
+    dirty = false; switchView('create'); notice('저장된 내용을 열었어요. 사진은 링크를 다시 분석하거나 직접 추가해주세요.');
+  }
+  function startFrom(row) {
+    if (!leaveDraft()) return;
+    loadProduct(row); resetShorts(); carousel.reset(); carouselDirty = false; setFormat('shorts'); switchView('create');
+    notice('상품 정보를 불러왔어요. 링크를 다시 분석하면 설명·사진도 채워집니다.');
+  }
+  let uploadRow = null;
+  function fillUpload() { const platform = $('uploadPlatform').value; $('uploadStatus').value = uploadRow[platform + 'Status'] || '미업로드'; $('uploadDate').value = uploadRow[platform + 'Date'] || ''; $('uploadLink').value = uploadRow[platform + 'Link'] || ''; }
+  function openUpload(row) { uploadRow = row; $('uploadTarget').textContent = `${row.productName} · ${row.format || '쇼츠'}`; $('uploadPlatform').value = row.format === '캐러셀' ? 'instagram' : 'youtube'; fillUpload(); $('uploadDialog').showModal(); }
+  $('uploadPlatform').onchange = fillUpload;
+  $('uploadSave').onclick = () => void task(async () => {
+    const platform = $('uploadPlatform').value; const link = $('uploadLink').value.trim();
+    if (link && !validUrl(link)) throw new Error('게시물 링크는 https 주소로 입력해주세요.');
+    const payload = { ...uploadRow, format: uploadRow.format || '쇼츠', [platform + 'Status']: link ? '업로드완료' : $('uploadStatus').value, [platform + 'Date']: $('uploadDate').value, [platform + 'Link']: link };
+    delete payload.createdAt;
+    const saved = await HikaryApi.request('save', payload);
+    // Keep an open editor on the same item in step, so its next save does not hit the revision guard.
+    if (uploadRow.id === contentId) { revision = saved.revision; uploadMeta = Object.fromEntries(UPLOAD_KEYS.map(key => [key, payload[key] || ''])); $(platform + 'Status').value = payload[platform + 'Status']; }
+    carousel.updateSaved(uploadRow.id, saved.revision, payload);
+    $('uploadDialog').close(); await loadEntries(); notice('업로드 기록을 저장했어요.');
+  });
   function clearImages() { images.forEach(image => { if (image.url.startsWith('blob:')) URL.revokeObjectURL(image.url); }); images = []; renderImages(); }
   $('newButton').onclick = () => {
-    if ((dirty || saveUncertain) && !confirm('저장되지 않은 내용이 있을 수 있어요. 새로 작성할까요?')) return;
-    $('contentForm').reset(); contentId = crypto.randomUUID(); revision = null; dirty = false; saveUncertain = false; lastSave = null;
-    $('analysisEvidence').textContent = ''; clearImages(); notice(''); $('saveButton').textContent = '콘텐츠 등록 →';
-    production.set(null); reference.clear();
+    if ((dirty || carouselDirty || saveUncertain) && !confirm('저장되지 않은 내용이 있을 수 있어요. 새 상품으로 시작할까요?')) return;
+    for (const key of ['sourceUrl', 'productName', 'description', 'affiliateUrl']) $(key).value = '';
+    $('category').selectedIndex = 0; $('analysisEvidence').textContent = ''; clearImages(); resetShorts(); carousel.reset(); carouselDirty = false; notice('');
   };
   $('analyzeButton').onclick = () => {
     if (!validUrl($('sourceUrl').value.trim())) { notice('https로 시작하는 상품 링크를 입력해주세요.', true); return; }
@@ -153,6 +215,7 @@
       article.append(img, label, crop, remove); $('images').append(article);
     });
     production.refresh();
+    if (format === 'carousel') carousel.show();
   }
   async function imageBlob(image) {
     if (image.file) return image.file;
@@ -202,6 +265,7 @@
     if (busy) return;
     const payload = { id: contentId, revision };
     for (const key of fields) payload[key] = $(key).value.trim();
+    Object.assign(payload, uploadMeta, { format: '쇼츠' });
     payload.script = HikaryProduction.pack(payload.script, production.get());
     if (payload.script.length > 12000) { notice('대본과 제작안이 너무 길어요. 합계 12,000자 이내로 줄여주세요.', true); return; }
     if (!payload.productName || !payload.script || !validUrl(payload.sourceUrl) || (payload.affiliateUrl && !validUrl(payload.affiliateUrl))) { notice('상품명·대본과 https 링크를 확인해주세요.', true); return; }
@@ -209,7 +273,7 @@
     lastSave = JSON.stringify(payload); saveUncertain = true;
     void task(async () => {
       const saved = await HikaryApi.request('save', payload); revision = saved.revision; saveUncertain = false; lastSave = null; dirty = false;
-      $('saveButton').textContent = '수정 내용 저장 →'; notice(saved.replayed ? '이미 같은 내용이 저장되어 있어요. 중복 등록하지 않았습니다.' : 'Google Sheets에 저장했어요. 이미지는 별도로 보관해주세요.');
+      $('saveButton').textContent = '수정 내용 저장 →'; notice(saved.replayed ? '이미 같은 내용이 저장되어 있어요. 중복 등록하지 않았습니다.' : '쇼츠를 저장했어요. 업로드 관리에서 확인하고, 올린 뒤 업로드 기록을 남겨주세요.');
     });
   };
 })();

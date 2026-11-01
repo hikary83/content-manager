@@ -116,7 +116,10 @@ function parseProduct_(html, base) {
   });
   var images = [];
   candidates.forEach(function(value) { try { var url = safeFetchUrl_(resolveUrl_(String(value || ''), base), 'image'); if (/logo|\/icons?\/|img_fb_like|\/displayitem\//i.test(url)) return; if (images.indexOf(url) < 0 && images.length < 10) images.push(url); } catch (_) {} });
-  return { name: unescapeHtml_(title).replace(/<[^>]*>/g, '').trim().slice(0, 200), description: description, images: images, sourceUrl: base };
+  // Coupang titles end in " | 쿠팡"; a blocked or empty page renders "null - | 쿠팡". Treat that as a failed read.
+  var name = unescapeHtml_(title).replace(/<[^>]*>/g, '').replace(/\s*\|\s*쿠팡!?\s*$/, '').replace(/[\s|-]+$/, '').trim().slice(0, 200);
+  if (!name || /^(null|undefined)$/i.test(name)) throw userError_('상품 정보를 읽지 못했어요. 상품명·설명을 직접 입력하고 사진을 추가해주세요.');
+  return { name: name, description: description, images: images, sourceUrl: base };
 }
 function analyzeProduct_(url) {
   var fetched = fetchPublic_(url, 'product');

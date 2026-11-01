@@ -2,13 +2,18 @@ window.HikaryCarousel=(()=>{
   const D=window.HikaryCarouselDesigns;
   const SETTINGS_KEY='hikary.carousel.settings',DEFAULTS={design:'note',channel:'HIKARY',handle:'',color:'#FF6B1A',issue:1,bio:''};
   const MONTHS=['JANUARY','FEBRUARY','MARCH','APRIL','MAY','JUNE','JULY','AUGUST','SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER'];
-  // Channel settings are not sensitive, so they persist in this browser; drafts stay in tab memory only.
+  // Saved in the sheet's 대본 cell (format 캐러셀): text and design choices only, never photos or PNGs.
+  const MARK='### HIKARY CAROUSEL v1';
+  const pack=state=>`${MARK}\n${JSON.stringify(state)}`;
+  function unpack(text){if(!String(text||'').startsWith(MARK+'\n'))return null;try{const state=JSON.parse(String(text).slice(MARK.length+1));return state&&state.content&&state.content.cover?state:null;}catch{return null;}}
+  // Channel settings are not sensitive, so they persist in this browser; drafts stay in tab memory until saved.
   function loadSettings(){try{const s={...DEFAULTS,...JSON.parse(localStorage.getItem(SETTINGS_KEY)||'{}')};if(!D.designs[s.design])s.design=DEFAULTS.design;if(!/^#[0-9a-f]{6}$/i.test(s.color))s.color=DEFAULTS.color;return s;}catch{return {...DEFAULTS};}}
   function create(options){
     const root=document.getElementById('carouselMount');
-    root.innerHTML=`<section class="card"><h2>상품 링크로 캐러셀 만들기</h2><p class="hint">상품 정보로 문구를 한 번 만들고, 노트형·유리카드형 디자인에 맞춰 최대 6장을 그립니다. PNG 1080×1350(4:5). Gemini 사용량/요금이 발생할 수 있어요.</p><label>상품 링크<input id="carouselUrl" type="url" maxlength="2000" placeholder="https:// 상품 상세 페이지 주소"></label><div class="actions" style="margin-top:16px"><button id="carouselMake" type="button">링크 분석하고 캐러셀 만들기</button><button id="carouselClear" class="secondary" type="button">새로 만들기</button></div><p class="hint">초안은 이 탭에서만 유지되며 시트에 자동 저장하거나 SNS에 게시하지 않습니다. 사진과 문구를 검토 후 내려받으세요.</p></section><section class="card"><h2>디자인 · 채널 설정</h2><div class="carousel-design" role="radiogroup" aria-label="디자인"><label><input type="radio" name="carouselDesign" value="note"> 노트형</label><label><input type="radio" name="carouselDesign" value="glass"> 유리카드형</label></div><div class="carousel-settings"><label>채널명<input id="carouselChannel" maxlength="20"></label><label>아이디<input id="carouselHandle" maxlength="30" placeholder="instagram 아이디"></label><label>메인 색<input id="carouselColor" type="color"></label><label>호수 (ISSUE)<input id="carouselIssue" type="number" min="1" max="999"></label><label>채널 소개 (유리카드형 마지막 장)<input id="carouselBio" maxlength="30"></label></div><p class="hint">설정은 이 브라우저에 기억합니다. 디자인을 바꿔도 AI를 다시 부르지 않으며 고친 문구가 그대로 유지됩니다.</p></section><section class="card"><details id="carouselInfo"><summary>추출한 상품정보 확인·보완</summary><label>상품명<input id="carouselName" maxlength="200"></label><label>상세 설명<textarea id="carouselDescription" rows="6" maxlength="18000"></textarea></label><p id="carouselEvidence" class="hint"></p><div class="actions"><button id="carouselRegenerate" type="button" class="secondary">수정한 정보로 다시 만들기</button><label class="file-button">사진 추가<input id="carouselPhotos" type="file" accept="image/jpeg,image/png,image/webp" multiple></label></div><p class="hint">링크를 읽지 못하면 상품명·설명을 직접 넣고 사진을 추가하세요. 자동 수집 사진은 일반 상품 사진만 사용하며 긴 상세 이미지는 제외합니다.</p></details><label>게시글<textarea id="carouselCaption" maxlength="3000" rows="4"></textarea></label><label>하단 고지 문구 (공개 전 직접 확인)<input id="carouselDisclosure" maxlength="100" placeholder="실제 제휴 여부에 맞는 고지 문구를 입력하세요."></label></section><section id="carouselOutput" hidden><div class="actions"><button id="carouselDownload" type="button">PNG 다운로드</button><button id="carouselText" type="button" class="secondary">문구·게시글 TXT 다운로드</button></div><p class="hint">근거가 부족한 장은 빼 두었어요. 각 장의 체크로 넣고 뺄 수 있고, 빈 항목 칸은 그리지 않습니다.</p><p id="carouselWarnings" class="hint"></p><p id="carouselFont" class="hint"></p><div id="carouselCards" class="carousel-grid"></div></section>`;
+    root.innerHTML=`<section class="card"><h2><b>04</b> 캐러셀 만들기</h2><p class="hint">위 02 상품정보로 문구를 한 번 만들고, 노트형·유리카드형 디자인으로 최대 6장을 그립니다. PNG 1080×1350(4:5). Gemini 사용량/요금이 발생할 수 있어요.</p><div class="actions"><button id="carouselMake" type="button">✦ Gemini로 캐러셀 문구 만들기</button><button id="carouselClear" class="secondary" type="button">캐러셀 새로 만들기</button></div><p class="hint">사진은 위 03의 상품 사진·직접 추가한 사진을 씁니다. 긴 상세 설명 이미지는 쓰지 않아요.</p></section><section class="card"><h2>디자인 · 채널 설정</h2><div class="carousel-design" role="radiogroup" aria-label="디자인"><label><input type="radio" name="carouselDesign" value="note"> 노트형</label><label><input type="radio" name="carouselDesign" value="glass"> 유리카드형</label></div><div class="carousel-settings"><label>채널명<input id="carouselChannel" maxlength="20"></label><label>아이디<input id="carouselHandle" maxlength="30" placeholder="instagram 아이디"></label><label>메인 색<input id="carouselColor" type="color"></label><label>호수 (ISSUE)<input id="carouselIssue" type="number" min="1" max="999"></label><label>채널 소개 (유리카드형 마지막 장)<input id="carouselBio" maxlength="30"></label></div><p class="hint">채널 설정은 이 브라우저에 기억합니다. 디자인을 바꿔도 AI를 다시 부르지 않으며 고친 문구가 그대로 유지됩니다.</p><label>게시글 (Instagram)<textarea id="carouselCaption" maxlength="3000" rows="4"></textarea></label><label>하단 고지 문구 (공개 전 직접 확인)<input id="carouselDisclosure" maxlength="100" placeholder="실제 제휴 여부에 맞는 고지 문구를 입력하세요."></label></section><section id="carouselOutput" hidden><div class="actions"><button id="carouselDownload" type="button">PNG 다운로드</button><button id="carouselText" type="button" class="secondary">문구·게시글 TXT 다운로드</button><button id="carouselSave" type="button" data-request>캐러셀 저장 →</button></div><p class="hint">근거가 부족한 장은 빼 두었어요. 각 장의 체크로 넣고 뺄 수 있고, 빈 항목 칸은 그리지 않습니다. 저장하면 업로드 관리에 캐러셀로 남습니다(사진·PNG는 저장하지 않음).</p><p id="carouselWarnings" class="hint"></p><p id="carouselFont" class="hint"></p><div id="carouselCards" class="carousel-grid"></div></section>`;
     const $=id=>document.getElementById(id);
-    let content=null,photos=[],canvases=[],articles=[],overflow=[],choices={},included={},frame=0,fontsReady=null;
+    let content=null,photos=[],canvases=[],articles=[],overflow=[],choices={},included={},frame=0,fontsReady=null,syncing=Promise.resolve();
+    let carouselId=crypto.randomUUID(),revision=null,saved={};
     const settings=loadSettings(),seenFaces=new Set();
     const saveSettings=()=>{try{localStorage.setItem(SETTINGS_KEY,JSON.stringify(settings));}catch{}};
     const slides=()=>D.designs[settings.design].slides;
@@ -81,37 +86,32 @@ window.HikaryCarousel=(()=>{
       });
       void loadFonts();refresh();
     }
-    async function decode(blob,name){const image=await createImageBitmap(blob);if(image.width*image.height>40000000){image.close();throw new Error('사진 해상도가 너무 커요. 줄인 뒤 추가해주세요.');}return {id:crypto.randomUUID(),name,image};}
-    function closePhotos(){photos.forEach(p=>p.image.close());photos=[];}
+    async function decode(blob,name){const image=await createImageBitmap(blob);if(image.width*image.height>40000000){image.close();throw new Error('사진 해상도가 너무 커요.');}return {id:crypto.randomUUID(),name,image};}
+    // Mirror the product photos from step 03 (not the long detail images); runs one at a time.
+    function syncPhotos(){
+      syncing=syncing.then(async()=>{
+        const wanted=options.images().filter(image=>image.kind!=='detail').slice(0,10),next=[];let failed=0;
+        for(const source of wanted){let photo=photos.find(p=>p.source===source);if(!photo){try{photo=await decode(await options.blob(source),source.name);photo.source=source;}catch{failed++;continue;}}next.push(photo);}
+        photos.filter(p=>!next.includes(p)).forEach(p=>p.image.close());photos=next;
+        if(failed)options.notice(`사진 ${failed}장을 불러오지 못했어요. 03에서 직접 사진을 추가할 수 있습니다.`,true);
+      });
+      return syncing;
+    }
     function download(blob,name){const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),3000);}
     async function generate(){
-      if(!$('carouselName').value.trim()||!$('carouselDescription').value.trim())throw new Error('상품명과 상세 설명을 먼저 확인해주세요.');
-      options.notice('상품 근거로 캐러셀 문구를 만들고 있어요…');
-      const result=await options.request('carousel',{productName:$('carouselName').value,description:$('carouselDescription').value});
+      const product=options.product();
+      if(!product.productName||!product.description.trim())throw new Error('02 상품정보에서 상품명과 상세 설명을 먼저 확인해주세요.');
+      if(content&&!confirm('지금 캐러셀 문구를 새 AI 초안으로 바꿀까요?'))return;
+      options.notice('상품 근거로 캐러셀 문구를 만들고 있어요…');await syncPhotos();
+      const result=await options.request('carousel',{productName:product.productName,description:product.description});
       if(!result.content?.cover)throw new Error('캐러셀 서버 버전을 확인해주세요.');
       content=result.content;included={};choices={};$('carouselCaption').value=result.caption||'';$('carouselWarnings').textContent=(result.warnings||[]).join('\n');render();options.changed();
-      options.notice('캐러셀 초안을 만들었어요. 사진·문구·제휴 고지를 검토 후 다운로드해주세요.');
+      options.notice('캐러셀 초안을 만들었어요. 사진·문구·제휴 고지를 검토 후 저장·다운로드해주세요.');
     }
     for(const radio of document.getElementsByName('carouselDesign')){radio.checked=radio.value===settings.design;radio.onchange=()=>{settings.design=radio.value;saveSettings();render();};}
     for(const [id,key] of [['carouselChannel','channel'],['carouselHandle','handle'],['carouselColor','color'],['carouselIssue','issue'],['carouselBio','bio']]){$(id).value=settings[key];$(id).oninput=()=>{settings[key]=$(id).value;saveSettings();refresh();};}
-    $('carouselMake').onclick=()=>{
-      let url;try{url=new URL($('carouselUrl').value);if(url.protocol!=='https:'||url.username||url.password)throw new Error();}catch{options.notice('https 상품 링크를 입력해주세요.',true);return;}
-      if(content&&!confirm('현재 캐러셀을 새 상품으로 바꿀까요?'))return;
-      void options.task(async()=>{
-        options.notice('상품 링크에서 이름·설명·사진을 읽고 있어요…');
-        const data=await options.request('analyze',{url:url.href});
-        $('carouselName').value=data.name||'';$('carouselDescription').value=data.description||'';$('carouselInfo').open=true;$('carouselEvidence').textContent=(data.warnings||[]).join('\n');
-        content=null;closePhotos();$('carouselCaption').value='';render();options.changed();
-        let failed=0;for(const asset of (data.imageAssets||(data.images||[]).map(url=>({url,kind:'product'}))).filter(p=>p.kind==='product').slice(0,5)){
-          try{const media=await options.request('image',{url:asset.url});const bytes=Uint8Array.from(atob(media.data),c=>c.charCodeAt(0));photos.push(await decode(new Blob([bytes],{type:media.mimeType}),`상품 사진 ${photos.length+1}`));}catch{failed++;}
-        }
-        if(failed)$('carouselEvidence').textContent+='\n일부 사진을 불러오지 못했어요. 직접 사진을 추가할 수 있습니다.';
-        await generate();
-      });
-    };
-    $('carouselRegenerate').onclick=()=>{if(content&&!confirm('수정한 문구를 AI 초안으로 바꿀까요?'))return;void options.task(generate);};
-    $('carouselPhotos').onchange=event=>{const files=[...event.target.files];event.target.value='';void options.task(async()=>{for(const file of files){if(photos.length>=10)throw new Error('사진은 최대 10장까지 추가해주세요.');if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>12*1024*1024)throw new Error('장당 12MB 이하 JPG·PNG·WebP를 추가해주세요.');photos.push(await decode(file,file.name));}render();options.changed();options.notice('사진을 추가했어요. 각 장에서 사용할 사진을 선택해주세요.');});};
-    $('carouselDisclosure').oninput=edited;for(const id of ['carouselUrl','carouselName','carouselDescription','carouselCaption'])$(id).oninput=options.changed;
+    $('carouselMake').onclick=()=>void options.task(generate);
+    $('carouselDisclosure').oninput=edited;$('carouselCaption').oninput=options.changed;
     $('carouselDownload').onclick=()=>void options.task(async()=>{
       if(!content)throw new Error('캐러셀을 먼저 만들어주세요.');await loadFonts();paintAll();
       const active=slides().map((_,i)=>i).filter(on);if(!active.length)throw new Error('넣을 장을 하나 이상 선택해주세요.');
@@ -121,16 +121,41 @@ window.HikaryCarousel=(()=>{
       blobs.forEach((b,n)=>download(b,`HIKARY-carousel-${String(n+1).padStart(2,'0')}.png`));options.notice(`PNG ${blobs.length}장 다운로드를 요청했어요. 브라우저에서 여러 파일 다운로드를 허용해주세요.`);
     });
     $('carouselText').onclick=()=>{
-      if(!content)return;const lines=[];let n=0;
+      if(!content)return;const lines=[];let n=0;const product=options.product();
       slides().forEach((slide,i)=>{
         if(!on(i))return;lines.push(`${++n}. ${slide.title}`);
         for(const [path,label] of slide.fields||[])if(get(path))lines.push(`${label}: ${get(path)}`);
         for(const {path,keys} of slide.lists||[])for(const item of D.filled(get(path)))lines.push('- '+(keys?keys.map(([k])=>item[k]).filter(Boolean).join(' / '):item));
         lines.push('');
       });
-      download(new Blob([`${$('carouselName').value}\n원본: ${$('carouselUrl').value}\n디자인: ${D.designs[settings.design].name}\n\n${lines.join('\n')}\n게시글\n${$('carouselCaption').value}\n\n고지\n${$('carouselDisclosure').value}`],{type:'text/plain;charset=utf-8'}),'HIKARY-carousel.txt');
+      download(new Blob([`${product.productName}\n원본: ${product.sourceUrl}\n디자인: ${D.designs[settings.design].name}\n\n${lines.join('\n')}\n게시글\n${$('carouselCaption').value}\n\n고지\n${$('carouselDisclosure').value}`],{type:'text/plain;charset=utf-8'}),'HIKARY-carousel.txt');
     };
-    $('carouselClear').onclick=()=>{if(!confirm('현재 캐러셀 내용을 비울까요?'))return;closePhotos();content=null;included={};choices={};for(const id of ['carouselUrl','carouselName','carouselDescription','carouselCaption','carouselDisclosure'])$(id).value='';$('carouselEvidence').textContent='';$('carouselWarnings').textContent='';render();options.onClear?.();};
+    $('carouselSave').onclick=()=>void options.task(async()=>{
+      if(!content)throw new Error('캐러셀을 먼저 만들어주세요.');const product=options.product();
+      if(!product.productName||!/^https:\/\//i.test(product.sourceUrl))throw new Error('01 원본 링크와 02 상품명을 확인해주세요.');
+      const script=pack({design:settings.design,content,included,disclosure:$('carouselDisclosure').value});
+      if(script.length>12000)throw new Error('캐러셀 문구가 너무 길어요. 일부 항목을 줄여주세요.');
+      const result=await options.request('save',{...saved,id:carouselId,revision,format:'캐러셀',category:product.category,productName:product.productName,sourceUrl:product.sourceUrl,affiliateUrl:product.affiliateUrl,script,instagram:$('carouselCaption').value});
+      revision=result.revision;options.onSaved?.();$('carouselSave').textContent='수정 내용 저장 →';
+      options.notice(result.replayed?'이미 같은 내용이 저장되어 있어요.':'캐러셀을 저장했어요. 업로드 관리에서 확인하고, 올린 뒤 업로드 기록을 남겨주세요.');
+    });
+    function reset(){content=null;included={};choices={};carouselId=crypto.randomUUID();revision=null;saved={};for(const id of ['carouselCaption','carouselDisclosure'])$(id).value='';$('carouselWarnings').textContent='';$('carouselSave').textContent='캐러셀 저장 →';render();}
+    $('carouselClear').onclick=()=>{if(content&&!confirm('현재 캐러셀 내용을 비울까요?'))return;reset();options.onClear?.();};
+    return {
+      reset,
+      // Re-read step 03 photos (new link, added or removed images) and redraw.
+      show(){void syncPhotos().then(render);},
+      open(row){
+        const state=unpack(row.script);if(!state)return false;
+        reset();content=state.content;included=state.included||{};carouselId=row.id;revision=row.revision;
+        saved={notes:row.notes||'',youtube:row.youtube||'',tiktok:row.tiktok||''};
+        for(const key of ['youtube','instagram','tiktok'])for(const part of ['Status','Date','Link'])saved[key+part]=row[key+part]||'';
+        if(D.designs[state.design]){settings.design=state.design;saveSettings();for(const radio of document.getElementsByName('carouselDesign'))radio.checked=radio.value===settings.design;}
+        $('carouselCaption').value=row.instagram||'';$('carouselDisclosure').value=state.disclosure||'';$('carouselSave').textContent='수정 내용 저장 →';render();return true;
+      },
+      // The upload dialog saved this same item: take its revision and upload fields so the next save keeps them.
+      updateSaved(id,nextRevision,fields){if(id!==carouselId)return;revision=nextRevision;for(const key of ['youtube','instagram','tiktok'])for(const part of ['Status','Date','Link'])saved[key+part]=fields[key+part]||'';}
+    };
   }
-  return {create};
+  return {create,pack,unpack};
 })();

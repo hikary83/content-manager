@@ -5,7 +5,13 @@ const content=()=>({emoji:'🌊',cover:{label:'TRAVEL PICK',hook:'주말엔 어�
 const sample=()=>({content:content(),caption:'게시 전 확인',warnings:['조건 확인']});
 function canvas(){const state={};const c=new Proxy(state,{get(t,p){if(p==='measureText')return s=>({width:String(s).length*Number(/(\d+)px/.exec(t.font||'10px')[1])*.9});if(p==='createLinearGradient')return ()=>({addColorStop(){}});if(p in t)return t[p];return ()=>{};}});return {getContext:()=>c};}
 const settings={channel:'HIKARY',handle:'hikary',color:'#FF6B1A',issue:'01',bio:'',disclosure:'',month:'NOVEMBER 2026',today:'11월 1일'};
-test('캐러셀은 독립 메뉴·숨김 영역과 연결되고 디자인 엔진과 글꼴을 먼저 불러온다',()=>{const html=fs.readFileSync(new URL('../docs/index.html',import.meta.url),'utf8');assert.match(html,/id="carouselTab"/);assert.match(html,/id="carouselMount" hidden/);assert.ok(html.indexOf('carousel-designs.js')<html.indexOf('js/carousel.js'));assert.match(html,/pretendard@v[\d.]+\/dist\/web\/static\/pretendard\.css/);assert.match(html,/Nanum\+Pen\+Script/);});
+vm.runInNewContext(fs.readFileSync(new URL('../docs/js/carousel.js',import.meta.url),'utf8'),{window});const editor=window.HikaryCarousel;
+test('캐러셀 저장 내용은 표식과 함께 문구·설정만 담고 손상되거나 다른 형식이면 읽지 않는다',()=>{
+  const state={design:'glass',content:content(),included:{'glass:4':false},disclosure:'광고 포함'};const text=editor.pack(state);
+  assert.ok(text.startsWith('### HIKARY CAROUSEL v1\n'));assert.equal(JSON.stringify(editor.unpack(text)),JSON.stringify(state));
+  assert.equal(editor.unpack('대본\n\n### HIKARY PLAN v1\n{}'),null);assert.equal(editor.unpack('### HIKARY CAROUSEL v1\n{broken'),null);assert.equal(editor.unpack('### HIKARY CAROUSEL v1\n{"content":{}}'),null);
+});
+test('캐러셀은 새 콘텐츠의 형식 선택과 숨김 영역에 연결되고 디자인 엔진과 글꼴을 먼저 불러온다',()=>{const html=fs.readFileSync(new URL('../docs/index.html',import.meta.url),'utf8');assert.match(html,/id="formatCarousel"/);assert.match(html,/id="carouselMount" hidden/);assert.ok(html.indexOf('carousel-designs.js')<html.indexOf('js/carousel.js'));assert.match(html,/pretendard@v[\d.]+\/dist\/web\/static\/pretendard\.css/);assert.match(html,/Nanum\+Pen\+Script/);});
 test('AI 응답은 공통 블록 구조·개수·길이를 검증한다',()=>{
   const ok=server.validateCarousel_(sample());assert.equal(ok.content.points.items[0].title,'입장권');
   let data=sample();data.content.checks.items=Array.from({length:6},()=>({title:'a',text:'b'}));assert.throws(()=>server.validateCarousel_(data));

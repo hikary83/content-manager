@@ -1,8 +1,12 @@
 /* HIKARY only. No credentials or endpoints from kic-worktools. */
-var SERVICE_VERSION = '1.6.1';
-var CONTENT_HEADERS = ['콘텐츠 ID', '등록일', '카테고리', '상품명', '원본 링크', '변환 링크', '대본', 'YouTube 게시글', 'YouTube 상태', 'Instagram 게시글', 'Instagram 상태', 'TikTok 게시글', 'TikTok 상태', '비고'];
-var CONTENT_KEYS = ['id', 'createdAt', 'category', 'productName', 'sourceUrl', 'affiliateUrl', 'script', 'youtube', 'youtubeStatus', 'instagram', 'instagramStatus', 'tiktok', 'tiktokStatus', 'notes'];
+var SERVICE_VERSION = '1.7.0';
+// Columns 1-14 are the original ledger. 15-21 (v1.7.0) are appended so existing rows never move.
+var LEGACY_HEADER_COUNT = 14;
+var CONTENT_HEADERS = ['콘텐츠 ID', '등록일', '카테고리', '상품명', '원본 링크', '변환 링크', '대본', 'YouTube 게시글', 'YouTube 상태', 'Instagram 게시글', 'Instagram 상태', 'TikTok 게시글', 'TikTok 상태', '비고', '형식', 'YouTube 업로드일', 'YouTube 링크', 'Instagram 업로드일', 'Instagram 링크', 'TikTok 업로드일', 'TikTok 링크'];
+var CONTENT_KEYS = ['id', 'createdAt', 'category', 'productName', 'sourceUrl', 'affiliateUrl', 'script', 'youtube', 'youtubeStatus', 'instagram', 'instagramStatus', 'tiktok', 'tiktokStatus', 'notes', 'format', 'youtubeDate', 'youtubeLink', 'instagramDate', 'instagramLink', 'tiktokDate', 'tiktokLink'];
 var CONTENT_STATUSES = ['미업로드', '업로드완료', '보류'];
+var CONTENT_FORMATS = ['쇼츠', '캐러셀'];
+var UPLOAD_PLATFORMS = ['youtube', 'instagram', 'tiktok'];
 
 // Run only in the NEW project. No sheet writes; existing properties are preserved.
 function initializeProject() {
@@ -52,8 +56,14 @@ function getContentSheet_() {
   if (!id || !name) throw userError_('SHEET_ID와 SHEET_NAME을 설정해주세요.');
   var sheet = SpreadsheetApp.openById(id).getSheetByName(name);
   if (!sheet) throw userError_('설정한 시트 탭을 찾지 못했어요.');
+  if (sheet.getMaxColumns() < CONTENT_HEADERS.length) sheet.insertColumnsAfter(sheet.getMaxColumns(), CONTENT_HEADERS.length - sheet.getMaxColumns());
   var headers = sheet.getRange(1, 1, 1, CONTENT_HEADERS.length).getDisplayValues()[0];
-  if (JSON.stringify(headers) !== JSON.stringify(CONTENT_HEADERS)) throw userError_('운영대장 컬럼이 예상과 달라요. 데이터를 보호하기 위해 작업을 중단했어요.');
+  if (JSON.stringify(headers.slice(0, LEGACY_HEADER_COUNT)) !== JSON.stringify(CONTENT_HEADERS.slice(0, LEGACY_HEADER_COUNT))) throw userError_('운영대장 컬럼이 예상과 달라요. 데이터를 보호하기 위해 작업을 중단했어요.');
+  var added = headers.slice(LEGACY_HEADER_COUNT), expected = CONTENT_HEADERS.slice(LEGACY_HEADER_COUNT);
+  if (JSON.stringify(added) === JSON.stringify(expected)) return sheet;
+  // Fill the v1.7.0 headers only into empty cells; anything else there is someone's data, so stop.
+  if (added.some(function(value) { return value !== ''; })) throw userError_('운영대장 15~21번째 칸에 다른 내용이 있어요. 데이터를 보호하기 위해 작업을 중단했어요.');
+  sheet.getRange(1, LEGACY_HEADER_COUNT + 1, 1, expected.length).setValues([expected]);
   return sheet;
 }
 function rowEntry_(row) {
@@ -75,6 +85,16 @@ function validateEntry_(input) {
   if (!entry.category || !entry.productName || !entry.script) throw userError_('상품명·카테고리·대본은 필수예요.');
   if (!/^https:\/\/[^\s@]+\.[^\s]+$/i.test(entry.sourceUrl) || (entry.affiliateUrl && !/^https:\/\/[^\s@]+\.[^\s]+$/i.test(entry.affiliateUrl))) throw userError_('https 상품 링크를 확인해주세요.');
   ['youtubeStatus','instagramStatus','tiktokStatus'].forEach(function(key) { entry[key] = input[key] || '미업로드'; if (CONTENT_STATUSES.indexOf(entry[key]) < 0) throw userError_('업로드 상태가 올바르지 않아요.'); });
+  // New fields are optional so a v1.6 screen can still save while the server is updated first.
+  entry.format = input.format || '쇼츠';
+  if (CONTENT_FORMATS.indexOf(entry.format) < 0) throw userError_('콘텐츠 형식이 올바르지 않아요.');
+  UPLOAD_PLATFORMS.forEach(function(platform) {
+    var date = field_(input[platform + 'Date'] || '', 10), link = field_(input[platform + 'Link'] || '', 2000);
+    if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw userError_('업로드일은 YYYY-MM-DD 형식으로 입력해주세요.');
+    if (link && !/^https:\/\/[^\s@]+\.[^\s]+$/i.test(link)) throw userError_('게시물 링크는 https 주소로 입력해주세요.');
+    entry[platform + 'Date'] = date; entry[platform + 'Link'] = link;
+    if (link) entry[platform + 'Status'] = '업로드완료';
+  });
   return entry;
 }
 function sameEntry_(existing, candidate) { return CONTENT_KEYS.filter(function(key) { return key !== 'createdAt'; }).every(function(key) { return existing[key] === candidate[key]; }); }

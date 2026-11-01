@@ -24,7 +24,8 @@ test('HTML 권한 오류를 성공으로 처리하지 않는다',async()=>{
 });
 test('폼 필드와 상태 입력이 정적 화면에 포함된다',()=>{
   const html=readFileSync(new URL('../docs/index.html',import.meta.url),'utf8');
-  for(const id of ['sourceUrl','productName','description','affiliateUrl','script','youtube','instagram','tiktok','youtubeStatus','instagramStatus','tiktokStatus','notes','apiUrl']) assert.ok(html.includes(`id="${id}"`),id);
+  for(const id of ['sourceUrl','productName','description','affiliateUrl','script','youtube','instagram','tiktok','youtubeStatus','instagramStatus','tiktokStatus','notes','apiUrl','createTab','managementTab','formatShorts','formatCarousel','uploadDialog','uploadPlatform','uploadStatus','uploadDate','uploadLink']) assert.ok(html.includes(`id="${id}"`),id);
+  assert.doesNotMatch(html,/id="(registrationTab|carouselTab|referenceTab)"/);
   assert.doesNotMatch(html,/accessToken|APP_ACCESS_TOKEN/);
   assert.match(html,/formnovalidate/);assert.doesNotMatch(html,/AIza[A-Za-z0-9_-]{20,}/);
 });

@@ -4,11 +4,13 @@ import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
 
-function runtime() {
-  const rows = [['콘텐츠 ID','등록일','카테고리','상품명','원본 링크','변환 링크','대본','YouTube 게시글','YouTube 상태','Instagram 게시글','Instagram 상태','TikTok 게시글','TikTok 상태','비고']];
+const LEGACY_HEADERS = ['콘텐츠 ID','등록일','카테고리','상품명','원본 링크','변환 링크','대본','YouTube 게시글','YouTube 상태','Instagram 게시글','Instagram 상태','TikTok 게시글','TikTok 상태','비고'];
+const ADDED_HEADERS = ['형식','YouTube 업로드일','YouTube 링크','Instagram 업로드일','Instagram 링크','TikTok 업로드일','TikTok 링크'];
+function runtime({ legacy = false } = {}) {
+  const rows = [legacy ? [...LEGACY_HEADERS] : [...LEGACY_HEADERS, ...ADDED_HEADERS]];
   const props = new Map([['SHEET_ID','test'],['SHEET_NAME','콘텐츠 관리']]);
   let writes = 0; let fetches = 0;
-  const sheet = { getLastRow: () => rows.length, getMaxRows: () => 1000,
+  const sheet = { getLastRow: () => rows.length, getMaxRows: () => 1000, getMaxColumns: () => 26, insertColumnsAfter() {},
     getRange(row, col, height = 1, width = 1) { return {
       getValues: () => Array.from({length:height}, (_, y) => Array.from({length:width}, (_, x) => rows[row-1+y]?.[col-1+x] ?? '')),
       getDisplayValues() { return this.getValues(); },
@@ -54,6 +56,25 @@ test('헤더 불일치·잘못된 업로드 상태를 거부하고 수식을 문
   const env=runtime();assert.throws(()=>env.context.saveEntry_({...sample(),youtubeStatus:'INVALID'}),/업로드 상태/);
   assert.equal(env.context.sheetLiteral_('=IMPORTXML("x")'),"'=IMPORTXML(\"x\")");
   env.rows[0][0]='다른 컬럼';assert.throws(()=>env.context.saveEntry_(sample()),/컬럼/);assert.equal(env.writes(),0);
+});
+test('기존 14칸 시트는 오른쪽 빈칸에만 새 머리글을 채우고 다른 내용이 있으면 멈춘다', () => {
+  const env=runtime({legacy:true});env.rows.push(['old-id','2026-10-01','여행','기존 상품','https://trip.coupang.com/p','','대본','','미업로드','','미업로드','','미업로드','']);
+  const entries=env.context.readEntries_();assert.deepEqual(env.rows[0].slice(14),ADDED_HEADERS);assert.equal(entries[0].productName,'기존 상품');assert.equal(entries[0].format,'');
+  const blocked=runtime({legacy:true});blocked.rows[0][16]='메모';assert.throws(()=>blocked.context.readEntries_(),/15~21/);assert.equal(blocked.writes(),0);
+});
+test('형식·업로드일·게시물 링크를 검증하고 링크가 있으면 업로드완료로 저장한다', () => {
+  const env=runtime();const input={...sample(),format:'캐러셀',instagramDate:'2026-11-01',instagramLink:'https://www.instagram.com/p/abc/'};
+  env.context.saveEntry_(input);const saved=env.context.readEntries_()[0];
+  assert.equal(saved.format,'캐러셀');assert.equal(saved.instagramStatus,'업로드완료');assert.equal(saved.instagramLink,input.instagramLink);assert.equal(saved.youtubeStatus,'미업로드');
+  assert.equal(env.context.saveEntry_(sample()).replayed,false);assert.equal(env.context.readEntries_()[0].format,'쇼츠');
+  assert.throws(()=>env.context.saveEntry_({...sample(),format:'릴스'}),/형식/);
+  assert.throws(()=>env.context.saveEntry_({...sample(),youtubeDate:'11/01'}),/YYYY-MM-DD/);
+  assert.throws(()=>env.context.saveEntry_({...sample(),tiktokLink:'javascript:alert(1)'}),/https/);
+});
+test('쿠팡이 빈 상품 페이지를 주면 성공으로 넘기지 않고 직접 입력을 안내한다', () => {
+  const env=runtime();
+  assert.throws(()=>env.context.parseProduct_('<title>null -  | 쿠팡</title><div>쿠팡에서 null 구매하고</div>','https://www.coupang.com/vp/products/1'),/직접 입력/);
+  assert.equal(env.context.parseProduct_('<title>삼다수 2L, 6개 - 생수 | 쿠팡</title>','https://www.coupang.com/vp/products/1').name,'삼다수 2L, 6개 - 생수');
 });
 test('메타·본문·JSON-LD·상세 이미지를 추출한다', () => {
   const env=runtime();
