@@ -41,6 +41,12 @@ test('배경음악은 폴더 이름으로 고르고, 같은 이름이면 같은 
   assert.notDeepEqual(a.picks,b.picks,'다른 이름이면 다른 곡');
   assert.equal(a.wav.length,44+2*44100*4,'2초 스테레오 WAV');
 });
+test('색 대비는 WCAG 계산을 따른다',async()=>{
+  const {contrast}=await import(new URL('../tools/colors.mjs',import.meta.url).href);
+  assert.equal(Math.round(contrast('#ffffff','#000000')),21);
+  assert.equal(contrast('#777777','#ffffff').toFixed(2),'4.48');
+  assert.equal(contrast('#e3b04b','#171717'),contrast('#171717','#e3b04b'),'순서와 상관없다');
+});
 test('효과음 목록은 「초 소리 [크기]」만 받는다',async()=>{
   const {parseCues}=await import(pathToFileURL(sfx).href);
   assert.deepEqual(parseCues('0.12 pop .5, 1.9 whoosh'),[[0.12,'pop',0.5],[1.9,'whoosh',0.6]]);

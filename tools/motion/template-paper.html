@@ -11,7 +11,13 @@
    자막: <span class="k"> 안의 <i>·<em>이 차례로 켜진다(최대 9개, <br>도 한 칸). 어두운 장면은 cap dk, 금색 판 위는 cap gd.
    글씨는 x 60~900, y 200~1480 안에. 고지는 첫 장면과 마지막 장면.
    효과음: <body data-sfx>에 「초 소리 [크기]」 목록 (tools/motion/sfx.mjs). 장면 시각이나 타자 글자 수를 바꾸면 같이 고친다. */
-:root{--paper:#f1eee8;--ink:#171717;--gold:#e3b04b;--gold2:#d9a63c;--gray:#8a857c}
+/* 색: 상품에 맞춰 이 블록만 바꾼다 (CLAUDE.md §4 · 후보는 node tools/colors.mjs).
+   포인트 --point(강조 상자·칩·스티커) · --point2(금색 판·커서) · --on-point(그 위 글자, 대비 큰 쪽)
+   배경 톤 --paper(종이) · --glow1~3(흐린 색 번짐) · --night(어두운 장면 바탕) · --night1·2(어두운 장면 불빛) */
+:root{--ink:#171717;--gray:#8a857c;
+  --point:#e3b04b;--point2:#d9a63c;--on-point:#171717;
+  --paper:#f1eee8;--glow1:#f5c27a;--glow2:#c7c0f2;--glow3:#f4b8a0;
+  --night:#0a0d1f;--night1:rgba(120,80,210,.5);--night2:rgba(20,130,150,.38)}
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{width:1080px;height:1920px;overflow:hidden}
 body{position:relative;background:var(--paper);font-family:Jua,sans-serif;font-synthesis:none;color:var(--ink);letter-spacing:-.5px;word-break:keep-all}
@@ -38,13 +44,13 @@ em,i{font-style:normal}
 
 .disc{position:absolute;left:60px;width:840px;top:200px;padding:16px 24px;border-radius:22px;background:rgba(255,255,255,.72);border:1px solid rgba(0,0,0,.06);color:#3a3732;font-size:29px;line-height:1.45}
 .chap{position:absolute;left:0;right:0;margin:auto;top:300px;width:max-content;padding:14px 32px 10px;border-radius:999px;background:var(--ink);color:#fff;font-size:40px}
-.chap.g{background:var(--gold);color:var(--ink)}
+.chap.g{background:var(--point);color:var(--on-point)}
 
 /* 아래 자막: 흐린 글자가 한 단어씩 켜지고 핵심어는 금색 상자 (80px, 상자 폭 840px — 한 줄 10자 안팎) */
 .cap{position:absolute;left:60px;right:180px;top:1250px;height:210px;display:flex;align-items:center;justify-content:center;text-align:center;opacity:0;animation:show var(--len) linear var(--at)}
-.k{font-size:80px;line-height:1.24;--dim:rgba(23,23,23,.24);--on:var(--ink);--box:var(--gold);--boxc:var(--ink);animation:capin .35s cubic-bezier(.3,1.5,.5,1) var(--at) both}
+.k{font-size:80px;line-height:1.24;--dim:rgba(23,23,23,.24);--on:var(--ink);--box:var(--point);--boxc:var(--on-point);animation:capin .35s cubic-bezier(.3,1.5,.5,1) var(--at) both}
 .dk .k{--dim:rgba(255,255,255,.3);--on:#fff}
-.gd .k{--dim:rgba(0,0,0,.32);--box:var(--ink);--boxc:var(--gold)}
+.gd .k{--dim:color-mix(in srgb,var(--on-point) 32%,transparent);--on:var(--on-point);--box:var(--on-point);--boxc:var(--point)}
 .k>*{--n:0;color:var(--dim);animation:lit .18s linear calc(var(--at) + .12s + var(--n) * .16s) both}
 /* 주아체는 글자 아래 여백이 커서 위쪽 여백을 더 줘야 상자 가운데에 온다 */
 .k>em{padding:.14em .14em 0;border-radius:.16em;-webkit-box-decoration-break:clone;box-decoration-break:clone;animation-name:box}
@@ -61,51 +67,51 @@ em,i{font-style:normal}
 .hl{position:absolute;left:0;right:0;top:640px;text-align:center}
 .hl small{display:block;font-size:66px;color:#3a3732}
 .hl b{display:block;font-weight:400;font-size:140px;line-height:1.15}
-.hl em{background:var(--gold);padding:.12em .1em 0;border-radius:.12em}
+.hl em{background:var(--point);color:var(--on-point);padding:.12em .1em 0;border-radius:.12em}
 .search{position:absolute;left:90px;width:840px;top:440px;height:116px;border-radius:58px;background:#fff;display:flex;align-items:center;gap:24px;padding:0 40px;font-size:48px;box-shadow:0 18px 44px rgba(0,0,0,.1)}
 .mag{flex:none;position:relative;width:42px;height:42px;border:6px solid var(--ink);border-radius:50%}
 .mag::after{content:"";position:absolute;right:-15px;bottom:-13px;width:19px;height:6px;border-radius:3px;background:var(--ink);transform:rotate(45deg)}
 .typed i{opacity:0;animation:on 1ms linear calc(var(--at) + var(--d)) both}
-.caret{display:inline-block;width:4px;height:52px;margin-left:6px;vertical-align:-8px;background:var(--gold2);animation:blink .8s steps(1) infinite}
+.caret{display:inline-block;width:4px;height:52px;margin-left:6px;vertical-align:-8px;background:var(--point2);animation:blink .8s steps(1) infinite}
 @keyframes blink{50%{opacity:0}}
-.res{position:absolute;left:90px;width:840px;top:610px;display:flex;gap:30px;align-items:center;padding:24px;border-radius:36px;background:#fff;border:5px solid var(--gold);box-shadow:0 22px 50px rgba(160,120,30,.22)}
+.res{position:absolute;left:90px;width:840px;top:610px;display:flex;gap:30px;align-items:center;padding:24px;border-radius:36px;background:#fff;border:5px solid var(--point);box-shadow:0 22px 50px color-mix(in srgb,var(--point2) 30%,transparent)}
 .res>i{flex:none;width:230px;height:230px;border-radius:24px;background:center/cover}
 .res b{display:block;font-weight:400;font-size:56px}
 .res small{display:block;margin-top:8px;font-size:30px;color:var(--gray)}
-.res span{display:inline-block;margin-top:16px;padding:8px 20px 4px;border-radius:999px;background:var(--gold);font-size:28px}
+.res span{display:inline-block;margin-top:16px;padding:8px 20px 4px;border-radius:999px;background:var(--point);color:var(--on-point);font-size:28px}
 .skel{position:absolute;left:120px;width:780px;height:96px;border-radius:28px;background:rgba(255,255,255,.55);border:1px solid rgba(0,0,0,.05)}
 .skel::before{content:"";position:absolute;left:22px;top:18px;width:60px;height:60px;border-radius:16px;background:rgba(0,0,0,.07)}
 .skel::after{content:"";position:absolute;left:108px;top:28px;width:var(--w);height:16px;border-radius:8px;background:rgba(0,0,0,.08);box-shadow:-60px 26px 0 -2px rgba(0,0,0,.05)}
 
 /* 금색 판 전환: w1은 3.8초에 올라와 3초 머물며 숫자를 싣고, w2는 16초에 1초 동안 지나간다 */
-.wipe{position:absolute;inset:0;background:var(--gold2);transform:translateY(100%)}
+.wipe{position:absolute;inset:0;background:var(--point2);transform:translateY(100%)}
 .w1{animation:wipe1 3.05s linear 3.8s both}
 @keyframes wipe1{0%{transform:translateY(100%);animation-timing-function:cubic-bezier(.7,0,.2,1)}14.75%{transform:translateY(0)}85.25%{transform:translateY(0);animation-timing-function:cubic-bezier(.7,0,.2,1)}100%{transform:translateY(-100%)}}
 .w2{animation:wipe2 1s linear 16s both}
 @keyframes wipe2{0%{transform:translateY(100%);animation-timing-function:cubic-bezier(.7,0,.2,1)}45%{transform:translateY(0)}55%{transform:translateY(0);animation-timing-function:cubic-bezier(.7,0,.2,1)}100%{transform:translateY(-100%)}}
-.tag{position:absolute;left:0;right:0;margin:auto;top:520px;width:max-content;padding:14px 32px 10px;border-radius:999px;background:var(--ink);color:var(--gold);font-size:40px}
-.line{position:absolute;left:0;right:0;top:615px;text-align:center;font-size:66px}
-.num{position:absolute;left:0;right:0;top:720px;text-align:center;font-size:140px;line-height:1}
+.tag{position:absolute;left:0;right:0;margin:auto;top:520px;width:max-content;padding:14px 32px 10px;border-radius:999px;background:var(--ink);color:var(--point);font-size:40px}
+.line{position:absolute;left:0;right:0;top:615px;text-align:center;font-size:66px;color:var(--on-point)}
+.num{position:absolute;left:0;right:0;top:720px;text-align:center;font-size:140px;line-height:1;color:var(--on-point)}
 /* 숫자 굴리기: <b>를 0부터 센 숫자까지 늘리고, roll 끝 값을 -(마지막 칸 번호)em으로 맞춘다 */
 .roll{display:inline-block;height:1em;overflow:hidden;font-size:330px;line-height:1;vertical-align:-.08em}
 .roll>span{display:block;animation:roll 1s cubic-bezier(.2,.8,.2,1) calc(var(--at) + .8s) both}
 .roll b{display:block;height:1em;font-weight:400}
 @keyframes roll{from{transform:translateY(0)}to{transform:translateY(-3em)}}
-.basis{position:absolute;left:0;right:0;top:1110px;text-align:center;font-size:30px;color:rgba(0,0,0,.6)}
+.basis{position:absolute;left:0;right:0;top:1110px;text-align:center;font-size:30px;color:color-mix(in srgb,var(--on-point) 60%,transparent)}
 
 /* 02 후기 카드 */
 .rcard{position:absolute;left:90px;width:840px;top:440px;padding:32px 40px 10px;border-radius:40px;background:#fff;box-shadow:0 24px 60px rgba(0,0,0,.1)}
 .rhead{display:flex;gap:22px;align-items:center;padding-bottom:24px;border-bottom:2px solid #eee}
-.rhead>i{flex:none;display:grid;place-items:center;width:72px;height:72px;border-radius:50%;background:var(--gold);font-family:Georgia,serif;font-size:76px;line-height:1;padding-top:30px}
+.rhead>i{flex:none;display:grid;place-items:center;width:72px;height:72px;border-radius:50%;background:var(--point);color:var(--on-point);font-family:Georgia,serif;font-size:76px;line-height:1;padding-top:30px}
 .rhead b{display:block;font-weight:400;font-size:46px}
 .rhead small{display:block;margin-top:4px;font-size:27px;color:var(--gray)}
 .row{display:flex;justify-content:space-between;align-items:center;padding:28px 0;border-bottom:2px solid #f2f0ec;font-size:44px}
 .row:last-child{border:0}
-.chip{padding:10px 22px 6px;border-radius:999px;background:var(--gold);font-size:32px}
+.chip{padding:10px 22px 6px;border-radius:999px;background:var(--point);color:var(--on-point);font-size:32px}
 
 /* 03 어두운 장면: 원이 커지며 열린다 (9.8초부터 6.7초) */
 .night{position:absolute;inset:0;opacity:0;overflow:hidden;
-  background:radial-gradient(circle at 78% 78%,rgba(120,80,210,.5),transparent 48%),radial-gradient(circle at 18% 22%,rgba(20,130,150,.38),transparent 42%),#0a0d1f;
+  background:radial-gradient(circle at 78% 78%,var(--night1),transparent 48%),radial-gradient(circle at 18% 22%,var(--night2),transparent 42%),var(--night);
   animation:show 6.7s linear 9.8s,iris .8s cubic-bezier(.7,0,.25,1) 9.8s both}
 @keyframes iris{from{clip-path:circle(0% at 50% 48%)}to{clip-path:circle(80% at 50% 48%)}}
 .stars{position:absolute;inset:0;background-image:radial-gradient(circle,rgba(255,255,255,.9) 1.5px,transparent 2.2px),radial-gradient(circle,rgba(255,255,255,.55) 1px,transparent 1.7px),radial-gradient(circle,rgba(255,255,255,.75) 1.2px,transparent 1.9px);
@@ -118,19 +124,19 @@ em,i{font-style:normal}
 
 /* 04 알고 가면 좋은 것 */
 .toast{position:absolute;left:120px;width:780px;top:420px;display:flex;gap:24px;align-items:center;padding:24px 30px;border-radius:30px;background:#fff;box-shadow:0 20px 50px rgba(0,0,0,.12)}
-.toast>i{flex:none;display:grid;place-items:center;width:84px;height:84px;border-radius:22px;background:var(--ink);color:var(--gold);font-size:28px}
+.toast>i{flex:none;display:grid;place-items:center;width:84px;height:84px;border-radius:22px;background:var(--ink);color:var(--point);font-size:28px}
 .toast b{display:block;font-weight:400;font-size:42px}
 .toast small{display:block;margin-top:4px;font-size:28px;color:var(--gray)}
 .toast::after{content:"";position:absolute;right:-8px;top:-8px;width:28px;height:28px;border-radius:50%;background:#e5533d;border:4px solid var(--paper)}
 .stk{position:absolute;padding:24px 36px 16px;border-radius:20px;font-size:58px;background:var(--ink);color:#fff;box-shadow:0 16px 36px rgba(0,0,0,.2);transform:rotate(var(--r));animation:stk .5s cubic-bezier(.3,1.6,.5,1) calc(var(--at) + var(--d)) both}
-.stk.g{background:var(--gold);color:var(--ink)}
-.stk.y{color:var(--gold)}
+.stk.g{background:var(--point);color:var(--on-point)}
+.stk.y{color:var(--point)}
 @keyframes stk{from{opacity:0;transform:rotate(var(--r)) scale(.3)}}
 
 /* 05 링크 */
 .porth{position:absolute;left:310px;top:400px;width:460px;height:460px;border-radius:50%;border:14px solid #fff;background:center/cover;box-shadow:0 30px 70px rgba(0,0,0,.18)}
 .link{position:absolute;left:230px;top:960px;display:flex;align-items:center;gap:22px;padding:14px 14px 14px 42px;border-radius:999px;background:var(--ink);color:#fff;font-size:52px;--r:-3deg;transform:rotate(var(--r))}
-.link i{display:grid;place-items:center;width:80px;height:80px;border-radius:50%;background:var(--gold);color:var(--ink);font-size:56px;line-height:1;padding-bottom:4px}
+.link i{display:grid;place-items:center;width:80px;height:80px;border-radius:50%;background:var(--point);color:var(--on-point);font-size:56px;line-height:1;padding-bottom:4px}
 </style></head>
 <body data-duration="25" data-sfx="0.12 pop .5, 0.4 pop .35, 0.6 pop .35, 1.9 whoosh .35, 2.05 click .5, 2.12 click .5, 2.19 click .5, 2.28 click .5, 2.35 click .5, 2.75 pop .45,
   3.75 whoosh .9, 4.25 pop .45, 4.65 tick .6, 4.8 tick .6, 5.05 tick .6, 5.45 ding .55, 6.4 whoosh .7, 7.2 pop .4, 7.8 pop .4, 8.4 pop .4,
@@ -138,9 +144,9 @@ em,i{font-style:normal}
   21.7 pop .5, 22.15 ding .6">
 
 <div class="paper">
-  <div class="blob" style="--x:-160px;--y:160px;--s:720px;--c:#f5c27a;--t:9s;--dx:120px;--dy:80px"></div>
-  <div class="blob" style="--x:560px;--y:1060px;--s:820px;--c:#c7c0f2;--t:11s;--dx:-140px;--dy:-60px"></div>
-  <div class="blob" style="--x:520px;--y:-140px;--s:520px;--c:#f4b8a0;--t:8s;--dx:-90px;--dy:100px"></div>
+  <div class="blob" style="--x:-160px;--y:160px;--s:720px;--c:var(--glow1);--t:9s;--dx:120px;--dy:80px"></div>
+  <div class="blob" style="--x:560px;--y:1060px;--s:820px;--c:var(--glow2);--t:11s;--dx:-140px;--dy:-60px"></div>
+  <div class="blob" style="--x:520px;--y:-140px;--s:520px;--c:var(--glow3);--t:8s;--dx:-90px;--dy:100px"></div>
 </div>
 
 <!-- 01 질문 훅 (0~3.8초) -->
@@ -148,13 +154,13 @@ em,i{font-style:normal}
   <p class="disc fade">이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.</p>
 </section>
 <section class="scene" style="--at:0s;--len:1.9s">
-  <i class="q" style="--x:120px;--y:470px;--s:110px;--c:var(--gold2);--r:-14deg;--d:.15s">?</i>
+  <i class="q" style="--x:120px;--y:470px;--s:110px;--c:var(--point2);--r:-14deg;--d:.15s">?</i>
   <i class="q" style="--x:800px;--y:500px;--s:90px;--c:var(--ink);--r:12deg;--d:.3s">?</i>
   <i class="q" style="--x:430px;--y:430px;--s:64px;--c:#8b6cf0;--r:8deg;--d:.45s">?</i>
   <i class="q" style="--x:70px;--y:930px;--s:76px;--c:var(--ink);--r:-8deg;--d:.55s">?</i>
   <i class="q" style="--x:840px;--y:880px;--s:100px;--c:#e5533d;--r:16deg;--d:.4s">?</i>
   <i class="q" style="--x:250px;--y:1080px;--s:84px;--c:#e5533d;--r:-18deg;--d:.7s">?</i>
-  <i class="q" style="--x:700px;--y:1090px;--s:110px;--c:var(--gold2);--r:10deg;--d:.6s">?</i>
+  <i class="q" style="--x:700px;--y:1090px;--s:110px;--c:var(--point2);--r:10deg;--d:.6s">?</i>
   <p class="hl pop" style="--d:.1s"><small>상황 질문 앞부분</small><b><em>핵심</em> 질문?</b></p>
 </section>
 <section class="scene" style="--at:1.9s;--len:1.9s">
