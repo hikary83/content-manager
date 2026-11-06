@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><title>HIKARY 카드뉴스 템플릿 · 소다</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&display=block">
+<style>
+/* 소다 카드뉴스 6장 (1080×1350) — 모션 템플릿 소다와 같은 스타일: 장마다 색이 다른 원형 그라데이션, 유리 카드,
+   위 챕터 꼬리표 · 가운데 사진이나 앱 화면 흉내 · 아래 큰 문장(핵심어는 <em>).
+   쓰는 법: contents/<폴더>/carousel.html로 복사 → 「…」 자리 글을 확인된 사실로 바꾸고, 사진은 photo-1.jpg…로 옆에 두고 ph 클래스를 뺀다 →
+     node tools/carousel/render.mjs contents/<폴더>/carousel.html   → slide-01.png …
+   장은 <section class="slide" id="sN">으로 더하거나 뺀다. 영상에 못 넣은 확인 사항은 장을 더해 넣는다. 고지는 첫 장과 마지막 장. */
+:root{--pink:#fbcfe8;--on-pink:#011d17;--sky:#5fe6ff;--ink:#0b1a33;--hi:#ffd84d}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#1b2233;font-family:Jua,sans-serif;font-synthesis:none;color:#fff;padding:40px 0;letter-spacing:-.3px;word-break:keep-all}
+.slide{position:relative;width:1080px;height:1350px;overflow:hidden;margin:0 auto 40px;
+  background:radial-gradient(circle at 50% 42%,var(--i) 0%,var(--m) 52%,var(--o) 100%)}
+/* 떠 있는 물방울 (정지 그림) */
+.slide::before{content:"";position:absolute;inset:0;pointer-events:none;background:
+  radial-gradient(circle at 7% 24%,transparent 0 13px,rgba(255,255,255,.35) 14px 16px,transparent 17px),
+  radial-gradient(circle at 93% 31%,transparent 0 20px,rgba(255,255,255,.28) 21px 23px,transparent 24px),
+  radial-gradient(circle at 90% 76%,transparent 0 9px,rgba(255,255,255,.35) 10px 12px,transparent 13px),
+  radial-gradient(circle at 5% 64%,transparent 0 24px,rgba(255,255,255,.22) 25px 27px,transparent 28px),
+  radial-gradient(circle at 72% 95%,transparent 0 12px,rgba(255,255,255,.3) 13px 15px,transparent 16px),
+  radial-gradient(circle at 28% 97%,transparent 0 7px,rgba(255,255,255,.35) 8px 10px,transparent 11px),
+  radial-gradient(circle at 50% 46%,rgba(255,255,255,.1),transparent 55%)}
+body:has(.slide:target){background:none;padding:0}
+body:has(.slide:target) .slide{margin:0}
+body:has(.slide:target) .slide:not(:target){display:none}
+/* 사진 자리 표시: 사진을 넣으면 ph 클래스를 뺀다 */
+.ph::after{content:attr(data-label) " 자리";display:grid;place-items:center;width:100%;height:100%;border-radius:inherit;background:rgba(255,255,255,.14);color:rgba(255,255,255,.75);font-size:32px}
+
+em{font-style:normal;color:var(--hi)}
+.page{position:absolute;right:72px;bottom:52px;font-size:28px;color:rgba(255,255,255,.6)}
+.swipe{position:absolute;left:72px;bottom:52px;font-size:28px;color:rgba(255,255,255,.75)}
+.glass{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);box-shadow:0 8px 32px rgba(0,0,0,.12)}
+.disclosure{position:absolute;left:60px;right:60px;top:52px;padding:14px 22px;border-radius:22px;font-size:26px;line-height:1.45;color:rgba(255,255,255,.94)}
+.chap{position:absolute;left:72px;top:64px;display:flex;align-items:center;gap:16px;padding:12px 32px 12px 22px;border-radius:999px;background:#fff;color:var(--ink);font-size:38px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+.chap::before{content:"";width:10px;height:38px;border-radius:5px;background:#ff6b9a}
+.cap{position:absolute;left:60px;right:60px;text-align:center;font-size:92px;line-height:1.16;text-shadow:0 0 10px rgba(0,0,0,.5),0 5px 18px rgba(0,0,0,.45)}
+.sub{position:absolute;left:60px;right:60px;text-align:center;font-size:36px;color:rgba(255,255,255,.85)}
+.orb{position:absolute;width:var(--s);height:var(--s);border-radius:50%;background:radial-gradient(circle at 34% 30%,rgba(255,255,255,.95) 0 8%,rgba(255,255,255,.4) 22%,rgba(251,207,232,.5) 55%,rgba(251,207,232,.16) 76%);box-shadow:inset -8px -12px 24px rgba(0,0,0,.18),0 12px 30px rgba(0,0,0,.25)}
+
+/* 1 검색창 */
+.search{position:absolute;left:84px;right:84px;top:190px;height:112px;border-radius:56px;background:#fff;color:var(--ink);display:flex;align-items:center;gap:24px;padding:0 40px;font-size:46px;box-shadow:0 20px 50px rgba(0,0,0,.3)}
+.mag{flex:none;position:relative;width:42px;height:42px;border:6px solid var(--ink);border-radius:50%}
+.mag::after{content:"";position:absolute;right:-15px;bottom:-13px;width:19px;height:6px;border-radius:3px;background:var(--ink);transform:rotate(45deg)}
+.caret{display:inline-block;width:4px;height:50px;margin-left:6px;vertical-align:-8px;background:#2b6cff}
+.result{position:absolute;left:84px;right:84px;top:340px;display:flex;gap:30px;align-items:center;padding:26px;border-radius:40px}
+.result>i{flex:none;width:300px;height:300px;border-radius:28px;background:center/cover;box-shadow:0 16px 36px rgba(0,0,0,.35)}
+.result b{display:block;font-weight:400;font-size:56px;line-height:1.15}
+.result small{display:block;margin-top:12px;font-size:32px;line-height:1.35;color:rgba(255,255,255,.85)}
+.result span{display:inline-block;margin-top:18px;padding:8px 22px;border-radius:999px;background:var(--pink);color:var(--on-pink);font-size:30px}
+
+/* 2 후기 카드 */
+.note{position:absolute;left:72px;top:150px;font-size:34px;color:var(--sky)}
+.rv{position:absolute;left:84px;right:84px;display:flex;gap:26px;align-items:center;padding:30px 36px;border-radius:36px;background:rgba(255,255,255,.95);color:var(--ink);box-shadow:0 20px 50px rgba(0,0,0,.3)}
+.rv i{flex:none;display:grid;place-items:center;width:78px;height:78px;border-radius:50%;background:var(--pink);font-family:Georgia,serif;font-style:normal;font-size:78px;line-height:1;padding-top:30px;color:#c2185b}
+.rv b{display:block;font-weight:400;font-size:50px;line-height:1.2}
+.rv small{display:block;margin-top:6px;font-size:27px;color:#6b7690}
+
+/* 3 특징: 둥근 사진 + 설명, 좌우 번갈아 */
+.zone{position:absolute;left:84px;right:84px;display:flex;align-items:center;gap:36px}
+.zone.flip{flex-direction:row-reverse;text-align:right}
+.zone>i{flex:none;width:240px;height:240px;border-radius:50%;border:8px solid rgba(255,255,255,.92);background:center/cover;box-shadow:0 20px 50px rgba(0,0,0,.4)}
+.zone b{display:block;font-weight:400;font-size:66px;line-height:1.1;color:var(--pink)}
+.zone small{display:block;margin-top:10px;font-size:36px;line-height:1.35;color:rgba(255,255,255,.9)}
+
+/* 4 휴대폰 + 팁 */
+.phone{position:absolute;left:72px;top:170px;width:380px;height:690px;border-radius:54px;background:#0b0f1a;padding:16px;border:3px solid rgba(255,255,255,.25);box-shadow:0 30px 80px rgba(0,0,0,.5);transform:rotate(-4deg)}
+.screen{position:relative;width:100%;height:100%;border-radius:40px;overflow:hidden;background:#f6f8fb;color:var(--ink);padding:56px 26px 26px;display:flex;flex-direction:column;gap:16px}
+.screen::before{content:"";position:absolute;left:50%;top:14px;width:100px;height:26px;margin-left:-50px;border-radius:13px;background:#0b0f1a}
+.screen .shot{flex:none;height:280px;border-radius:20px;background:center/cover}
+.screen .ph::after{background:#e5ecf7;color:#6b7690}
+.screen p{font-size:24px;color:#2b6cff}
+.screen h3{font-weight:400;font-size:34px;line-height:1.1}
+.tags{display:flex;flex-wrap:wrap;gap:8px}
+.tags span{padding:6px 12px;border-radius:999px;background:#e5ecf7;font-size:22px}
+.screen small{font-size:21px;color:#6b7690}
+.tips{position:absolute;left:500px;right:72px;top:180px;display:grid;gap:18px}
+.tip{display:flex;gap:16px;align-items:flex-start;padding:20px 22px;border-radius:28px;font-size:36px;line-height:1.2}
+.tip i{flex:none;display:grid;place-items:center;width:50px;height:50px;border-radius:50%;background:var(--pink);color:var(--on-pink);font-style:normal;font-size:30px}
+.tip small{display:block;margin-top:6px;font-size:26px;line-height:1.3;color:rgba(255,255,255,.75)}
+
+/* 5 확인 */
+.checks{position:absolute;left:84px;right:84px;top:180px;list-style:none;display:grid;gap:20px}
+.checks li{display:flex;gap:24px;align-items:center;padding:26px 30px;border-radius:30px;font-size:42px;line-height:1.2}
+.checks li::before{content:"";flex:none;width:46px;height:46px;border:5px solid var(--hi);border-radius:12px}
+.checks small{display:block;margin-top:6px;font-size:28px;color:rgba(255,255,255,.75)}
+
+/* 6 링크 */
+.port{position:absolute;left:310px;top:190px;width:460px;height:460px;border-radius:50%;border:10px solid rgba(255,255,255,.92);background:center/cover;box-shadow:0 30px 80px rgba(0,0,0,.45),inset 0 0 50px rgba(0,0,0,.35)}
+.pill{position:absolute;left:50%;top:700px;transform:translateX(-50%);display:flex;align-items:center;gap:24px;padding:12px 12px 12px 40px;border-radius:999px;background:rgba(0,0,0,.55);font-size:46px;white-space:nowrap}
+.pill i{display:grid;place-items:center;width:78px;height:78px;border-radius:50%;background:var(--pink);color:var(--on-pink);font-style:normal;font-size:52px;line-height:1;padding-bottom:5px}
+.end{position:absolute;left:60px;right:60px;bottom:130px;text-align:center;font-size:26px;line-height:1.5;color:rgba(255,255,255,.8)}
+</style></head><body>
+
+<!-- 배경색은 장마다 --i(가운데) · --m(중간) · --o(바깥)으로 바꾼다 -->
+<section class="slide" id="s1" style="--i:#0b8a78;--m:#044e3b;--o:#011411">
+  <p class="disclosure glass">이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.</p>
+  <div class="search"><span class="mag"></span><span>검색어 자리</span><span class="caret"></span></div>
+  <div class="result glass"><i class="ph" data-label="사진 1" style="background-image:url(photo-1.jpg)"></i><p><b>상품 이름</b><small>상품 페이지의 정식 이름</small><span>분류 · 한 마디</span></p></div>
+  <span class="orb" style="--s:90px;left:930px;top:660px"></span>
+  <p class="cap" style="top:770px">보는 사람 상황을<br><em>묻는 질문</em></p>
+  <p class="sub" style="top:1010px">그럴 땐 상품 이름</p>
+  <span class="swipe">넘기기 →</span><span class="page">1 / 6</span>
+</section>
+
+<section class="slide" id="s2" style="--i:#0b4f8a;--m:#04294e;--o:#010c14">
+  <p class="chap">① 구매자 후기</p>
+  <p class="note">쿠팡 상품평 베스트 후기에서</p>
+  <p class="rv" style="top:210px"><i>“</i><span><b>후기 요약 1</b><small>쿠팡 구매자 후기 요약</small></span></p>
+  <p class="rv" style="top:420px"><i>“</i><span><b>후기 요약 2</b><small>쿠팡 구매자 후기 요약</small></span></p>
+  <p class="rv" style="top:630px"><i>“</i><span><b>후기 요약 3</b><small>쿠팡 구매자 후기 요약</small></span></p>
+  <span class="orb" style="--s:110px;left:880px;top:820px"></span>
+  <span class="orb" style="--s:60px;left:120px;top:860px"></span>
+  <p class="cap" style="top:900px">먼저 써 본<br>사람들 <em>후기</em></p>
+  <span class="page">2 / 6</span>
+</section>
+
+<section class="slide" id="s3" style="--i:#7a2f9e;--m:#3a1452;--o:#0d0414">
+  <p class="chap">② 특징</p>
+  <div class="zone" style="top:170px"><i class="ph" data-label="사진 2" style="background-image:url(photo-2.jpg)"></i><p><b>특징 1</b><small>설명 한 줄<br>설명 두 줄</small></p></div>
+  <div class="zone flip" style="top:450px"><i class="ph" data-label="사진 3" style="background-image:url(photo-3.jpg)"></i><p><b>특징 2</b><small>설명 한 줄<br>설명 두 줄</small></p></div>
+  <div class="zone" style="top:730px"><i class="ph" data-label="사진 4" style="background-image:url(photo-4.jpg)"></i><p><b>특징 3</b><small>설명 한 줄</small></p></div>
+  <p class="cap" style="top:1050px;font-size:80px"><em>핵심어</em> 한 줄 정리</p>
+  <span class="page">3 / 6</span>
+</section>
+
+<section class="slide" id="s4" style="--i:#0b7a8a;--m:#043e4e;--o:#011114">
+  <p class="chap">③ 알고 가면 좋은 것</p>
+  <div class="phone"><div class="screen">
+    <div class="shot ph" data-label="사진 1" style="background-image:url(photo-1.jpg)"></div>
+    <p>상품 페이지</p><h3>상품 이름</h3>
+    <div class="tags"><span>구성 1</span><span>구성 2</span><span>구성 3</span></div>
+    <small>상품 페이지에서 확인한 한 줄</small>
+  </div></div>
+  <div class="tips">
+    <p class="tip glass"><i>✓</i><span>알아 둘 것 1<small>풀어 쓴 한 줄</small></span></p>
+    <p class="tip glass"><i>✓</i><span>알아 둘 것 2<small>풀어 쓴 한 줄</small></span></p>
+    <p class="tip glass"><i>✓</i><span>알아 둘 것 3<small>풀어 쓴 한 줄</small></span></p>
+    <p class="tip glass"><i>✓</i><span>알아 둘 것 4<small>풀어 쓴 한 줄</small></span></p>
+  </div>
+  <p class="cap" style="top:960px">가장 중요한<br><em>알아 둘 것</em></p>
+  <span class="page">4 / 6</span>
+</section>
+
+<section class="slide" id="s5" style="--i:#4b3fb8;--m:#221a5e;--o:#07051a">
+  <p class="chap">④ 사기 전에 꼭 확인</p>
+  <ul class="checks">
+    <li class="glass"><p>확인 사항 1<small>풀어 쓴 한 줄</small></p></li>
+    <li class="glass"><p>확인 사항 2</p></li>
+    <li class="glass"><p>확인 사항 3<small>풀어 쓴 한 줄</small></p></li>
+    <li class="glass"><p>가격·옵션은 상품 페이지에서</p></li>
+  </ul>
+  <p class="cap" style="top:990px">후회 없게<br><em>미리 체크</em></p>
+  <span class="page">5 / 6</span>
+</section>
+
+<section class="slide" id="s6" style="--i:#0b8a78;--m:#044e3b;--o:#011411">
+  <div class="port ph" data-label="사진 5" style="background-image:url(photo-5.jpg)"></div>
+  <span class="orb" style="--s:100px;left:200px;top:300px"></span>
+  <span class="orb" style="--s:130px;left:800px;top:520px"></span>
+  <div class="pill">프로필 링크에서<i>+</i></div>
+  <p class="cap" style="top:850px">상품 링크는<br><em>프로필 링크</em>에서</p>
+  <p class="end">저장해 두고 필요할 때 꺼내 보세요<br>이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.</p>
+  <span class="page">6 / 6</span>
+</section>
+
+</body></html>

@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><title>HIKARY 모션 템플릿 · 소다</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&display=block">
+<style>
+/* 소다: Soda 연출(장면마다 바뀌는 원형 그라데이션, 떠서 흔들리는 둥근 사진 창, 사진을 바꿀 때 두 바퀴 도는 전환,
+   가운데로 모였다 흩어지는 장식, 유리 카드, 분홍 포인트) + 설명형 구조(위 챕터 꼬리표 · 가운데 그림 · 아래 큰 자막). 25초.
+   쓰는 법: contents/<폴더>/motion.html로 복사 → 「…」 자리 글을 확인된 사실로 바꾸고, 사진은 photo-1.jpg…로 옆에 두고 ph 클래스를 뺀다 →
+     node tools/motion/record.mjs contents/<폴더>/motion.html   → motion.mp4
+   시간: 장면은 --at(시작)·--len(길이), 움직이는 요소는 --at + --d에 시작한다. 움직임은 CSS 애니메이션만 녹화된다.
+   사진 창이 도는 시각(.spin)·장식이 모이는 시각(.deco>i)·사진이 바뀌는 시각(.spin b의 --t)은 장면 시각과 같이 고친다.
+   글씨는 x 60~900, y 200~1480 안에. 고지는 첫 장면과 마지막 장면. 자막은 2초쯤마다 한 마디, 핵심어는 <em>. */
+:root{--pink:#fbcfe8;--on-pink:#011d17;--sky:#5fe6ff;--ink:#0b1a33;--cx0:540px;--cy0:860px}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1080px;height:1920px;overflow:hidden}
+body{background:#011411;font-family:Jua,sans-serif;font-synthesis:none;color:#fff;letter-spacing:-.5px;word-break:keep-all}
+em{font-style:normal;color:var(--pink)}
+/* 사진 자리 표시: 사진을 넣으면 ph 클래스를 뺀다 */
+.ph::after{content:attr(data-label) " 자리";display:grid;place-items:center;width:100%;height:100%;border-radius:inherit;background:rgba(255,255,255,.12);color:rgba(255,255,255,.7);font-size:34px}
+
+.bg{position:absolute;inset:0;background:radial-gradient(circle at 50% 45%,var(--i) 0%,var(--m) 50%,var(--o) 100%);animation:appear 1.2s cubic-bezier(.4,0,.2,1) var(--at) both}
+.bg:first-child{animation:none}
+.glow{position:absolute;left:0;right:0;top:360px;height:1000px;background:radial-gradient(circle at 50% 50%,rgba(255,255,255,.12),transparent 58%)}
+@keyframes appear{from{opacity:0}}
+@keyframes on{from{opacity:0}to{opacity:1}}
+
+.bubbles span{position:absolute;bottom:-90px;left:var(--x);width:var(--s);height:var(--s);border-radius:50%;
+  border:3px solid rgba(255,255,255,.42);background:radial-gradient(circle at 32% 30%,rgba(255,255,255,.6),rgba(255,255,255,0) 42%);
+  animation:rise var(--t) linear var(--d) infinite}
+@keyframes rise{0%{transform:translate(0,0);opacity:0}8%{opacity:1}25%{transform:translate(22px,-530px)}50%{transform:translate(-14px,-1060px)}75%{transform:translate(24px,-1590px)}100%{transform:translate(0,-2120px);opacity:.6}}
+
+/* 장식: 사진이 바뀔 때마다 가운데(--cx0, --cy0)로 모였다 흩어진다 */
+.deco{position:absolute;left:calc(var(--cx) - var(--s) / 2);top:calc(var(--cy) - var(--s) / 2);width:var(--s);height:var(--s);animation:bob var(--t,6s) ease-in-out var(--d,0s) infinite alternate}
+@keyframes bob{from{transform:translateY(-14px) rotate(-5deg)}to{transform:translateY(14px) rotate(5deg)}}
+.deco>i{position:relative;display:block;width:100%;height:100%;animation:implode 1.7s 9.6s,implode 1.7s 11.6s,implode 1.7s 13.6s,implode 1.7s 21.2s}
+@keyframes implode{
+  0%{transform:none;opacity:1;animation-timing-function:cubic-bezier(.55,0,1,.45)}
+  29%{transform:translate(calc(var(--cx0) - var(--cx)),calc(var(--cy0) - var(--cy))) rotate(45deg) scale(.1);opacity:0}
+  47%{transform:translate(calc(var(--cx0) - var(--cx)),calc(var(--cy0) - var(--cy))) rotate(45deg) scale(.1);opacity:0;animation-timing-function:cubic-bezier(.34,1.56,.64,1)}
+  100%{transform:none;opacity:1}}
+.orb>i{border-radius:50%;background:radial-gradient(circle at 34% 30%,rgba(255,255,255,.95) 0 8%,rgba(255,255,255,.4) 22%,rgba(251,207,232,.5) 55%,rgba(251,207,232,.16) 76%);
+  box-shadow:inset -8px -12px 24px rgba(0,0,0,.18),0 12px 30px rgba(0,0,0,.25)}
+
+/* 둥근 사진 창 — 특징 장면(9.6~16.2초)과 마지막 장면(21.2초~)에만 보인다 */
+.stage{position:absolute;inset:0;opacity:0;animation:show 6.6s linear 9.6s,show 3.8s linear 21.2s}
+.port{position:absolute;left:290px;top:610px;width:500px;height:500px;perspective:1600px;animation:float 6s ease-in-out -1.5s infinite alternate}
+@keyframes float{from{transform:translateY(-18px)}to{transform:translateY(18px)}}
+.sway{width:100%;height:100%;transform-style:preserve-3d;animation:sway 5s ease-in-out -2.5s infinite alternate}
+@keyframes sway{from{transform:rotateY(-10deg) rotateX(4deg)}to{transform:rotateY(10deg) rotateX(-4deg)}}
+.spin{position:relative;width:100%;height:100%;border-radius:50%;overflow:hidden;border:10px solid rgba(255,255,255,.92);background:#012;
+  box-shadow:0 30px 80px rgba(0,0,0,.45);animation:spin 2.1s 9.6s,spin 2.1s 11.6s,spin 2.1s 13.6s,spin 2.1s 21.2s}
+@keyframes spin{
+  0%{transform:rotateY(0);filter:blur(0);animation-timing-function:cubic-bezier(.55,0,1,.45)}
+  28.6%{transform:rotateY(360deg);filter:blur(15px);animation-timing-function:cubic-bezier(.34,1.25,.64,1)}
+  100%{transform:rotateY(720deg);filter:blur(0)}}
+.spin b{position:absolute;inset:0;background:#012 center/cover;animation:appear 1ms linear var(--t) both}
+.spin b:first-child{animation:none}
+.spin::after{content:"";position:absolute;inset:0;border-radius:50%;box-shadow:inset 0 0 50px rgba(0,0,0,.35),inset 18px 18px 40px rgba(255,255,255,.18)}
+
+/* 자막 뒤를 살짝 어둡게 */
+.shade{position:absolute;left:0;right:0;top:1150px;height:770px;background:linear-gradient(rgba(0,0,0,0),rgba(0,0,0,.42) 30%,rgba(0,0,0,.42))}
+
+/* 장면 · 등장 */
+.scene{position:absolute;inset:0;opacity:0;animation:show var(--len) linear var(--at)}
+@keyframes show{from,to{opacity:1}}
+.up,.pop,.fade,.from-l,.from-r{animation-duration:.6s;animation-timing-function:cubic-bezier(.2,.8,.2,1);animation-fill-mode:both;animation-delay:calc(var(--at) + var(--d,0s))}
+.up{animation-name:up}   @keyframes up{from{opacity:0;transform:translateY(80px)}}
+.pop{animation-name:pop;animation-timing-function:cubic-bezier(.3,1.6,.5,1)} @keyframes pop{from{opacity:0;transform:scale(.3)}}
+.fade{animation-name:fade} @keyframes fade{from{opacity:0}}
+.from-l{animation-name:from-l;animation-timing-function:cubic-bezier(.3,1.4,.5,1)} @keyframes from-l{from{opacity:0;transform:translateX(-200px)}}
+.from-r{animation-name:from-r;animation-timing-function:cubic-bezier(.3,1.4,.5,1)} @keyframes from-r{from{opacity:0;transform:translateX(200px)}}
+
+.glass{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);box-shadow:0 8px 32px rgba(0,0,0,.1)}
+.disclosure{position:absolute;left:60px;right:180px;top:200px;padding:16px 24px;border-radius:24px;color:rgba(255,255,255,.94);font-size:30px;line-height:1.45}
+
+/* 위: 챕터 꼬리표 */
+.chap{position:absolute;left:72px;top:205px;display:flex;align-items:center;gap:16px;padding:12px 32px 12px 22px;border-radius:999px;background:#fff;color:var(--ink);font-size:40px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+.chap::before{content:"";width:10px;height:40px;border-radius:5px;background:#ff6b9a}
+
+/* 아래: 큰 자막. 한 마디씩 켜졌다 꺼진다 (84px, 상자 폭 840px — 한 줄 10자 안팎) */
+.cap{position:absolute;left:60px;right:180px;top:1250px;height:200px;display:flex;align-items:center;justify-content:center;text-align:center;opacity:0;animation:show var(--len) linear var(--at)}
+.cap span{font-size:84px;line-height:1.18;text-shadow:0 0 10px rgba(0,0,0,.55),0 5px 18px rgba(0,0,0,.5);animation:capin .35s cubic-bezier(.3,1.5,.5,1) var(--at) both}
+.cap em{color:#ffd84d}
+@keyframes capin{from{opacity:0;transform:translateY(24px) scale(.88)}}
+
+/* 01 검색창 훅 */
+.search{position:absolute;left:72px;width:828px;top:400px;height:120px;border-radius:60px;background:#fff;color:var(--ink);display:flex;align-items:center;gap:26px;padding:0 42px;font-size:50px;box-shadow:0 20px 50px rgba(0,0,0,.3)}
+.mag{flex:none;position:relative;width:44px;height:44px;border:6px solid var(--ink);border-radius:50%}
+.mag::after{content:"";position:absolute;right:-16px;bottom:-14px;width:20px;height:6px;border-radius:3px;background:var(--ink);transform:rotate(45deg)}
+.typed i{font-style:normal;opacity:0;animation:on 1ms linear calc(var(--at) + var(--d)) both}
+.caret{display:inline-block;width:4px;height:54px;margin-left:6px;vertical-align:-8px;background:#2b6cff;animation:blink .8s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.result{position:absolute;left:72px;width:828px;top:590px;display:flex;gap:30px;align-items:center;padding:28px;border-radius:40px}
+.result>i{flex:none;width:300px;height:300px;border-radius:28px;background:center/cover;box-shadow:0 16px 36px rgba(0,0,0,.35)}
+.result b{display:block;font-weight:400;font-size:54px;line-height:1.15}
+.result small{display:block;margin-top:12px;font-size:32px;line-height:1.35;color:rgba(255,255,255,.85)}
+.result span{display:inline-block;margin-top:18px;padding:8px 22px;border-radius:999px;background:var(--pink);color:var(--on-pink);font-size:30px}
+
+/* 02 후기: 앱 화면 같은 흰 카드 */
+.note{position:absolute;left:72px;top:318px;font-size:36px;color:var(--sky)}
+.rv{position:absolute;left:72px;width:828px;display:flex;gap:26px;align-items:center;padding:30px 36px;border-radius:36px;background:rgba(255,255,255,.95);color:var(--ink);box-shadow:0 20px 50px rgba(0,0,0,.3)}
+.rv i{flex:none;display:grid;place-items:center;width:76px;height:76px;border-radius:50%;background:var(--pink);font-family:Georgia,serif;font-style:normal;font-size:76px;line-height:1;padding-top:30px;color:#c2185b}
+.rv b{display:block;font-weight:400;font-size:48px;line-height:1.2}
+.rv small{display:block;margin-top:6px;font-size:26px;color:#6b7690}
+.r1{top:420px}.r2{top:660px}.r3{top:900px}
+
+/* 04 알고 가면 좋은 것: 휴대폰 속 상품 화면 + 스티커 */
+.phone{position:absolute;left:300px;top:370px;width:480px;height:840px;border-radius:64px;background:#0b0f1a;padding:20px;border:3px solid rgba(255,255,255,.25);box-shadow:0 30px 80px rgba(0,0,0,.5)}
+.screen{position:relative;width:100%;height:100%;border-radius:46px;overflow:hidden;background:#f6f8fb;color:var(--ink);padding:68px 34px 34px;display:flex;flex-direction:column;gap:22px}
+.screen::before{content:"";position:absolute;left:50%;top:18px;width:120px;height:30px;margin-left:-60px;border-radius:15px;background:#0b0f1a}
+.screen .shot{flex:none;height:330px;border-radius:24px;background:center/cover}
+.screen .ph::after{background:#e5ecf7;color:#6b7690}
+.screen p{font-size:28px;color:#2b6cff}
+.screen h3{font-weight:400;font-size:42px;line-height:1.1}
+.tags{display:flex;flex-wrap:wrap;gap:10px}
+.tags span{padding:8px 16px;border-radius:999px;background:#e5ecf7;font-size:26px}
+.screen small{font-size:24px;color:#6b7690}
+.stk{position:absolute;padding:16px 28px;border-radius:24px;background:var(--pink);color:var(--on-pink);font-size:42px;box-shadow:0 14px 34px rgba(0,0,0,.35);transform:rotate(var(--r))}
+
+/* 05 링크 */
+.pill{position:absolute;left:72px;top:1136px;display:flex;align-items:center;gap:26px;padding:12px 12px 12px 42px;border-radius:999px;background:rgba(0,0,0,.55);font-size:46px}
+.pill i{display:grid;place-items:center;width:80px;height:80px;border-radius:50%;background:var(--pink);color:var(--on-pink);font-style:normal;font-size:54px;line-height:1;padding-bottom:5px}
+</style></head>
+<body data-duration="25">
+
+<!-- 배경: 장면이 바뀔 때마다 색이 바뀐다 (--i 가운데 · --m 중간 · --o 바깥) -->
+<div class="bg" style="--i:#0b8a78;--m:#044e3b;--o:#011411"></div>
+<div class="bg" style="--at:3.6s;--i:#0b4f8a;--m:#04294e;--o:#010c14"></div>
+<div class="bg" style="--at:9.6s;--i:#7a2f9e;--m:#3a1452;--o:#0d0414"></div>
+<div class="bg" style="--at:11.6s;--i:#0b4f8a;--m:#04294e;--o:#010c14"></div>
+<div class="bg" style="--at:13.6s;--i:#4b3fb8;--m:#221a5e;--o:#07051a"></div>
+<div class="bg" style="--at:16.2s;--i:#0b7a8a;--m:#043e4e;--o:#011114"></div>
+<div class="bg" style="--at:21.2s;--i:#0b8a78;--m:#044e3b;--o:#011411"></div>
+<div class="glow"></div>
+
+<div class="bubbles">
+  <span style="--x:6%;--s:34px;--t:7s;--d:-1s"></span><span style="--x:14%;--s:18px;--t:6s;--d:-4s"></span>
+  <span style="--x:23%;--s:52px;--t:9s;--d:-6s"></span><span style="--x:31%;--s:22px;--t:6.5s;--d:-2s"></span>
+  <span style="--x:42%;--s:40px;--t:8s;--d:-5s"></span><span style="--x:51%;--s:16px;--t:5.5s;--d:-3s"></span>
+  <span style="--x:60%;--s:62px;--t:10s;--d:-8s"></span><span style="--x:68%;--s:26px;--t:7s;--d:-6.5s"></span>
+  <span style="--x:76%;--s:44px;--t:8.5s;--d:-1.5s"></span><span style="--x:84%;--s:20px;--t:6s;--d:-5.5s"></span>
+  <span style="--x:91%;--s:36px;--t:7.5s;--d:-3.5s"></span><span style="--x:97%;--s:24px;--t:9s;--d:-7s"></span>
+</div>
+
+<div class="deco orb" style="--cx:150px;--cy:880px;--s:90px;--t:5s"><i></i></div>
+<div class="deco orb" style="--cx:880px;--cy:660px;--s:80px;--t:7s;--d:-2s"><i></i></div>
+<div class="deco orb" style="--cx:720px;--cy:585px;--s:46px;--t:6s;--d:-4s"><i></i></div>
+
+<!-- 사진 창: 첫 사진은 처음부터, 나머지는 --t에 바뀐다 (창이 도는 시각 + .6초) -->
+<div class="stage"><div class="port"><div class="sway"><div class="spin">
+  <b class="ph" data-label="사진 1" style="background-image:url(photo-1.jpg)"></b>
+  <b class="ph" data-label="사진 2" style="--t:10.2s;background-image:url(photo-2.jpg)"></b>
+  <b class="ph" data-label="사진 3" style="--t:12.2s;background-image:url(photo-3.jpg)"></b>
+  <b class="ph" data-label="사진 4" style="--t:14.2s;background-image:url(photo-4.jpg)"></b>
+  <b class="ph" data-label="사진 5" style="--t:21.8s;background-image:url(photo-5.jpg)"></b>
+</div></div></div></div>
+
+<div class="deco orb" style="--cx:230px;--cy:700px;--s:120px;--t:6.5s;--d:-1s"><i></i></div>
+<div class="deco orb" style="--cx:860px;--cy:1060px;--s:150px;--t:8s;--d:-3s"><i></i></div>
+<div class="deco orb" style="--cx:220px;--cy:1090px;--s:64px;--t:5.5s;--d:-2.5s"><i></i></div>
+<div class="deco orb" style="--cx:930px;--cy:820px;--s:70px;--t:6s;--d:-3s"><i></i></div>
+<div class="shade"></div>
+
+<!-- 01 검색창 훅 (0~3.6초) -->
+<section class="scene" style="--at:0s;--len:3.6s">
+  <p class="disclosure glass fade">이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.</p>
+  <div class="search up" style="--d:.05s"><span class="mag"></span><span class="typed"><i style="--d:.35s">검</i><i style="--d:.43s">색</i><i style="--d:.51s">어</i> <i style="--d:.62s">자</i><i style="--d:.7s">리</i></span><span class="caret"></span></div>
+  <div class="result glass up" style="--d:1.9s"><i class="ph" data-label="사진 1" style="background-image:url(photo-1.jpg)"></i><p><b>상품 이름</b><small>상품 페이지의 정식 이름</small><span>분류 · 한 마디</span></p></div>
+</section>
+<p class="cap" style="--at:.3s;--len:1.6s"><span>보는 사람 상황을<br><em>묻는 질문</em></span></p>
+<p class="cap" style="--at:1.9s;--len:1.7s"><span>그럴 땐<br><em>상품 이름</em></span></p>
+
+<!-- 02 구매자 후기 (3.6~9.6초) — 쿠팡 상품평 요약. 몇 개가 한 말인지 세고, 보상 후기는 뺀다 -->
+<section class="scene" style="--at:3.6s;--len:6s">
+  <p class="chap pop">① 구매자 후기</p>
+  <p class="note fade" style="--d:.3s">쿠팡 상품평 베스트 후기에서</p>
+  <p class="rv r1 from-l" style="--d:.8s"><i>“</i><span><b>후기 요약 1</b><small>쿠팡 구매자 후기 요약</small></span></p>
+  <p class="rv r2 from-r" style="--d:2s"><i>“</i><span><b>후기 요약 2</b><small>쿠팡 구매자 후기 요약</small></span></p>
+  <p class="rv r3 from-l" style="--d:3.2s"><i>“</i><span><b>후기 요약 3</b><small>쿠팡 구매자 후기 요약</small></span></p>
+</section>
+<p class="cap" style="--at:3.8s;--len:1.8s"><span>먼저 써 본<br>사람들 <em>후기</em></span></p>
+<p class="cap" style="--at:5.6s;--len:2s"><span><em>후기 요약 1</em><br>풀어 쓴 한 줄</span></p>
+<p class="cap" style="--at:7.6s;--len:2s"><span><em>후기 요약 2</em><br>풀어 쓴 한 줄</span></p>
+
+<!-- 03 특징 (9.6~16.2초) — 사진 창이 돌며 사진 2·3·4로 바뀐다 -->
+<section class="scene" style="--at:9.6s;--len:6.6s">
+  <p class="chap pop">② 특징</p>
+</section>
+<p class="cap" style="--at:10.2s;--len:2s"><span><em>특징 1</em><br>설명 한 줄</span></p>
+<p class="cap" style="--at:12.2s;--len:2s"><span><em>특징 2</em><br>설명 한 줄</span></p>
+<p class="cap" style="--at:14.2s;--len:2s"><span><em>특징 3</em><br>설명 한 줄</span></p>
+
+<!-- 04 알고 가면 좋은 것 (16.2~21.2초) — 상품 페이지에 적힌 사실만 -->
+<section class="scene" style="--at:16.2s;--len:5s">
+  <p class="chap pop">③ 알고 가면 좋은 것</p>
+  <div class="phone up" style="--d:.1s"><div class="screen">
+    <div class="shot ph" data-label="사진 1" style="background-image:url(photo-1.jpg)"></div>
+    <p>상품 페이지</p>
+    <h3>상품 이름</h3>
+    <div class="tags"><span>구성 1</span><span>구성 2</span><span>구성 3</span></div>
+    <small>상품 페이지에서 확인한 한 줄</small>
+  </div></div>
+  <p class="stk pop" style="--d:.3s;--r:-6deg;left:60px;top:470px">알아 둘 것 1</p>
+  <p class="stk pop" style="--d:1.9s;--r:5deg;left:540px;top:860px">알아 둘 것 2</p>
+  <p class="stk pop" style="--d:3.5s;--r:-4deg;left:60px;top:1125px">알아 둘 것 3</p>
+</section>
+<p class="cap" style="--at:16.4s;--len:1.6s"><span><em>알아 둘 것 1</em><br>풀어 쓴 한 줄</span></p>
+<p class="cap" style="--at:18s;--len:1.6s"><span><em>알아 둘 것 2</em><br>풀어 쓴 한 줄</span></p>
+<p class="cap" style="--at:19.6s;--len:1.6s"><span><em>알아 둘 것 3</em><br>풀어 쓴 한 줄</span></p>
+
+<!-- 05 링크 (21.2~25초) -->
+<section class="scene" style="--at:21.2s;--len:3.8s">
+  <p class="disclosure glass fade">이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.</p>
+  <div class="pill up" style="--d:.5s">프로필 링크에서<i>+</i></div>
+</section>
+<p class="cap" style="--at:21.4s;--len:1.9s"><span>상품 링크는<br><em>프로필 링크</em>에서</span></p>
+<p class="cap" style="--at:23.3s;--len:1.7s"><span>가격·옵션은<br><em>상품 페이지</em>에서</span></p>
+
+</body></html>
