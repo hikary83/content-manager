@@ -1,7 +1,7 @@
 // Registers content made in Claude to the HIKARY ledger through the same Apps Script API the web uses.
 //   node tools/register.mjs list [out.json]          print (or save) every registered row
 //   node tools/register.mjs save <entry.json>        create or update one row, then write id/revision back into the file
-// Run "save" only when the owner says 「등록해줘」. It writes to the real sheet.
+// Run "save" only after the owner confirms the content (「컨펌」, CLAUDE.md §2). It writes to the real sheet.
 import fs from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
