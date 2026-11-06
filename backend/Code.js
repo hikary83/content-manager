@@ -1,5 +1,5 @@
 /* HIKARY only. No credentials or endpoints from kic-worktools. */
-var SERVICE_VERSION = '1.7.0';
+var SERVICE_VERSION = '2.0.0';
 // Columns 1-14 are the original ledger. 15-21 (v1.7.0) are appended so existing rows never move.
 var LEGACY_HEADER_COUNT = 14;
 var CONTENT_HEADERS = ['콘텐츠 ID', '등록일', '카테고리', '상품명', '원본 링크', '변환 링크', '대본', 'YouTube 게시글', 'YouTube 상태', 'Instagram 게시글', 'Instagram 상태', 'TikTok 게시글', 'TikTok 상태', '비고', '형식', 'YouTube 업로드일', 'YouTube 링크', 'Instagram 업로드일', 'Instagram 링크', 'TikTok 업로드일', 'TikTok 링크'];
@@ -32,6 +32,7 @@ function doPost(event) {
     if (action === 'status') { getContentSheet_(); data = { version: SERVICE_VERSION, aiConfigured: !!PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY') }; }
     else if (action === 'list') data = { entries: readEntries_() };
     else if (action === 'save') data = saveEntry_(payload);
+    else if (action === 'delete') data = deleteEntry_(payload);
     else if (action === 'analyze') data = analyzeProduct_(payload.url);
     else if (action === 'image') data = readImage_(payload.url);
     else if (action === 'generate') data = generateContent_(payload);
@@ -43,7 +44,7 @@ function doPost(event) {
     // Do not log exception text: UrlFetch errors can contain credentials or URLs.
     result = { ok: false, requestId: requestId, error: safeError_(error) };
   }
-  console.info(JSON.stringify({ requestId: requestId, action: ['status','list','save','analyze','image','generate','reference','carousel'].indexOf(action) >= 0 ? action : 'unknown', elapsedMs: Date.now() - started, ok: result.ok }));
+  console.info(JSON.stringify({ requestId: requestId, action: ['status','list','save','delete','analyze','image','generate','reference','carousel'].indexOf(action) >= 0 ? action : 'unknown', elapsedMs: Date.now() - started, ok: result.ok }));
   return jsonResponse_(result);
 }
 
@@ -106,8 +107,8 @@ function saveEntry_(input) {
     var sheet = getContentSheet_(); var rows = readSheetRows_(sheet); var index = rows.findIndex(function(row) { return String(row[0]) === entry.id; });
     var existing = index >= 0 ? rowEntry_(rows[index]) : null;
     if (existing && sameEntry_(existing, entry)) return { id: entry.id, revision: existing.revision, replayed: true };
-    if (existing && (!input.revision || input.revision !== existing.revision)) throw userError_('시트 내용이 변경됐어요. 관리 목록에서 다시 열어 수정해주세요.');
-    if (!existing && input.revision) throw userError_('기존 콘텐츠를 찾지 못했어요. 관리 목록을 다시 확인해주세요.');
+    if (existing && (!input.revision || input.revision !== existing.revision)) throw userError_('시트 내용이 변경됐어요. 새로고침한 뒤 다시 열어 수정해주세요.');
+    if (!existing && input.revision) throw userError_('기존 콘텐츠를 찾지 못했어요. 새로고침해서 다시 확인해주세요.');
     entry.createdAt = existing ? existing.createdAt : Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd');
     var output = CONTENT_KEYS.map(function(key) { return sheetLiteral_(entry[key]); });
     var rowNumber = existing ? index + 2 : Math.max(2, sheet.getLastRow() + 1);
@@ -119,5 +120,19 @@ function saveEntry_(input) {
     SpreadsheetApp.flush();
     var saved = rowEntry_(range.getValues()[0]);
     return { id: entry.id, revision: saved.revision, replayed: false };
+  } finally { lock.releaseLock(); }
+}
+// v2.0.0: content is made in Claude; the web lists, edits and deletes. Same revision guard as save.
+function deleteEntry_(input) {
+  var id = field_(input.id, 80); var lock = LockService.getScriptLock();
+  if (!lock.tryLock(10000)) throw userError_('다른 저장 작업이 진행 중이에요. 잠시 후 다시 시도해주세요.');
+  try {
+    var sheet = getContentSheet_(); var rows = readSheetRows_(sheet); var index = rows.findIndex(function(row) { return String(row[0]) === id; });
+    if (index < 0) throw userError_('이미 지워졌거나 찾지 못했어요. 목록을 새로고침해주세요.');
+    if (!input.revision || input.revision !== rowEntry_(rows[index]).revision) throw userError_('시트 내용이 변경됐어요. 목록을 새로고침한 뒤 다시 지워주세요.');
+    // Sheets refuses to delete the last unfrozen row, so keep one spare row.
+    if (sheet.getMaxRows() - sheet.getFrozenRows() <= 1) sheet.insertRowsAfter(sheet.getMaxRows(), 1);
+    sheet.deleteRow(index + 2); SpreadsheetApp.flush();
+    return { id: id, deleted: true };
   } finally { lock.releaseLock(); }
 }

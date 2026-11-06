@@ -1,25 +1,21 @@
-# HIKARY 콘텐츠 매니저
+# HIKARY 콘텐츠 기록
 
-서비스 버전 **v1.7.1** · 2026-11-02
+서비스 버전 **v2.0.0** · 2026-11-06
 
-메뉴는 `새 콘텐츠`와 `업로드 관리` 두 개입니다. 쿠팡 링크를 한 번 분석하고 같은 상품으로 쇼츠·캐러셀을 만들어 각각 저장한 뒤, 업로드 관리에서 상품별로 묶어 플랫폼별 업로드 여부·날짜·게시물 링크를 남깁니다.
-
-현재 개발 구조는 `docs/` 정적 화면 + `backend/` Apps Script + Google Sheets + Gemini입니다.
-신규 설정·로컬 실행·배포·변경 이력은 [SETUP.md](SETUP.md)를 참고하세요.
+쿠팡 상품으로 쇼츠·캐러셀을 **Claude에서 직접 만들고**, 이 웹에는 등록 이력과 플랫폼별 업로드 기록만 남깁니다.
+작업 기준은 [CLAUDE.md](CLAUDE.md)(지시서), 설정·배포·변경 이력은 [SETUP.md](SETUP.md)를 참고하세요.
 
 ```powershell
-node scripts/preview-content.mjs
-node --test tests/content-backend.test.mjs tests/content-client.test.mjs tests/travel-extraction.test.mjs tests/image-analysis.test.mjs tests/production.test.mjs tests/reel.test.mjs tests/reference.test.mjs tests/carousel.test.mjs
+node scripts/preview-mock.mjs        # 가짜 데이터로 화면 확인 → http://127.0.0.1:4175/
+node tools/carousel/render.mjs contents/<폴더>/carousel.html
+node tools/register.mjs save contents/<폴더>/entry.json   # 「등록해줘」일 때만
+node --test tests/content-backend.test.mjs tests/content-client.test.mjs tests/travel-extraction.test.mjs tests/production.test.mjs tests/reel.test.mjs tests/reference.test.mjs tests/carousel.test.mjs
 ```
 
-로컬 화면: http://127.0.0.1:4173/ · GitHub Pages 배포 대상: `main /docs`.
-이미지와 영상은 로컬에서 관리하고 AI가 만든 초안은 검토 후 등록합니다.
-상품 분석 후 18초·4컷 대본/후반 자막/화면 연출을 만들고, 컷별 사진 선택·상세 이미지 영역 자르기·다운로드를 지원합니다. 웹은 제작 파일을 내보내고, `scripts/reel/`의 Windows 도구가 로컬 TTS/녹음과 ffmpeg로 자막 없는 MP4를 생성합니다. 레퍼런스/완성 영상은 프레임 검수 후 사람이 확인합니다. [Windows 실행 안내](SETUP.md#v130-zip-참고-분석-및-windows-영상-파이프라인)
-제작안은 기존 대본 셀에 함께 저장하며, 다시 열면 텍스트를 복원합니다. 사진은 로컬에서 다시 추가합니다.
-레퍼런스 MP4·WebM(40MB/180초 이내)을 웹에서 선택해 재생하고 주요 화면을 Gemini로 분석할 수 있습니다. 화면·선택 입력 전사의 전송 동의 후 실행되며 사용량/요금이 발생할 수 있습니다. 링크는 원본 확인용이며 SNS 영상을 자동 다운로드하지 않습니다. 음성 자동 청취/전사는 지원하지 않습니다. 분석 초안을 확인하고 연출 패턴을 메모로 반영한 뒤 제작안을 생성하세요.
-운영대장에는 콘텐츠 ID·등록일·카테고리·상품명·원본/변환 링크·대본·플랫폼별 게시글/상태·비고를 저장합니다.
-Gemini 키는 Apps Script 스크립트 속성에서만 설정합니다. v1.6.1부터 접속 코드 없이 열자마자 연결되며, 서버 주소를 아는 누구나 호출할 수 있습니다(AI는 일일 한도로만 제한).
-`캐러셀 만들기`: 상품 링크 → 기존 상품 분석 → Gemini 공통 문구 1회 생성 → 노트형/유리카드형 디자인으로 최대 6장 1080×1350 PNG. 디자인을 바꿔도 AI를 다시 부르지 않고, 근거가 부족한 장은 기본으로 빠지며 장마다 넣고 뺄 수 있습니다. 채널명·아이디·메인 색·호수는 브라우저에 기억합니다. 장별 문구/항목/사진, 게시글, 하단 고지를 수정하고 PNG·TXT를 내려받습니다. 사진은 실제 상품 사진을 사용하며 AI로 새 이미지를 그리지 않습니다. 초안은 탭 메모리에만 유지되고 기존 쇼츠 등록/시트 저장/자동 게시와 분리됩니다.
+- 웹(`docs/`, GitHub Pages `main /docs`): 업로드 관리 한 화면. 상품별 묶음, 콘텐츠 보기·수정·삭제, 업로드 기록 등록·수정·지우기.
+- 서버(`backend/`, Apps Script): `status` · `list` · `save` · `delete`. 접속 코드 없이 공개되어 있어 서버 주소를 아는 누구나 호출할 수 있습니다. Gemini 동작은 웹에서 쓰지 않지만 남아 있습니다(일일 한도로 제한).
+- 운영대장(Google Sheets)에는 콘텐츠 ID·등록일·카테고리·상품명·원본/변환 링크·대본·플랫폼별 게시글/상태·비고·형식·업로드일·게시물 링크를 저장합니다. 사진·영상 파일은 저장하지 않습니다.
+- 만든 파일은 각 PC의 `contents/`에 둡니다(git 제외).
 
 이전 Sites 소스는 아래 설명과 `app/`, `worker/`, `db/`에 보존되어 있으며 Pages 배포 대상이 아닙니다.
 백업 태그: `legacy-chatgpt-sites-2026-08-11`.

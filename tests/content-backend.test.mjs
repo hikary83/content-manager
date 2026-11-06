@@ -10,7 +10,7 @@ function runtime({ legacy = false } = {}) {
   const rows = [legacy ? [...LEGACY_HEADERS] : [...LEGACY_HEADERS, ...ADDED_HEADERS]];
   const props = new Map([['SHEET_ID','test'],['SHEET_NAME','콘텐츠 관리']]);
   let writes = 0; let fetches = 0;
-  const sheet = { getLastRow: () => rows.length, getMaxRows: () => 1000, getMaxColumns: () => 26, insertColumnsAfter() {},
+  const sheet = { getLastRow: () => rows.length, getMaxRows: () => 1000, getMaxColumns: () => 26, insertColumnsAfter() {}, getFrozenRows: () => 1, insertRowsAfter() {}, deleteRow(row) { writes++; rows.splice(row - 1, 1); },
     getRange(row, col, height = 1, width = 1) { return {
       getValues: () => Array.from({length:height}, (_, y) => Array.from({length:width}, (_, x) => rows[row-1+y]?.[col-1+x] ?? '')),
       getDisplayValues() { return this.getValues(); },
@@ -51,6 +51,14 @@ test('revision으로 수동 수정 덮어쓰기를 방지한다', () => {
   assert.notEqual(first.revision,updated.revision);assert.equal(env.rows.length,2);
   env.rows[1][3]='수동 수정';
   assert.throws(()=>env.context.saveEntry_({...input,notes:'덮어쓰기',revision:updated.revision}),/시트 내용이 변경/);
+});
+test('삭제는 현재 revision이 맞을 때만 그 줄을 지우고 다른 줄은 건드리지 않는다', () => {
+  const env=runtime();const keep=sample();const target=sample();env.context.saveEntry_(keep);const saved=env.context.saveEntry_(target);
+  const call=payload=>JSON.parse(env.context.doPost({postData:{contents:JSON.stringify({action:'delete',payload})}}).text);
+  assert.match(call({id:target.id,revision:'old'}).error,/시트 내용이 변경/);assert.match(call({id:target.id}).error,/시트 내용이 변경/);
+  assert.equal(call({id:target.id,revision:saved.revision}).ok,true);
+  assert.deepEqual(env.rows.slice(1).map(row=>row[0]),[keep.id]);
+  assert.match(call({id:target.id,revision:saved.revision}).error,/찾지 못했어요/);
 });
 test('헤더 불일치·잘못된 업로드 상태를 거부하고 수식을 문자열로 처리한다', () => {
   const env=runtime();assert.throws(()=>env.context.saveEntry_({...sample(),youtubeStatus:'INVALID'}),/업로드 상태/);

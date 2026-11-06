@@ -47,3 +47,6 @@ yarn-error.log*
 .clasprc.json
 .clasprc.*.json
 tsconfig.tsbuildinfo
+
+# Content files made in Claude (photos, slides, videos). The repo is public, so they never go to git.
+/contents/

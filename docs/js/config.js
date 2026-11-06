@@ -1,15 +1,10 @@
 /* Public configuration only. Never put API keys in this file. The server needs no access code (v1.6.1). */
-window.HIKARY_CONFIG = Object.freeze({ version: '1.7.1', apiUrl: 'https://script.google.com/macros/s/AKfycbzN9mw2OKRKHdEYjUCqv3sYOsp5LPKRLhBP7yR_8pwfK3j1FKY-4eUc5hdG6FOLov1z/exec' });
+window.HIKARY_CONFIG = Object.freeze({ version: '2.0.0', apiUrl: 'https://script.google.com/macros/s/AKfycbzN9mw2OKRKHdEYjUCqv3sYOsp5LPKRLhBP7yR_8pwfK3j1FKY-4eUc5hdG6FOLov1z/exec' });
 
 window.HikaryApi = (() => {
-  let endpoint = window.HIKARY_CONFIG.apiUrl || '';
+  const endpoint = window.HIKARY_CONFIG.apiUrl;
   const pending = new Set();
-  function configure(url) {
-    if (!/^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(url)) throw new Error('콘텐츠 매니저 전용 Apps Script /exec 주소를 입력해주세요.');
-    endpoint = url;
-  }
   async function request(action, payload = {}) {
-    if (!endpoint) throw new Error('연결 설정에서 웹앱 주소를 입력해주세요.');
     const requestId = crypto.randomUUID();
     const startedAt = performance.now();
     pending.add(requestId);
@@ -18,7 +13,7 @@ window.HikaryApi = (() => {
         method: 'POST', redirect: 'follow', credentials: 'omit',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ action, payload, requestId }),
-        signal: AbortSignal.timeout(['generate','reference','carousel'].includes(action) ? 150000 : 60000)
+        signal: AbortSignal.timeout(60000)
       });
       if (!response.ok) throw new Error(`서버 응답 오류 (${response.status})`);
       let result;
@@ -26,12 +21,12 @@ window.HikaryApi = (() => {
       if (!result.ok) throw new Error(result.error || '처리에 실패했어요.');
       return result.data;
     } catch (error) {
-      if (error.name === 'TimeoutError') throw new Error(action === 'save' ? '저장 응답이 늦어요. 관리 목록에서 등록 여부를 확인해주세요. 같은 콘텐츠 ID는 중복 등록되지 않습니다.' : '응답 시간이 초과됐어요. 입력 내용은 유지됩니다.');
+      if (error.name === 'TimeoutError') throw new Error(action === 'save' || action === 'delete' ? '응답이 늦어요. 새로고침해서 반영됐는지 확인한 뒤 다시 시도해주세요.' : '응답 시간이 초과됐어요. 잠시 후 다시 시도해주세요.');
       throw error;
     } finally {
       pending.delete(requestId);
       console.info('[HIKARY]', { action, requestId, elapsedMs: Math.round(performance.now() - startedAt) });
     }
   }
-  return { configure, request, isBusy: () => pending.size > 0 };
+  return { request, isBusy: () => pending.size > 0 };
 })();
