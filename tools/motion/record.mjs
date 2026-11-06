@@ -9,6 +9,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { run, probe } from '../../scripts/reel/lib.mjs';
+import { parseCues, addSound } from './sfx.mjs';
 
 const W = 1080, H = 1920, FPS = 30;
 const file = path.resolve(process.argv[2] || '');
@@ -74,6 +75,7 @@ try {
   const seconds = await evaluate('document.fonts.ready.then(() => Number(document.body.dataset.duration))');
   if (!(seconds >= 1 && seconds <= 60)) throw new Error('<body data-duration="18">처럼 1~60초 길이를 적어주세요.');
   const frames = Math.round(seconds * FPS);
+  const cues = parseCues(await evaluate('document.body.dataset.sfx || ""')); // checked before the long recording
 
   encoder = spawn('ffmpeg', ['-v', 'error', '-y', '-f', 'image2pipe', '-framerate', String(FPS), '-c:v', 'mjpeg', '-i', '-',
     '-c:v', 'libx264', '-preset', 'medium', '-crf', '18', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', out], { stdio: ['pipe', 'ignore', 'pipe'] });
@@ -93,7 +95,8 @@ try {
   await encoded;
   const info = probe(out), video = info.streams.find(s => s.codec_type === 'video');
   if (video?.width !== W || video?.height !== H || Math.abs(Number(info.format.duration) - frames / FPS) > 0.1) throw new Error('출력 영상 길이·해상도 검증 실패');
-  console.log(`완료: ${out} (${frames / FPS}초). 소리는 올릴 때 앱에서 넣어요.`);
+  addSound(out, cues);
+  console.log(`완료: ${out} (${frames / FPS}초, 효과음 ${cues.length}개). 배경음악은 올릴 때 앱에서 넣어요.`);
 } finally {
   encoder?.kill();
   browser.kill();

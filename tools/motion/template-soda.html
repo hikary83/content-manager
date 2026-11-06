@@ -8,7 +8,8 @@
      node tools/motion/record.mjs contents/<폴더>/motion.html   → motion.mp4
    시간: 장면은 --at(시작)·--len(길이), 움직이는 요소는 --at + --d에 시작한다. 움직임은 CSS 애니메이션만 녹화된다.
    사진 창이 도는 시각(.spin)·장식이 모이는 시각(.deco>i)·사진이 바뀌는 시각(.spin b의 --t)은 장면 시각과 같이 고친다.
-   글씨는 x 60~900, y 200~1480 안에. 고지는 첫 장면과 마지막 장면. 자막은 2초쯤마다 한 마디, 핵심어는 <em>. */
+   글씨는 x 60~900, y 200~1480 안에. 고지는 첫 장면과 마지막 장면. 자막은 2초쯤마다 한 마디, 핵심어는 <em>.
+   효과음: <body data-sfx>에 「초 소리 [크기]」 목록 (tools/motion/sfx.mjs). 장면 시각이나 타자 글자 수를 바꾸면 같이 고친다. */
 :root{--pink:#fbcfe8;--on-pink:#011d17;--sky:#5fe6ff;--ink:#0b1a33;--cx0:540px;--cy0:860px}
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{width:1080px;height:1920px;overflow:hidden}
@@ -120,7 +121,10 @@ em{font-style:normal;color:var(--pink)}
 .pill{position:absolute;left:72px;top:1136px;display:flex;align-items:center;gap:26px;padding:12px 12px 12px 42px;border-radius:999px;background:rgba(0,0,0,.55);font-size:46px}
 .pill i{display:grid;place-items:center;width:80px;height:80px;border-radius:50%;background:var(--pink);color:var(--on-pink);font-style:normal;font-size:54px;line-height:1;padding-bottom:5px}
 </style></head>
-<body data-duration="25">
+<body data-duration="25" data-sfx="0.05 whoosh .35, 0.35 click .5, 0.43 click .5, 0.51 click .5, 0.62 click .5, 0.7 click .5, 1.9 pop .45,
+  3.55 whoosh .7, 3.6 pop .45, 4.4 whoosh .3, 5.6 whoosh .3, 6.8 whoosh .3,
+  9.6 swoosh .8, 9.65 pop .4, 10.25 pop .35, 11.6 swoosh .8, 12.25 pop .35, 13.6 swoosh .8, 14.25 pop .35,
+  16.15 whoosh .5, 16.2 pop .45, 16.5 pop .55, 18.1 pop .55, 19.7 pop .55, 21.2 swoosh .8, 21.7 ding .6">
 
 <!-- 배경: 장면이 바뀔 때마다 색이 바뀐다 (--i 가운데 · --m 중간 · --o 바깥) -->
 <div class="bg" style="--i:#0b8a78;--m:#044e3b;--o:#011411"></div>

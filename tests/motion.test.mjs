@@ -4,8 +4,10 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {execFileSync,spawnSync} from 'node:child_process';
-import {fileURLToPath} from 'node:url';
+import {fileURLToPath,pathToFileURL} from 'node:url';
 const recorder=fileURLToPath(new URL('../tools/motion/record.mjs',import.meta.url));
+const sfx=fileURLToPath(new URL('../tools/motion/sfx.mjs',import.meta.url));
+const audio=file=>execFileSync('ffprobe',['-v','error','-select_streams','a','-show_entries','stream=codec_type','-of','csv=p=0',file],{encoding:'utf8'}).trim()==='audio';
 const chrome=[process.env.CHROME,'C:/Program Files/Google/Chrome/Application/chrome.exe','C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe','/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'].some(p=>p&&fs.existsSync(p));
 const ffmpeg=spawnSync('ffmpeg',['-version']).status===0;
 // Brightness (0–255) of one frame, from a 1×1 downscale.
@@ -18,5 +20,16 @@ test('모션 녹화는 CSS 애니메이션을 프레임 시각에 맞춰 찍는�
     execFileSync(process.execPath,[recorder,page],{stdio:'ignore'});
     const video=path.join(dir,'motion.mp4');
     assert.ok(luma(video,0)<30,'첫 프레임은 검정');assert.ok(luma(video,29)>220,'마지막 프레임은 거의 흰색');
+    assert.ok(!audio(video),'효과음 목록이 없으면 소리를 넣지 않는다');
+    fs.writeFileSync(page,fs.readFileSync(page,'utf8').replace('data-duration="1"','data-duration="1" data-sfx="0.1 pop, 0.5 whoosh .4"'));
+    execFileSync(process.execPath,[sfx,page],{stdio:'ignore'});
+    assert.ok(audio(video),'효과음 목록이 있으면 소리가 들어간다');assert.ok(luma(video,29)>220,'영상은 그대로');
   }finally{fs.rmSync(dir,{recursive:true,force:true});}
+});
+test('효과음 목록은 「초 소리 [크기]」만 받는다',async()=>{
+  const {parseCues}=await import(pathToFileURL(sfx).href);
+  assert.deepEqual(parseCues('0.12 pop .5, 1.9 whoosh'),[[0.12,'pop',0.5],[1.9,'whoosh',0.6]]);
+  assert.deepEqual(parseCues(''),[]);
+  assert.throws(()=>parseCues('1 boom'),/효과음/);
+  assert.throws(()=>parseCues('-1 pop'),/효과음/);
 });
