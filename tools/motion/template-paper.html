@@ -5,7 +5,7 @@
 /* 페이퍼: 밝은 종이 바탕(모눈 + 흐린 색 번짐) + 금색 강조 + 흐린 글자가 한 단어씩 진해지는 자막(핵심어는 금색 상자),
    금색 판이 올라왔다 빠지는 전환, 원이 커지며 열리는 어두운 장면, 떨어져 쌓이는 사진 카드, 기울어진 스티커, 알림 카드, 숫자 굴리기. 25초.
    쓰는 법: contents/<폴더>/motion.html로 복사 → 「…」 자리 글을 확인된 사실로 바꾸고, 사진은 photo-1.jpg…로 옆에 두고 ph 클래스를 뺀다 →
-     node tools/motion/record.mjs contents/<폴더>/motion.html   → motion.mp4
+     node tools/motion/record.mjs contents/<폴더>/motion.html   → motion.mp4 (효과음) + motion-bgm.mp4 (배경음악까지)
    시간: 장면은 --at(시작)·--len(길이), 움직이는 요소는 --at + --d에 시작한다. 움직임은 CSS 애니메이션만 녹화된다.
    금색 판(.w1 · .w2)과 어두운 장면(.night)의 시각은 CSS에 직접 적혀 있으니 장면을 옮기면 같이 고친다.
    자막: <span class="k"> 안의 <i>·<em>이 차례로 켜진다(최대 9개, <br>도 한 칸). 어두운 장면은 cap dk, 금색 판 위는 cap gd.

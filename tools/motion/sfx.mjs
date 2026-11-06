@@ -1,13 +1,14 @@
 // Sound effects for motion videos. Every sound is synthesized here with ffmpeg, so the file holds no third-party audio.
 // Cues live on the page: <body data-sfx="0.12 pop .5, 1.9 whoosh .35, …"> — "seconds sound [volume, default .6]".
 // record.mjs adds them after recording. To re-mix an existing video without recording again:
-//   node tools/motion/sfx.mjs contents/<folder>/motion.html   (rewrites motion.mp4; only its video stream is kept)
-// Background music is not added here: it goes in at upload, in each app.
+//   node tools/motion/sfx.mjs contents/<folder>/motion.html   (rewrites motion.mp4; only its video stream is kept,
+//   then rebuilds motion-bgm.mp4 so it gets the new sound effects too). Background music itself is in bgm.mjs.
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { run } from '../../scripts/reel/lib.mjs';
+import { musicSeed, addMusic } from './bgm.mjs';
 
 export const sounds = {
   whoosh: "anoisesrc=d=0.7:c=pink:a=0.9,bandpass=f=900:width_type=h:w=1600,afade=t=in:d=0.35:curve=qsin,afade=t=out:st=0.35:d=0.35:curve=qsin",
@@ -54,8 +55,11 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   if (!process.argv[2] || !fs.existsSync(page)) throw new Error('사용: node tools/motion/sfx.mjs <motion.html>');
   const video = page.replace(/\.html?$/i, '') + '.mp4';
   if (!fs.existsSync(video)) throw new Error(`${path.basename(video)}이 없어요. 먼저 record.mjs로 영상을 만들어요.`);
-  const cues = parseCues(fs.readFileSync(page, 'utf8').match(/<body[^>]*\sdata-sfx="([^"]*)"/)?.[1]);
+  const html = fs.readFileSync(page, 'utf8');
+  const cues = parseCues(html.match(/<body[^>]*\sdata-sfx="([^"]*)"/)?.[1]);
   if (!cues.length) throw new Error('<body data-sfx="0.12 pop .5, …">처럼 효과음 목록을 적어주세요.');
   addSound(video, cues);
   console.log(`효과음 ${cues.length}개를 넣었어요: ${video}`);
+  const seed = musicSeed(page, html);
+  if (seed) console.log(`배경음악 버전도 다시 만들었어요: ${addMusic(video, seed).out}`);
 }

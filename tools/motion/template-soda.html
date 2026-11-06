@@ -5,7 +5,7 @@
 /* 소다: Soda 연출(장면마다 바뀌는 원형 그라데이션, 떠서 흔들리는 둥근 사진 창, 사진을 바꿀 때 두 바퀴 도는 전환,
    가운데로 모였다 흩어지는 장식, 유리 카드, 분홍 포인트) + 설명형 구조(위 챕터 꼬리표 · 가운데 그림 · 아래 큰 자막). 25초.
    쓰는 법: contents/<폴더>/motion.html로 복사 → 「…」 자리 글을 확인된 사실로 바꾸고, 사진은 photo-1.jpg…로 옆에 두고 ph 클래스를 뺀다 →
-     node tools/motion/record.mjs contents/<폴더>/motion.html   → motion.mp4
+     node tools/motion/record.mjs contents/<폴더>/motion.html   → motion.mp4 (효과음) + motion-bgm.mp4 (배경음악까지)
    시간: 장면은 --at(시작)·--len(길이), 움직이는 요소는 --at + --d에 시작한다. 움직임은 CSS 애니메이션만 녹화된다.
    사진 창이 도는 시각(.spin)·장식이 모이는 시각(.deco>i)·사진이 바뀌는 시각(.spin b의 --t)은 장면 시각과 같이 고친다.
    글씨는 x 60~900, y 200~1480 안에. 고지는 첫 장면과 마지막 장면. 자막은 2초쯤마다 한 마디, 핵심어는 <em>.

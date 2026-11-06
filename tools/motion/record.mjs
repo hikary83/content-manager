@@ -1,4 +1,5 @@
-// Records an animated HTML page to a 1080×1920 MP4 next to it (motion.html → motion.mp4).
+// Records an animated HTML page to a 1080×1920 MP4 next to it (motion.html → motion.mp4 with sound effects,
+// and motion-bgm.mp4 with background music too — see sfx.mjs and bgm.mjs).
 //   node tools/motion/record.mjs contents/<folder>/motion.html
 // The page sets its length with <body data-duration="18">. Every CSS animation is paused and seeked to each
 // frame's time before the screenshot, so the video is identical however fast or slow this PC is.
@@ -10,6 +11,7 @@ import { spawn } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { run, probe } from '../../scripts/reel/lib.mjs';
 import { parseCues, addSound } from './sfx.mjs';
+import { musicSeed, addMusic, describe } from './bgm.mjs';
 
 const W = 1080, H = 1920, FPS = 30;
 const file = path.resolve(process.argv[2] || '');
@@ -96,7 +98,9 @@ try {
   const info = probe(out), video = info.streams.find(s => s.codec_type === 'video');
   if (video?.width !== W || video?.height !== H || Math.abs(Number(info.format.duration) - frames / FPS) > 0.1) throw new Error('출력 영상 길이·해상도 검증 실패');
   addSound(out, cues);
-  console.log(`완료: ${out} (${frames / FPS}초, 효과음 ${cues.length}개). 배경음악은 올릴 때 앱에서 넣어요.`);
+  console.log(`완료: ${out} (${frames / FPS}초, 효과음 ${cues.length}개)`);
+  const seed = musicSeed(file, fs.readFileSync(file, 'utf8'));
+  if (seed) { const music = addMusic(out, seed); console.log(`배경음악 버전: ${music.out} (${describe(music.picks)})`); }
 } finally {
   encoder?.kill();
   browser.kill();

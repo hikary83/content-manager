@@ -7,6 +7,7 @@ import {execFileSync,spawnSync} from 'node:child_process';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 const recorder=fileURLToPath(new URL('../tools/motion/record.mjs',import.meta.url));
 const sfx=fileURLToPath(new URL('../tools/motion/sfx.mjs',import.meta.url));
+const bgm=fileURLToPath(new URL('../tools/motion/bgm.mjs',import.meta.url));
 const audio=file=>execFileSync('ffprobe',['-v','error','-select_streams','a','-show_entries','stream=codec_type','-of','csv=p=0',file],{encoding:'utf8'}).trim()==='audio';
 const chrome=[process.env.CHROME,'C:/Program Files/Google/Chrome/Application/chrome.exe','C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe','/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'].some(p=>p&&fs.existsSync(p));
 const ffmpeg=spawnSync('ffmpeg',['-version']).status===0;
@@ -21,10 +22,24 @@ test('모션 녹화는 CSS 애니메이션을 프레임 시각에 맞춰 찍는�
     const video=path.join(dir,'motion.mp4');
     assert.ok(luma(video,0)<30,'첫 프레임은 검정');assert.ok(luma(video,29)>220,'마지막 프레임은 거의 흰색');
     assert.ok(!audio(video),'효과음 목록이 없으면 소리를 넣지 않는다');
+    const withMusic=path.join(dir,'motion-bgm.mp4');
+    assert.ok(audio(withMusic),'배경음악 버전은 효과음이 없어도 만든다');assert.ok(luma(withMusic,29)>220,'배경음악 버전도 영상은 그대로');
+    fs.rmSync(withMusic);
     fs.writeFileSync(page,fs.readFileSync(page,'utf8').replace('data-duration="1"','data-duration="1" data-sfx="0.1 pop, 0.5 whoosh .4"'));
     execFileSync(process.execPath,[sfx,page],{stdio:'ignore'});
     assert.ok(audio(video),'효과음 목록이 있으면 소리가 들어간다');assert.ok(luma(video,29)>220,'영상은 그대로');
+    assert.ok(audio(withMusic),'효과음을 다시 넣으면 배경음악 버전도 다시 만든다');
   }finally{fs.rmSync(dir,{recursive:true,force:true});}
+});
+test('배경음악은 폴더 이름으로 고르고, 같은 이름이면 같은 곡이다',async()=>{
+  const {musicSeed,makeMusic}=await import(pathToFileURL(bgm).href);
+  assert.equal(musicSeed('contents/261107_서울랜드/motion.html','<body data-duration="25">'),'261107_서울랜드');
+  assert.equal(musicSeed('contents/a/motion.html','<body data-duration="25" data-bgm="다시">'),'다시');
+  assert.equal(musicSeed('contents/a/motion.html','<body data-bgm="off">'),null);
+  const a=makeMusic('261106_코엑스아쿠아리움',2),b=makeMusic('261107_서울랜드',2);
+  assert.ok(a.wav.equals(makeMusic('261106_코엑스아쿠아리움',2).wav),'같은 이름이면 같은 곡');
+  assert.notDeepEqual(a.picks,b.picks,'다른 이름이면 다른 곡');
+  assert.equal(a.wav.length,44+2*44100*4,'2초 스테레오 WAV');
 });
 test('효과음 목록은 「초 소리 [크기]」만 받는다',async()=>{
   const {parseCues}=await import(pathToFileURL(sfx).href);
