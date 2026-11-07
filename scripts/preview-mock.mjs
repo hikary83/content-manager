@@ -12,8 +12,25 @@ const rows = [
   row({ productName: '제주 오션뷰 호텔 1박 패키지', category: '여행', sourceUrl: 'https://trip.coupang.com/tp/products/2', createdAt: '2026-11-03', script: '제주 바다가 보이는 객실' }),
   row({ productName: '무선 미니 청소기', category: '가전·디지털', sourceUrl: 'https://www.coupang.com/vp/products/3', format: '캐러셀', createdAt: '2026-11-02', script: '책상 위 먼지, 손바닥 청소기로' })
 ];
+// Fake product finder: same rolling 20-calls-an-hour budget and 6-hour reuse as backend/Coupang.js, no real Coupang call.
+const CATEGORIES = [[1025, '국내여행'], [1026, '해외여행'], [1012, '식품'], [1014, '생활용품'], [1016, '가전디지털']];
+const calls = []; const saved = new Map();
+const usage = () => { const now = Date.now(); while (calls.length && calls[0] <= now - 3600000) calls.shift(); return { limit: 20, used: calls.length, remaining: 20 - calls.length, ...(calls.length ? { nextAt: new Date(calls[0] + 3600000).toISOString() } : {}) }; };
+const swatch = (hue) => 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="10" height="10" fill="hsl(${hue} 70% 82%)"/><circle cx="5" cy="5" r="3" fill="hsl(${hue} 60% 55%)"/></svg>`);
+function products({ source, categoryId, keyword }) {
+  const name = source === 'goldbox' ? '오늘의 특가 (골드박스)' : source === 'search' ? `「${keyword}」 검색` : `${(CATEGORIES.find(([id]) => id === categoryId) || [0, '?'])[1]} 베스트`;
+  if (source === 'search' && !(keyword?.length >= 2)) throw new Error('검색어는 2~50자로 입력해주세요.');
+  const key = JSON.stringify([source, categoryId, keyword]);
+  if (saved.has(key)) return { ...saved.get(key), fromCache: true, usage: usage() };
+  if (usage().remaining <= 0) throw new Error('한 시간 쿠팡 API 횟수(20회)를 다 썼어요. 저장된 결과는 계속 볼 수 있어요.');
+  calls.push(Date.now());
+  const count = source === 'search' ? 10 : 12;
+  const result = { label: name, fetchedAt: new Date().toISOString(), products: Array.from({ length: count }, (_, i) => ({ productId: String(9000000 + i), productName: `${name.replace(/ 베스트| \(골드박스\)/, '')} 예시 상품 ${i + 1}${i % 3 ? '' : ' — 상품명이 길면 두 줄까지만 보이고 나머지는 말줄임으로 잘립니다'}`, productPrice: (i + 1) * 7900, productImage: i === 4 ? '' : swatch(i * 37), productUrl: 'https://link.coupang.com/re/AFFSDP?example=' + i, categoryName: name, isRocket: i % 2 === 0, isFreeShipping: true })) };
+  saved.set(key, result); return { ...result, fromCache: false, usage: usage() };
+}
 function act({ action, payload }) {
-  if (action === 'status') return { version: '2.0.0 (mock)', aiConfigured: false };
+  if (action === 'status') return { version: '2.1.0 (mock)', aiConfigured: false, coupang: { configured: true, usage: usage(), categories: CATEGORIES } };
+  if (action === 'products') return products(payload);
   if (action === 'list') return { entries: rows };
   const index = rows.findIndex(item => item.id === payload.id);
   if (action === 'save') {

@@ -1,5 +1,5 @@
 /* HIKARY only. No credentials or endpoints from kic-worktools. */
-var SERVICE_VERSION = '2.0.0';
+var SERVICE_VERSION = '2.1.0';
 // Columns 1-14 are the original ledger. 15-21 (v1.7.0) are appended so existing rows never move.
 var LEGACY_HEADER_COUNT = 14;
 var CONTENT_HEADERS = ['콘텐츠 ID', '등록일', '카테고리', '상품명', '원본 링크', '변환 링크', '대본', 'YouTube 게시글', 'YouTube 상태', 'Instagram 게시글', 'Instagram 상태', 'TikTok 게시글', 'TikTok 상태', '비고', '형식', 'YouTube 업로드일', 'YouTube 링크', 'Instagram 업로드일', 'Instagram 링크', 'TikTok 업로드일', 'TikTok 링크'];
@@ -29,10 +29,11 @@ function doPost(event) {
     var payload = input.payload || {};
     action = String(input.action || '');
     var data;
-    if (action === 'status') { getContentSheet_(); data = { version: SERVICE_VERSION, aiConfigured: !!PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY') }; }
+    if (action === 'status') { getContentSheet_(); data = { version: SERVICE_VERSION, aiConfigured: !!PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY'), coupang: coupangStatus_() }; }
     else if (action === 'list') data = { entries: readEntries_() };
     else if (action === 'save') data = saveEntry_(payload);
     else if (action === 'delete') data = deleteEntry_(payload);
+    else if (action === 'products') data = findProducts_(payload);
     else if (action === 'analyze') data = analyzeProduct_(payload.url);
     else if (action === 'image') data = readImage_(payload.url);
     else if (action === 'generate') data = generateContent_(payload);
@@ -44,7 +45,7 @@ function doPost(event) {
     // Do not log exception text: UrlFetch errors can contain credentials or URLs.
     result = { ok: false, requestId: requestId, error: safeError_(error) };
   }
-  console.info(JSON.stringify({ requestId: requestId, action: ['status','list','save','delete','analyze','image','generate','reference','carousel'].indexOf(action) >= 0 ? action : 'unknown', elapsedMs: Date.now() - started, ok: result.ok }));
+  console.info(JSON.stringify({ requestId: requestId, action: ['status','list','save','delete','products','analyze','image','generate','reference','carousel'].indexOf(action) >= 0 ? action : 'unknown', elapsedMs: Date.now() - started, ok: result.ok }));
   return jsonResponse_(result);
 }
 

@@ -2,14 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash, createHmac, randomUUID } from 'node:crypto';
 
 const LEGACY_HEADERS = ['콘텐츠 ID','등록일','카테고리','상품명','원본 링크','변환 링크','대본','YouTube 게시글','YouTube 상태','Instagram 게시글','Instagram 상태','TikTok 게시글','TikTok 상태','비고'];
 const ADDED_HEADERS = ['형식','YouTube 업로드일','YouTube 링크','Instagram 업로드일','Instagram 링크','TikTok 업로드일','TikTok 링크'];
 function runtime({ legacy = false } = {}) {
   const rows = [legacy ? [...LEGACY_HEADERS] : [...LEGACY_HEADERS, ...ADDED_HEADERS]];
   const props = new Map([['SHEET_ID','test'],['SHEET_NAME','콘텐츠 관리']]);
-  let writes = 0; let fetches = 0;
+  let writes = 0; let fetches = 0; const cache = new Map();
   const sheet = { getLastRow: () => rows.length, getMaxRows: () => 1000, getMaxColumns: () => 26, insertColumnsAfter() {}, getFrozenRows: () => 1, insertRowsAfter() {}, deleteRow(row) { writes++; rows.splice(row - 1, 1); },
     getRange(row, col, height = 1, width = 1) { return {
       getValues: () => Array.from({length:height}, (_, y) => Array.from({length:width}, (_, x) => rows[row-1+y]?.[col-1+x] ?? '')),
@@ -22,13 +22,14 @@ function runtime({ legacy = false } = {}) {
   const context = vm.createContext({
     console: { info() {} },
     PropertiesService: { getScriptProperties: () => ({ getProperty: key => props.get(key) || null, setProperty: (key,value) => props.set(key,value) }) },
-    Utilities: { getUuid: randomUUID, DigestAlgorithm: { SHA_256:'sha256' }, Charset:{ UTF_8:'utf8' }, computeDigest: (_,value) => [...createHash('sha256').update(value).digest()], formatDate: () => '2026-10-28', base64Encode: value => Buffer.from(value).toString('base64'), base64Decode: value => [...Buffer.from(value,'base64')] },
+    Utilities: { getUuid: randomUUID, DigestAlgorithm: { SHA_256:'sha256' }, Charset:{ UTF_8:'utf8' }, computeDigest: (_,value) => [...createHash('sha256').update(value).digest()], formatDate: (date, zone, format) => format.includes("'T'") ? '261108T012345Z' : '2026-10-28', computeHmacSha256Signature: (value, key) => [...createHmac('sha256', key).update(value).digest()].map(byte => byte > 127 ? byte - 256 : byte), base64Encode: value => Buffer.from(value).toString('base64'), base64Decode: value => [...Buffer.from(value,'base64')] },
     LockService: { getScriptLock: () => ({ tryLock: () => true, releaseLock() {} }) },
     SpreadsheetApp: { openById: () => ({getSheetByName: () => sheet}), newDataValidation: () => validation, flush() {} },
     ContentService: { MimeType:{JSON:'application/json'},createTextOutput: text => ({text,setMimeType() {return this;}}) },
-    UrlFetchApp: { fetch() { fetches++; throw new Error('unexpected network'); } }
+    UrlFetchApp: { fetch() { fetches++; throw new Error('unexpected network'); } },
+    CacheService: { getScriptCache: () => ({ get: key => cache.get(key) ?? null, put: (key, value) => cache.set(key, value) }) }
   });
-  for (const name of ['Code','Product','Gemini']) vm.runInContext(readFileSync(new URL(`../backend/${name}.js`,import.meta.url),'utf8'),context);
+  for (const name of ['Code','Product','Gemini','Coupang']) vm.runInContext(readFileSync(new URL(`../backend/${name}.js`,import.meta.url),'utf8'),context);
   return { context, rows, props, writes: () => writes, fetches: () => fetches };
 }
 const sample = () => ({id:randomUUID(),category:'여행',productName:'제주 숙소',sourceUrl:'https://trip.coupang.com/product',affiliateUrl:'',script:'실제 상품정보 기반 대본',youtube:'',instagram:'',tiktok:'',notes:''});
@@ -121,4 +122,53 @@ test('캐러셀 생성은 상품 설명으로 공통 블록 초안을 만들고 
   assert.equal(response.ok,true);assert.equal(response.data.content.points.items.length,1);assert.equal(env.writes(),0);
   assert.match(captured.systemInstruction.parts[0].text,/추측하거나 만들어내지/);assert.match(captured.systemInstruction.parts[0].text,/DM 보상/);
   assert.equal(captured.generationConfig.responseSchema.properties.content.properties.facts.properties.items.maxItems,4);
+});
+
+// v2.1.0 product finder. Coupang stops a key for 24 hours at 30 calls an hour and the server is public, so the budget is the safety net.
+function coupangEnv(products = [{ productId: 101, productName: '롯데월드 아쿠아리움 입장권', productPrice: 29000, productImage: 'https://thumbnail.coupangcdn.com/a.jpg', productUrl: 'https://link.coupang.com/re/AFFSDP?lptag=AF1', isRocket: false }]) {
+  const env = runtime(); env.props.set('COUPANG_ACCESS_KEY', 'access-example'); env.props.set('COUPANG_SECRET_KEY', 'secret-example');
+  const sent = []; env.context.UrlFetchApp.fetch = (url, options) => { sent.push({ url, options }); return { getResponseCode: () => 200, getContentText: () => JSON.stringify({ rCode: '0', data: products }) }; };
+  const call = payload => JSON.parse(env.context.doPost({ postData: { contents: JSON.stringify({ action: 'products', payload }) } }).text);
+  return { env, sent, call };
+}
+test('쿠팡 키가 없으면 쿠팡을 부르지 않고 횟수도 쓰지 않는다', () => {
+  const env = runtime(); const call = body => JSON.parse(env.context.doPost({ postData: { contents: JSON.stringify(body) } }).text);
+  const status = call({ action: 'status' }).data.coupang;
+  assert.equal(status.configured, false); assert.equal(status.usage.remaining, 20); assert.deepEqual(status.categories[0], [1025, '국내여행']);
+  assert.match(call({ action: 'products', payload: { source: 'goldbox' } }).error, /COUPANG_ACCESS_KEY/);
+  assert.equal(env.fetches(), 0); assert.equal(env.props.get('COUPANG_CALLS'), undefined);
+});
+test('쿠팡 요청은 HMAC 서명을 달고, https 링크만 남긴 상품과 남은 횟수를 돌려준다', () => {
+  const { sent, call } = coupangEnv([{ productId: 101, productName: ' 입장권 ', productPrice: 29000, productImage: 'javascript:alert(1)', productUrl: 'https://link.coupang.com/re/AFFSDP?lptag=AF1', isRocket: true }, { productId: 102, productName: '링크 없음', productUrl: 'http://link.coupang.com/x' }]);
+  const result = call({ source: 'search', keyword: ' 아쿠아리움  입장권 ' });
+  assert.equal(result.ok, true); assert.equal(sent.length, 1);
+  const path = '/v2/providers/affiliate_open_api/apis/openapi/v1/products/search'; const query = 'keyword=' + encodeURIComponent('아쿠아리움 입장권') + '&limit=10';
+  assert.equal(sent[0].url, 'https://api-gateway.coupang.com' + path + '?' + query);
+  const signature = createHmac('sha256', 'secret-example').update('261108T012345Z' + 'GET' + path + query).digest('hex');
+  assert.equal(sent[0].options.headers.Authorization, 'CEA algorithm=HmacSHA256, access-key=access-example, signed-date=261108T012345Z, signature=' + signature);
+  assert.deepEqual(result.data.products.map(item => [item.productId, item.productName, item.productImage, item.isRocket]), [['101', '입장권', '', true]]);
+  assert.equal(result.data.usage.remaining, 19); assert.equal(result.data.fromCache, false); assert.equal(result.data.label, '「아쿠아리움 입장권」 검색');
+});
+test('같은 목록은 6시간 저장해 둔 결과를 다시 써서 횟수를 쓰지 않는다', () => {
+  const { sent, call } = coupangEnv();
+  const first = call({ source: 'best', categoryId: 1025 }); const again = call({ source: 'best', categoryId: 1025 });
+  assert.match(sent[0].url, /bestcategories\/1025\?limit=50$/); assert.equal(sent.length, 1);
+  assert.equal(again.data.fromCache, true); assert.equal(again.data.usage.remaining, 19); assert.deepEqual(again.data.products, first.data.products);
+});
+test('지난 한 시간에 20번 불렀으면 21번째는 쿠팡에 보내지 않고, 한 시간이 지난 횟수는 돌아온다', () => {
+  const { env, sent, call } = coupangEnv(); const now = Date.now();
+  env.props.set('COUPANG_CALLS', JSON.stringify(Array.from({ length: 20 }, (_, i) => now - 60000 * i)));
+  assert.match(call({ source: 'goldbox' }).error, /20회/); assert.equal(sent.length, 0);
+  env.props.set('COUPANG_CALLS', JSON.stringify([...Array.from({ length: 19 }, () => now - 3700000), now - 1000]));
+  const ok = call({ source: 'goldbox' }); assert.equal(ok.ok, true); assert.equal(sent.length, 1); assert.equal(ok.data.usage.remaining, 18);
+});
+test('쿠팡이 거절한 요청도 횟수에 들어가고, 키 오류는 키를 확인하라고 알린다', () => {
+  const { env, call } = coupangEnv(); env.context.UrlFetchApp.fetch = () => ({ getResponseCode: () => 401, getContentText: () => '{"message":"Specified key is not registered."}' });
+  assert.match(call({ source: 'goldbox' }).error, /API 키를 받지 않았어요/); assert.equal(JSON.parse(env.props.get('COUPANG_CALLS')).length, 1);
+});
+test('없는 카테고리·짧은 검색어·모르는 방법은 쿠팡을 부르지 않는다', () => {
+  const { sent, call } = coupangEnv();
+  assert.match(call({ source: 'best', categoryId: 9999 }).error, /카테고리/); assert.match(call({ source: 'search', keyword: 'a' }).error, /2~50자/);
+  assert.match(call({ source: 'search', keyword: 'x'.repeat(51) }).error, /2~50자/); assert.match(call({ source: 'reco' }).error, /찾는 방법/);
+  assert.equal(sent.length, 0);
 });

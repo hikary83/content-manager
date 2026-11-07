@@ -1,6 +1,7 @@
 (() => {
   'use strict';
   // v2.0.0: content is made in Claude and registered to the ledger. This page lists it, edits or deletes it, and records uploads.
+  // v2.1.0: a second tab finds Coupang products to make next (Partners API through the server).
   const $ = id => document.getElementById(id);
   const PLATFORMS = [['youtube', 'YouTube'], ['instagram', 'Instagram'], ['tiktok', 'TikTok']];
   const TEXT_KEYS = ['productName', 'category', 'sourceUrl', 'affiliateUrl', 'script', 'youtube', 'instagram', 'tiktok', 'notes'];
@@ -125,8 +126,69 @@
     void task(async () => { await save({ [key + 'Status']: '미업로드', [key + 'Date']: '', [key + 'Link']: '' }, '업로드 기록을 지웠어요.'); $('uploadDialog').close(); });
   };
 
+  // v2.1.0 product finder. Lists load only on a click: every real Coupang call spends from one hourly budget shared by all visitors.
+  let coupang = { configured: false, usage: null, categories: [] };
+  const hhmm = iso => new Date(iso).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+  function showQuota() {
+    const usage = coupang.usage;
+    if (!coupang.configured || !usage) {
+      $('quotaLeft').textContent = '키 없음'; $('quotaBar').style.width = '0%';
+      $('quotaHint').textContent = 'Apps Script 스크립트 속성에 COUPANG_ACCESS_KEY·COUPANG_SECRET_KEY를 넣으면 쓸 수 있어요.'; return;
+    }
+    $('quotaLeft').textContent = `${usage.remaining} / ${usage.limit}`;
+    $('quotaBar').style.width = `${usage.remaining / usage.limit * 100}%`; $('quotaBar').classList.toggle('low', usage.remaining <= 5);
+    $('quotaHint').textContent = `쿠팡은 한 시간에 30번 이상 부르면 키가 24시간 멈춰서 ${usage.limit}번까지만 불러요. 불러온 목록은 6시간 동안 저장해 두고, 다시 볼 때는 횟수를 쓰지 않아요.`
+      + (usage.nextAt ? ` 다음 1회는 ${hhmm(usage.nextAt)}에 돌아와요.` : '');
+  }
+  function useStatus(status) {
+    coupang = status.coupang || coupang; showQuota();
+    if ($('finderSource').options.length || !coupang.categories.length) return;
+    $('finderSource').append(new Option('오늘의 특가 (골드박스)', 'goldbox'));
+    const group = document.createElement('optgroup'); group.label = '카테고리 베스트';
+    for (const [id, name] of coupang.categories) group.append(new Option(name, 'best:' + id));
+    $('finderSource').append(group); $('finderSource').value = 'best:1025';
+  }
+  function productCard(product, label) {
+    const card = element('article', 'pick-card'); const image = element('div', 'pick-image'); const body = element('div', 'pick-body'); const actions = element('div', 'pick-actions');
+    if (/^(https:|data:image\/)/.test(product.productImage)) { const img = document.createElement('img'); img.src = product.productImage; img.alt = ''; img.loading = 'lazy'; image.append(img); }
+    const price = element('p', 'price', product.productPrice ? `${product.productPrice.toLocaleString('ko-KR')}원` : '');
+    if (product.isRocket) price.append(element('span', 'rocket', '로켓'));
+    // Open the plain product page, not the partners link: our own click on it would count as self-referral traffic.
+    const page = `https://www.coupang.com/vp/products/${product.productId}`;
+    const copy = button('Claude용 글 복사', async () => {
+      try { await navigator.clipboard.writeText(`이 상품으로 만들어줘\n상품명: ${product.productName}\n상품 페이지: ${page}\n파트너스 링크: ${product.productUrl}\n(HIKARY 상품 찾기 · ${label})`); copy.textContent = '복사됨 ✓'; setTimeout(() => { copy.textContent = 'Claude용 글 복사'; }, 1500); }
+      catch { alert('복사하지 못했어요. 상품 페이지 주소를 직접 복사해주세요.'); }
+    }, 'small');
+    actions.append(link('상품 페이지 ↗', page, 'ghost small'), copy);
+    body.append(element('h3', '', product.productName), price, actions); card.append(image, body); return card;
+  }
+  async function findProducts(payload) {
+    if (!coupang.configured) throw new Error('쿠팡 파트너스 API 키가 아직 없어요. 스크립트 속성에 넣은 뒤 새로고침해주세요.');
+    let result;
+    try { result = await HikaryApi.request('products', payload); }
+    catch (error) { void HikaryApi.request('status').then(useStatus).catch(() => {}); throw error; } // a refused call may still have counted
+    coupang.usage = result.usage; showQuota();
+    $('finderMeta').textContent = `${result.label} · ${result.products.length}개 · ${hhmm(result.fetchedAt)}에 받아 온 목록${result.fromCache ? ' (저장된 목록이라 횟수를 쓰지 않았어요)' : ''} · 가격은 바뀔 수 있어요`;
+    $('finderResults').replaceChildren(...result.products.map(product => productCard(product, result.label)));
+    if (!result.products.length) { const empty = element('div', 'empty'); empty.append(element('strong', '', '상품이 없어요.'), element('span', '', '다른 카테고리나 검색어로 찾아보세요.')); $('finderResults').append(empty); }
+    notice('');
+  }
+  $('finderLoad').onclick = () => { const [source, categoryId] = $('finderSource').value.split(':'); void task(() => findProducts({ source, categoryId: Number(categoryId) || undefined })); };
+  $('finderSearch').onsubmit = event => { event.preventDefault(); void task(() => findProducts({ source: 'search', keyword: $('finderKeyword').value.trim() })); };
+
+  function showView(view) {
+    $('ledgerView').hidden = view !== 'ledger'; $('finderView').hidden = view !== 'finder';
+    for (const node of $('views').children) node.classList.toggle('on', node.dataset.view === view);
+    history.replaceState(null, '', view === 'finder' ? '#finder' : location.pathname + location.search);
+  }
+  for (const node of $('views').children) node.onclick = () => {
+    showView(node.dataset.view);
+    if (node.dataset.view === 'finder' && !busy) HikaryApi.request('status').then(useStatus).catch(() => {}); // the hourly count frees up over time
+  };
+  showView(location.hash === '#finder' ? 'finder' : 'ledger');
+
   void task(async () => {
-    try { $('connectionState').textContent = `연결됨 · 서버 ${(await HikaryApi.request('status')).version}`; $('connectionState').classList.add('ok'); }
+    try { const status = await HikaryApi.request('status'); $('connectionState').textContent = `연결됨 · 서버 ${status.version}`; $('connectionState').classList.add('ok'); useStatus(status); }
     catch (error) { $('connectionState').textContent = '서버 연결 실패'; throw error; }
     await load(); notice('');
   });

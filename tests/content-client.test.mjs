@@ -24,9 +24,9 @@ test('HTML 권한 오류를 성공으로 처리하지 않는다',async()=>{
   const env=client(async()=>({ok:true,json:async()=>{throw new Error('not json');}}));
   await assert.rejects(()=>env.api.request('status'),/접근 설정/);
 });
-test('화면은 업로드 관리만 남고 보기·수정·삭제와 업로드 기록 입력을 갖는다',()=>{
+test('화면은 업로드 관리(보기·수정·삭제·업로드 기록)와 상품 찾기를 갖는다',()=>{
   const html=fs.readFileSync(new URL('../docs/index.html',import.meta.url),'utf8');
-  for(const id of ['entries','search','filters','detailDialog','d-productName','d-category','d-sourceUrl','d-affiliateUrl','d-script','d-youtube','d-instagram','d-tiktok','d-notes','detailDelete','uploadDialog','uploadPlatforms','uploadStatus','uploadDate','uploadLink','uploadClear']) assert.ok(html.includes(`id="${id}"`),id);
+  for(const id of ['entries','search','filters','detailDialog','d-productName','d-category','d-sourceUrl','d-affiliateUrl','d-script','d-youtube','d-instagram','d-tiktok','d-notes','detailDelete','uploadDialog','uploadPlatforms','uploadStatus','uploadDate','uploadLink','uploadClear','views','ledgerView','finderView','quotaLeft','quotaBar','finderSource','finderLoad','finderSearch','finderKeyword','finderResults']) assert.ok(html.includes(`id="${id}"`),id);
   assert.doesNotMatch(html,/id="(createTab|formatCarousel|analyzeButton|generateButton|carouselMount|referenceDialog)"/);
   assert.doesNotMatch(html,/(production|reference|carousel|image-analysis)\.js/);
   assert.doesNotMatch(html,/accessToken|APP_ACCESS_TOKEN/);assert.doesNotMatch(html,/AIza[A-Za-z0-9_-]{20,}/);

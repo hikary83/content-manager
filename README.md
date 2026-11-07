@@ -1,6 +1,6 @@
 # HIKARY 콘텐츠 기록
 
-서비스 버전 **v2.0.0** · 2026-11-06
+서비스 버전 **v2.1.0** · 2026-11-08
 
 쿠팡 상품으로 쇼츠·캐러셀을 **Claude에서 직접 만들고**, 이 웹에는 등록 이력과 플랫폼별 업로드 기록만 남깁니다.
 작업 기준은 [CLAUDE.md](CLAUDE.md)(지시서), 설정·배포·변경 이력은 [SETUP.md](SETUP.md)를 참고하세요.
@@ -9,11 +9,11 @@
 node scripts/preview-mock.mjs        # 가짜 데이터로 화면 확인 → http://127.0.0.1:4175/
 node tools/carousel/render.mjs contents/<폴더>/carousel.html
 node tools/register.mjs save contents/<폴더>/entry.json   # 「등록해줘」일 때만
-node --test tests/content-backend.test.mjs tests/content-client.test.mjs tests/travel-extraction.test.mjs tests/production.test.mjs tests/reel.test.mjs tests/reference.test.mjs tests/carousel.test.mjs
+node --test tests/content-backend.test.mjs tests/content-client.test.mjs tests/travel-extraction.test.mjs tests/production.test.mjs tests/reel.test.mjs tests/reference.test.mjs tests/carousel.test.mjs tests/motion.test.mjs
 ```
 
-- 웹(`docs/`, GitHub Pages `main /docs`): 업로드 관리 한 화면. 상품별 묶음, 콘텐츠 보기·수정·삭제, 업로드 기록 등록·수정·지우기.
-- 서버(`backend/`, Apps Script): `status` · `list` · `save` · `delete`. 접속 코드 없이 공개되어 있어 서버 주소를 아는 누구나 호출할 수 있습니다. Gemini 동작은 웹에서 쓰지 않지만 남아 있습니다(일일 한도로 제한).
+- 웹(`docs/`, GitHub Pages `main /docs`): 「기록」 탭은 상품별 묶음, 콘텐츠 보기·수정·삭제, 업로드 기록 등록·수정·지우기. 「상품 찾기」 탭은 쿠팡 파트너스 API로 특가·카테고리 베스트·검색을 보여 주고 남은 API 횟수를 표시합니다.
+- 서버(`backend/`, Apps Script): `status` · `list` · `save` · `delete` · `products`(쿠팡 상품 찾기, 한 시간 20회·6시간 저장). 접속 코드 없이 공개되어 있어 서버 주소를 아는 누구나 호출할 수 있습니다. Gemini 동작은 웹에서 쓰지 않지만 남아 있습니다(일일 한도로 제한).
 - 운영대장(Google Sheets)에는 콘텐츠 ID·등록일·카테고리·상품명·원본/변환 링크·대본·플랫폼별 게시글/상태·비고·형식·업로드일·게시물 링크를 저장합니다. 사진·영상 파일은 저장하지 않습니다.
 - 만든 파일은 각 PC의 `contents/`에 둡니다(git 제외).
 

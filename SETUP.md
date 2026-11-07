@@ -1,12 +1,12 @@
-# HIKARY 콘텐츠 기록 v2.0.0
+# HIKARY 콘텐츠 기록 v2.1.0
 
 2026-11-06 · GitHub Pages + Google Apps Script + Google Sheets. 콘텐츠는 Claude에서 만든다.
 
 ## 현재 구조
 
 - 작업 기준은 저장소 맨 위 [CLAUDE.md](CLAUDE.md)(지시서)입니다. 어느 PC에서든 Claude가 이 파일을 먼저 읽습니다.
-- `docs/`: 업로드 관리 화면 하나. Pages 설정은 `main` / `/docs`.
-- `backend/`: Apps Script 서버. 웹이 쓰는 동작은 `status` · `list` · `save` · `delete`. Gemini 동작은 되돌리기 대비로 남아 있습니다.
+- `docs/`: 「기록」(업로드 관리)·「상품 찾기」 두 탭. Pages 설정은 `main` / `/docs`.
+- `backend/`: Apps Script 서버. 웹이 쓰는 동작은 `status` · `list` · `save` · `delete` · `products`. Gemini 동작은 되돌리기 대비로 남아 있습니다.
 - `tools/register.mjs`: Claude가 만든 콘텐츠를 운영대장에 등록. `tools/carousel/`: 캐러셀 HTML → 1080×1350 PNG.
 - `scripts/preview-mock.mjs`: 가짜 데이터로 웹 확인 (http://127.0.0.1:4175/). `scripts/preview-content.mjs`: 실제 서버로 웹 확인 (http://127.0.0.1:4173/).
 - `scripts/reel/`: 사진 4장 + `video-job.json` → ffmpeg 무자막 MP4.
@@ -14,6 +14,21 @@
 - `app/`, `worker/`, `db/` 등은 이전 Sites/React 코드입니다. Pages 배포에는 포함하지 않습니다. 백업 태그: `legacy-chatgpt-sites-2026-08-11`.
 
 ## 최초 연결
+
+### v2.1.0 상품 찾기 (쿠팡 파트너스 API)
+
+- 웹 맨 위에 「기록」「상품 찾기」 탭을 두었습니다 (2026-11-08 결정). 상품 찾기는 오늘의 특가(골드박스), 카테고리 베스트 19개(처음엔 국내여행), 키워드 검색(10개)을 보여 줍니다. 카드마다 「상품 페이지 ↗」와 「Claude용 글 복사」(상품명·상품 페이지·파트너스 링크)가 있습니다.
+- 상품 페이지 버튼은 파트너스 링크가 아니라 일반 상품 주소(`www.coupang.com/vp/products/<번호>`)를 엽니다. 내가 내 파트너스 링크를 누르지 않게 하려는 것입니다. 여행 상품도 이 주소로 열리는지는 **확인 필요**.
+- **쿠팡 API 정지 규칙:** 한 시간에 30번 이상 부르면 24시간 정지, 정지 3번이면 계정 정지 (비공식 API 문서 기준, 공식 도움말과 같은지 **확인 필요**). 서버가 공개라 누구나 부를 수 있으므로:
+  - 서버 전체가 함께 쓰는 **지난 60분 기준 20회** 상한을 둡니다. 실패한 호출도 셉니다. 스크립트 속성 `COUPANG_CALLS`에 호출 시각이 남습니다(지우면 횟수가 초기화되니 건드리지 않습니다).
+  - 같은 목록·검색어는 **6시간 동안 저장해 두고 다시 씁니다** (CacheService). 저장된 결과를 볼 때는 횟수를 쓰지 않습니다.
+  - 화면은 버튼을 눌렀을 때만 부릅니다. 남은 횟수와 다음 1회가 돌아오는 시각을 보여 줍니다.
+  - 같은 키를 다른 곳(다른 도구·사이트)에서도 쓰면 그 호출은 이 횟수에 잡히지 않습니다.
+- 카테고리를 늘리거나 빼려면 `backend/Coupang.js`의 `COUPANG_CATEGORIES` 한 줄을 고칩니다. 화면은 서버에서 목록을 받아 씁니다.
+- API가 주는 `productUrl`은 파트너스 추적 링크(`link.coupang.com/re/AFFSDP…`)입니다. 첫 상품은 파트너스 리포트에 클릭이 잡히는지 확인합니다 (**확인 필요**).
+- 설정: 쿠팡 파트너스 → Open API에서 Access Key·Secret Key를 확인해 스크립트 속성 `COUPANG_ACCESS_KEY`·`COUPANG_SECRET_KEY`에 직접 넣습니다. 채널(Sub ID)을 쓰면 `COUPANG_SUB_ID`도 넣습니다. 키는 Git·채팅에 붙여넣지 않습니다.
+- 배포 순서: 서버 → 화면. 서버가 먼저 올라가도 v2.0.0 화면은 그대로 동작합니다. 롤백: 화면 `v2.0.0`, 서버는 직전 Apps Script 버전.
+- 검증: 자동 테스트 43개 통과(서명 형식, 한 시간 상한, 저장된 결과 재사용, 실패 호출 계산, 잘못된 입력 거절). 가짜 데이터 화면에서 카테고리·특가·검색·저장된 결과 표시·남은 횟수·탭 전환과 휴대폰 폭(375px)을 확인했습니다. 실제 쿠팡 호출과 서버 배포는 아직 하지 않았습니다.
 
 ### v2.0.0 콘텐츠는 Claude에서, 웹은 기록만
 
@@ -161,6 +176,9 @@ v1.3.0 서버: 기존 개인 배포 ID의 Apps Script v4로 갱신. v3(서비스
 | `GEMINI_DAILY_LIMIT` | 하루 호출 한도, 기본 40회 (실패 호출 포함) |
 | `PRODUCT_ALLOWED_HOSTS` | 추가 상품 수집 허용 도메인, 쉼표 구분. 기본 coupang.com |
 | `IMAGE_ALLOWED_HOSTS` | 추가 이미지 CDN 도메인. 기본 coupangcdn.com,coupang.com |
+| `COUPANG_ACCESS_KEY` · `COUPANG_SECRET_KEY` | 쿠팡 파트너스 Open API 키, 직접 입력 (v2.1.0 상품 찾기) |
+| `COUPANG_SUB_ID` | 선택. 파트너스 채널 ID |
+| `COUPANG_CALLS` | 서버가 쓰는 지난 한 시간 호출 시각. 손대지 않음 |
 
 ### 접근 제어
 
