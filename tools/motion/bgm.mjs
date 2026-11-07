@@ -2,13 +2,15 @@
 // A seed picks key, tempo, chords, instrument and beat: each video gets its own track, and the same seed always
 // gives the same track. The seed is the folder name, or <body data-bgm="any text"> to pick another track;
 // <body data-bgm="off"> makes no music.
-// record.mjs writes motion-bgm.mp4 (sound effects + music) next to motion.mp4. To redo only the music:
+// record.mjs writes motion-bgm.mp4 (sound effects + narration + music) next to motion.mp4; the music ducks
+// while the narration speaks. To redo only the music:
 //   node tools/motion/bgm.mjs contents/<folder>/motion.html   (rebuilds motion-bgm.mp4 from motion.mp4)
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { run, probe } from '../../scripts/reel/lib.mjs';
+import { voiceTrack } from './voice.mjs';
 
 const SR = 44100, VOLUME = 0.32; // music level under the sound effects
 const KEYS = { C: 0, D: 2, F: 5, G: 7, A: -3 };
@@ -89,17 +91,19 @@ export function makeMusic(seed, seconds) {
 }
 
 // motion.mp4 → motion-bgm.mp4 with the music under whatever sound the video already has.
-export function addMusic(video, seed) {
+// voice: the narration track (voice.mjs) — the music ducks while it speaks. The video already has the voice in it.
+export function addMusic(video, seed, voice) {
   const info = probe(video), out = video.replace(/\.mp4$/i, '') + '-bgm.mp4';
   const { wav, picks } = makeMusic(seed, Number(info.format.duration));
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hikary-bgm-'));
   try {
     const music = path.join(dir, 'music.wav');
     fs.writeFileSync(music, wav);
+    const duck = voice ? '[m][2:a]sidechaincompress=threshold=0.02:ratio=8:attack=30:release=400[d];' : '';
     const audio = info.streams.some(s => s.codec_type === 'audio')
-      ? ['-filter_complex', `[1:a]volume=${VOLUME}[m];[0:a][m]amix=inputs=2:normalize=0:duration=first,alimiter=limit=0.95[a]`, '-map', '[a]']
+      ? ['-filter_complex', `[1:a]volume=${VOLUME}[m];${duck}[0:a][${voice ? 'd' : 'm'}]amix=inputs=2:normalize=0:duration=first,alimiter=limit=0.95[a]`, '-map', '[a]']
       : ['-map', '1:a'];
-    run('ffmpeg', ['-v', 'error', '-y', '-i', video, '-i', music, '-map', '0:v', ...audio,
+    run('ffmpeg', ['-v', 'error', '-y', '-i', video, '-i', music, ...(voice ? ['-i', voice] : []), '-map', '0:v', ...audio,
       '-c:v', 'copy', '-c:a', 'aac', '-b:a', '160k', '-shortest', '-movflags', '+faststart', out]);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
@@ -116,6 +120,6 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   if (!fs.existsSync(video)) throw new Error(`${path.basename(video)}이 없어요. 먼저 record.mjs로 영상을 만들어요.`);
   const seed = musicSeed(page, fs.readFileSync(page, 'utf8'));
   if (!seed) throw new Error('data-bgm="off"라 배경음악을 넣지 않아요.');
-  const { out, picks } = addMusic(video, seed);
+  const { out, picks } = addMusic(video, seed, voiceTrack(page));
   console.log(`배경음악을 넣었어요 (${describe(picks)}): ${out}`);
 }

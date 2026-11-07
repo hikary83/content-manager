@@ -54,3 +54,13 @@ test('효과음 목록은 「초 소리 [크기]」만 받는다',async()=>{
   assert.throws(()=>parseCues('1 boom'),/효과음/);
   assert.throws(()=>parseCues('-1 pop'),/효과음/);
 });
+test('나레이션 대본은 「| 시작–끝 | 화면 | 나레이션 |」 줄만 읽는다',async()=>{
+  const {parseNarration}=await import(new URL('../tools/motion/voice.mjs',import.meta.url).href);
+  const md='# 나레이션 대본\n\n| 시간 | 화면 | 나레이션 |\n| --- | --- | --- |\n| 0.15–3.7 | 훅 | 크리스마스 분위기, 미리 느낄 곳? |\n| 3.85-6.3 | 후기 | 후기, 요약해 봤어요. |\n';
+  assert.deepEqual(parseNarration(md,25),[{at:0.15,end:3.7,text:'크리스마스 분위기, 미리 느낄 곳?',seed:1},{at:3.85,end:6.3,text:'후기, 요약해 봤어요.',seed:101}]);
+  assert.deepEqual(parseNarration('대본 없음',25),[]);
+  assert.throws(()=>parseNarration('| 1–3 | a |\n| 2–4 | b |',25),/나레이션/,'앞줄과 겹치면 안 된다');
+  assert.throws(()=>parseNarration('| 20–26 | a |',25),/나레이션/,'영상 길이를 넘으면 안 된다');
+  assert.throws(()=>parseNarration('| 3–1 | a |',25),/나레이션/,'끝이 시작보다 늦어야 한다');
+  assert.throws(()=>parseNarration('| 1–3 |  |',25),/나레이션/,'읽을 문장이 있어야 한다');
+});

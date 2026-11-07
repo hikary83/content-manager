@@ -1,14 +1,18 @@
 // Sound effects for motion videos. Every sound is synthesized here with ffmpeg, so the file holds no third-party audio.
 // Cues live on the page: <body data-sfx="0.12 pop .5, 1.9 whoosh .35, …"> — "seconds sound [volume, default .6]".
-// record.mjs adds them after recording. To re-mix an existing video without recording again:
-//   node tools/motion/sfx.mjs contents/<folder>/motion.html   (rewrites motion.mp4; only its video stream is kept,
-//   then rebuilds motion-bgm.mp4 so it gets the new sound effects too). Background music itself is in bgm.mjs.
+// record.mjs adds them after recording, together with the narration (voice.mjs) when the folder has narration.md.
+// To re-mix an existing video without recording again:
+//   node tools/motion/sfx.mjs contents/<folder>/motion.html   (rewrites motion.mp4 with sound effects + narration;
+//   only its video stream is kept, then rebuilds motion-bgm.mp4 too). Background music itself is in bgm.mjs.
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { run } from '../../scripts/reel/lib.mjs';
 import { musicSeed, addMusic } from './bgm.mjs';
+import { voiceTrack } from './voice.mjs';
+
+const UNDER_VOICE = 0.7; // sound-effect level when narration plays too
 
 export const sounds = {
   whoosh: "anoisesrc=d=0.7:c=pink:a=0.9,bandpass=f=900:width_type=h:w=1600,afade=t=in:d=0.35:curve=qsin,afade=t=out:st=0.35:d=0.35:curve=qsin",
@@ -31,18 +35,20 @@ export function parseCues(text = '') {
   });
 }
 
-export function addSound(video, cues) {
-  if (!cues.length) return;
+export function addSound(video, cues, voice) {
+  if (!cues.length && !voice) return;
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hikary-sfx-'));
   try {
     for (const name of new Set(cues.map(([, name]) => name))) {
       run('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', sounds[name], '-ar', '44100', '-ac', '1', path.join(dir, `${name}.wav`)]);
     }
     const chains = cues.map(([time, , volume], i) => `[${i + 1}]adelay=${Math.round(time * 1000)}:all=1,volume=${volume}[a${i}]`);
-    const mix = `${cues.map((_, i) => `[a${i}]`).join('')}amix=inputs=${cues.length}:normalize=0,alimiter=limit=0.9,apad[aout]`;
+    const sfx = `${cues.map((_, i) => `[a${i}]`).join('')}amix=inputs=${cues.length}:normalize=0,alimiter=limit=0.9`;
+    const graph = !voice ? [...chains, `${sfx},apad[aout]`] : !cues.length ? ['[1]apad[aout]']
+      : [...chains, `${sfx},volume=${UNDER_VOICE},aformat=channel_layouts=stereo[s]`, `[s][${cues.length + 1}]amix=inputs=2:normalize=0,alimiter=limit=0.95,apad[aout]`];
     const mixed = path.join(dir, 'mixed.mp4');
-    run('ffmpeg', ['-v', 'error', '-y', '-i', video, ...cues.flatMap(([, name]) => ['-i', path.join(dir, `${name}.wav`)]),
-      '-filter_complex', [...chains, mix].join(';'), '-map', '0:v', '-map', '[aout]', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '160k',
+    run('ffmpeg', ['-v', 'error', '-y', '-i', video, ...cues.flatMap(([, name]) => ['-i', path.join(dir, `${name}.wav`)]), ...(voice ? ['-i', voice] : []),
+      '-filter_complex', graph.join(';'), '-map', '0:v', '-map', '[aout]', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '160k',
       '-shortest', '-movflags', '+faststart', mixed]);
     fs.copyFileSync(mixed, video);
   } finally {
@@ -57,9 +63,10 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   if (!fs.existsSync(video)) throw new Error(`${path.basename(video)}이 없어요. 먼저 record.mjs로 영상을 만들어요.`);
   const html = fs.readFileSync(page, 'utf8');
   const cues = parseCues(html.match(/<body[^>]*\sdata-sfx="([^"]*)"/)?.[1]);
-  if (!cues.length) throw new Error('<body data-sfx="0.12 pop .5, …">처럼 효과음 목록을 적어주세요.');
-  addSound(video, cues);
-  console.log(`효과음 ${cues.length}개를 넣었어요: ${video}`);
+  const voice = voiceTrack(page);
+  if (!cues.length && !voice) throw new Error('<body data-sfx="0.12 pop .5, …">처럼 효과음 목록을 적거나 narration.md를 만들어주세요.');
+  addSound(video, cues, voice);
+  console.log(`효과음 ${cues.length}개${voice ? '와 나레이션' : ''}을 넣었어요: ${video}`);
   const seed = musicSeed(page, html);
-  if (seed) console.log(`배경음악 버전도 다시 만들었어요: ${addMusic(video, seed).out}`);
+  if (seed) console.log(`배경음악 버전도 다시 만들었어요: ${addMusic(video, seed, voice).out}`);
 }

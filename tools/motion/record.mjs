@@ -1,5 +1,5 @@
-// Records an animated HTML page to a 1080×1920 MP4 next to it (motion.html → motion.mp4 with sound effects,
-// and motion-bgm.mp4 with background music too — see sfx.mjs and bgm.mjs).
+// Records an animated HTML page to a 1080×1920 MP4 next to it (motion.html → motion.mp4 with sound effects and
+// the narration in narration.md, and motion-bgm.mp4 with background music too — see sfx.mjs, voice.mjs, bgm.mjs).
 //   node tools/motion/record.mjs contents/<folder>/motion.html
 // The page sets its length with <body data-duration="18">. Every CSS animation is paused and seeked to each
 // frame's time before the screenshot, so the video is identical however fast or slow this PC is.
@@ -12,6 +12,7 @@ import { pathToFileURL } from 'node:url';
 import { run, probe } from '../../scripts/reel/lib.mjs';
 import { parseCues, addSound } from './sfx.mjs';
 import { musicSeed, addMusic, describe } from './bgm.mjs';
+import { voiceTrack } from './voice.mjs';
 
 const W = 1080, H = 1920, FPS = 30;
 const file = path.resolve(process.argv[2] || '');
@@ -21,6 +22,9 @@ const chrome = [process.env.CHROME, 'C:/Program Files/Google/Chrome/Application/
 if (!chrome) throw new Error('Chrome 또는 Edge를 찾지 못했어요. CHROME 환경 변수로 경로를 알려주세요.');
 run('ffmpeg', ['-version']);
 const out = file.replace(/\.html?$/i, '') + '.mp4';
+// Narration first: reading new lines takes minutes, and a page left running that long finishes its scenes, which then
+// drop out of getAnimations() and record blank. This also stops a bad script or a missing voice tool before Chrome starts.
+const voice = voiceTrack(file);
 
 const browser = spawn(chrome, ['--headless=new', '--disable-gpu', '--hide-scrollbars', '--no-first-run', '--no-default-browser-check', '--mute-audio',
   `--user-data-dir=${path.join(os.tmpdir(), 'hikary-motion-record')}`, '--remote-debugging-pipe', `--window-size=${W},${H}`, '--force-device-scale-factor=1'],
@@ -97,10 +101,10 @@ try {
   await encoded;
   const info = probe(out), video = info.streams.find(s => s.codec_type === 'video');
   if (video?.width !== W || video?.height !== H || Math.abs(Number(info.format.duration) - frames / FPS) > 0.1) throw new Error('출력 영상 길이·해상도 검증 실패');
-  addSound(out, cues);
-  console.log(`완료: ${out} (${frames / FPS}초, 효과음 ${cues.length}개)`);
+  addSound(out, cues, voice);
+  console.log(`완료: ${out} (${frames / FPS}초, 효과음 ${cues.length}개${voice ? ', 나레이션' : ''})`);
   const seed = musicSeed(file, fs.readFileSync(file, 'utf8'));
-  if (seed) { const music = addMusic(out, seed); console.log(`배경음악 버전: ${music.out} (${describe(music.picks)})`); }
+  if (seed) { const music = addMusic(out, seed, voice); console.log(`배경음악 버전: ${music.out} (${describe(music.picks)})`); }
 } finally {
   encoder?.kill();
   browser.kill();

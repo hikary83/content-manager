@@ -30,7 +30,7 @@
 (2026-11-06 결정)
 
 1. **링크 전달 (사람)** — 쿠팡 상품 링크와 직접 만든 쿠팡 파트너스 링크를 준다. 쿠팡은 자동 접속을 자주 막으니 상품 페이지 캡처도 같이 받는 편이 확실하다.
-2. **콘텐츠 만들기 (Claude)** — 확인된 사실만 정리하고 `contents/YYMMDD_상품명/` 폴더(예: `contents/261106_실리콘밀폐용기/`, 사진은 `photo-1.jpg`…)에 모션 영상과 카드뉴스를 만든다 (3·4장). 초안을 보여주고 대화로 고친다.
+2. **콘텐츠 만들기 (Claude)** — 확인된 사실만 정리하고 `contents/YYMMDD_상품명/` 폴더(예: `contents/261106_실리콘밀폐용기/`, 사진은 `photo-1.jpg`…)에 모션 영상과 카드뉴스, 나레이션 대본(`narration.md`)을 만든다 (3·4장). 초안을 보여주고 대화로 고친다.
 3. **컨펌 (사람)** — 「컨펌」이 게시글 작성과 웹 등록의 승인이다.
 4. **게시글 · 키티챗 문구 (Claude)** — `tools/posts/template.md`를 폴더에 `posts.md`로 복사해 세 플랫폼 게시글과 키티챗 키워드·DM 문구를 채운다.
    - 인포크 번호(No.)는 상품마다 하나다 (쇼츠·캐러셀이 같이 쓴다). **첫 포스팅만 사람이 번호를 알려준다.** 그 뒤로는 `node tools/register.mjs list`로 운영대장 메모의 가장 큰 No.를 찾아 1을 더한다.
@@ -76,20 +76,43 @@ AI 영상은 보류 — 유료이고, AI가 상품 모양을 바꾸면 실제와
 - 기본 흐름 (2026-11-06 결정): 질문 훅 → 구매자 후기 요약 → 특징 → 알고 가면 좋은 것(상품 페이지 사실) → 프로필 링크 안내. 길이는 내용에 맞게 18~25초, `<body data-duration="21">`처럼 적는다.
 - 기본 디자인 (2026-11-06 결정): 레이어스 Soda 템플릿의 연출에 설명형 릴스의 화면 구조를 섞는다.
   - Soda 연출(CSS로 옮김): 장면마다 색이 바뀌는 원형 그라데이션 배경, 떠서 살짝 흔들리는 둥근 사진 창, 사진을 바꿀 때 창이 두 바퀴 돌며 흐려졌다 돌아오는 전환, 주변 장식이 가운데로 모였다 흩어지기, 유리 카드, 포인트 색(기본은 분홍 `#fbcfe8`). Soda의 3D 모델·이미지·마우스 효과는 쓰지 않는다.
-  - 설명형 구조: 위에 흰 챕터 꼬리표(「① 구매자 후기」, 분홍빨강 막대), 아래에 큰 자막(84px, 핵심어는 기본 노랑 `#ffd84d`)이 2초쯤마다 한 마디씩 바뀐다. 음성은 넣지 않는다. 첫 장면은 검색창에 한 글자씩 쳐지는 훅, 후기는 흰 앱 카드, 팁은 휴대폰 속 티켓 화면과 스티커.
+  - 설명형 구조: 위에 흰 챕터 꼬리표(「① 구매자 후기」, 분홍빨강 막대), 아래에 큰 자막(84px, 핵심어는 기본 노랑 `#ffd84d`)이 2초쯤마다 한 마디씩 바뀐다. 음성은 아래 「나레이션」. 첫 장면은 검색창에 한 글자씩 쳐지는 훅, 후기는 흰 앱 카드, 팁은 휴대폰 속 티켓 화면과 스티커.
   - 글씨는 주아체(Google Fonts `Jua`, 굵기가 하나라 `font-synthesis:none`).
   - 첫 사례: 사무실 PC의 `contents/261106_코엑스아쿠아리움/motion-mix.html`(소다) · `motion-paper.html`(페이퍼) (git에 없음).
 - 사진은 상품 페이지(판매자 상세 이미지 포함)에서 받아 잘라 쓴다 (2026-11-06 결정). 캐릭터·IP 이미지는 빼고, 사람이 나오지 않는 사진을 먼저 쓴다. 원본이 작으면 화면 전체 대신 액자·썸네일로 넣는다. 사용 범위는 **확인 필요**.
 - 장면마다 `--at`(시작)·`--len`(길이)을 주고, 움직이는 요소는 `--d`(장면 안에서 늦출 시간)를 준다. 움직임은 **CSS 애니메이션만** 된다 (JS 타이머·동영상 파일은 녹화되지 않는다).
 - 글씨는 x 60~900, y 200~1480 안에 둔다. 바깥은 플랫폼 버튼·설명·아이디가 가린다.
-- 글씨는 화면에 넣는다. 자막·음성 후반 편집은 없다.
+- 글씨는 화면에 넣는다. 나레이션도 녹화할 때 같이 들어가서 후반 편집은 없다.
 - **효과음과 배경음악 모두 Claude가 직접 만들어 넣는다** (2026-11-07 결정). 남의 음원은 쓰지 않는다.
-- 효과음은 `<body data-sfx="0.12 pop .5, 1.9 whoosh .35, …">`(「초 소리 [크기]」) 목록대로 녹화할 때 같이 들어간다. 소리는 `tools/motion/sfx.mjs`가 직접 만든다 (whoosh · swoosh · pop · click · tick · thud · ding · notify). 두 템플릿에 장면 시각에 맞춘 목록이 있으니, 장면 시각이나 검색창 타자 글자 수를 바꾸면 목록도 같이 고친다. 다시 녹화하지 않고 소리만 고칠 때: `node tools/motion/sfx.mjs contents/<폴더>/motion.html` (배경음악 버전도 같이 다시 만든다).
+- 효과음은 `<body data-sfx="0.12 pop .5, 1.9 whoosh .35, …">`(「초 소리 [크기]」) 목록대로 녹화할 때 같이 들어간다. 소리는 `tools/motion/sfx.mjs`가 직접 만든다 (whoosh · swoosh · pop · click · tick · thud · ding · notify). 두 템플릿에 장면 시각에 맞춘 목록이 있으니, 장면 시각이나 검색창 타자 글자 수를 바꾸면 목록도 같이 고친다. 다시 녹화하지 않고 소리만 고칠 때: `node tools/motion/sfx.mjs contents/<폴더>/motion.html` (나레이션도 다시 넣고, 배경음악 버전도 같이 다시 만든다).
 - 배경음악은 `tools/motion/bgm.mjs`가 음 하나하나를 직접 만든다. 폴더 이름에 따라 키·빠르기·코드 진행·악기(마림바·벨·건반·뜯는 소리)·비트가 달라져 영상마다 곡이 다르고, 같은 폴더는 다시 녹화해도 같은 곡이다. 효과음보다 작게 깔고 끝에서 2초 동안 줄어든다. 다른 곡을 원하면 `<body data-bgm="아무 글자">`, 배경음악을 빼려면 `data-bgm="off"`. 음악만 다시 만들 때: `node tools/motion/bgm.mjs contents/<폴더>/motion.html`.
-- 영상은 두 개가 나온다 — `motion.mp4`(효과음만)와 `motion-bgm.mp4`(효과음 + 배경음악). 기본은 `motion-bgm.mp4`를 올린다. 앱에서 유행 음원을 넣고 싶을 때만 `motion.mp4`를 올려 앱 음악을 고른다 (두 음악이 겹치지 않게).
+- 영상은 두 개가 나온다 — `motion.mp4`(효과음 + 나레이션)와 `motion-bgm.mp4`(효과음 + 나레이션 + 배경음악). 기본은 `motion-bgm.mp4`를 올린다. 앱에서 유행 음원을 넣고 싶을 때만 `motion.mp4`를 올려 앱 음악을 고른다 (두 음악이 겹치지 않게).
 - 인스타 비즈니스 계정은 앱 음악 목록이 제한될 수 있다. 계정이 비즈니스인지 크리에이터인지 **확인 필요**.
-- 영상 만들기: `node tools/motion/record.mjs contents/<폴더>/motion.html` → 같은 폴더에 `motion.mp4`와 `motion-bgm.mp4` (사무실 PC에서 18~21초 영상에 약 50~70초).
+- 영상 만들기: `node tools/motion/record.mjs contents/<폴더>/motion.html` → 같은 폴더에 `motion.mp4`와 `motion-bgm.mp4` (사무실 PC에서 18~21초 영상에 약 50~70초. 처음 읽는 나레이션은 한 줄에 30~50초 더).
 - 만든 영상은 장면마다 프레임을 뽑아 직접 보고(글자 넘침·겹침·가림·고지) 보여준다. 프레임 묶음: `node scripts/reel/review.mjs contents/<폴더>/motion.mp4`.
+
+### 나레이션 (2026-11-07 결정)
+
+- 모션 영상에는 **나레이션 음성을 넣는다.** 화면 자막과 따로 **나레이션 대본**을 폴더에 `narration.md`로 쓴다. 대본이 없으면 음성 없이 녹화된다.
+- 형식은 표 하나다. 첫 칸은 그 줄을 읽을 수 있는 구간(초), 마지막 칸은 읽을 문장이다. 가운데 칸은 사람이 보는 화면 설명이다.
+
+  ```
+  | 시간 | 화면 | 나레이션 |
+  | --- | --- | --- |
+  | 0.15–3.7 | 검색창 훅 | 크리스마스 분위기, 미리 느낄 곳? 서울랜드! |
+  | 3.85–6.3 | 후기 숫자 판 | 쿠팡 구매자 후기, 요약해 봤어요. |
+  ```
+- 쓰는 법:
+  - 3장 문구 규칙을 그대로 따른다. 후기는 「쿠팡 구매자 후기, 요약해 봤어요」처럼 출처를 말하고, 써 봤다·가 봤다는 말은 하지 않는다. 바뀔 수 있는 숫자(가격·할인율·시간)는 읽지 않는다.
+  - 구간 길이에 맞춘다 — 1초에 5음절쯤. 넘치면 빠르게 읽혀(최대 1.5배) 어색하니 문장을 줄인다.
+  - 읽는 대로 쓴다: QR → 큐알, K-POP → 케이팝. 쉼표에서 쉰다 (쉬는 시간은 0.25초로 줄여 넣는다).
+  - 줄 사이는 0.15초쯤 띄운다. 구간은 앞줄과 겹치거나 영상 길이를 넘으면 안 된다.
+- 목소리는 **소희**다 — Qwen3-TTS 0.6B CustomVoice(Alibaba Qwen, Apache-2.0)의 한국어 여자 목소리. Windows 기본 음성·Supertonic 3·MeloTTS와 비교해 골랐다. `tools/motion/voice.py`가 줄마다 읽고 `tools/motion/voice.mjs`가 시간대에 놓는다.
+- n번째 줄은 시드 1+100×(n−1)로 읽는다. 고른 샘플(소희 1번)과 같은 규칙이라 같은 문장은 같은 소리가 나온다. 다른 PC에서도 같은 소리가 나는지는 **확인 필요**.
+- 한 번 읽은 줄은 폴더의 `voice/`에 남는다. 다시 녹화하면 새로 쓰거나 고친 줄만 읽는다. 어떤 줄의 억양이 이상하면 그 문장을 조금 고쳐(쉼표·조사) 다시 읽게 한다.
+- 나레이션이 나올 때 배경음악이 줄어들고, 효과음도 조금 낮춘다.
+- AI 음성 표시는 하지 않는다 (2026-11-07 결정). 표시 의무가 있는지는 **확인 필요** (공정위 AI 광고 심사지침 개정안, 틱톡·유튜브의 AI 콘텐츠 표시 규정).
+- 음성은 PC의 `~/.hikary-voice`(실행 도구 + 모델)에서 돌아간다. 저장소에 넣지 않는다. 설치되지 않은 PC에서 대본이 있는 영상을 녹화하면 멈춘다 → 7장대로 설치한다.
 
 ### 카드뉴스 (Instagram 캐러셀, 1080×1350)
 
@@ -113,13 +136,14 @@ AI 영상은 보류 — 유료이고, AI가 상품 모양을 바꾸면 실제와
   "productName": "상품명",
   "sourceUrl": "https://www.coupang.com/vp/products/...",
   "affiliateUrl": "",
-  "script": "카드뉴스는 장별 문구, 모션 영상은 장면별 문구 (사람이 읽는 글로)",
+  "script": "카드뉴스는 장별 문구, 모션 영상은 나레이션 대본 (사람이 읽는 글로)",
   "youtube": "", "instagram": "게시글", "tiktok": "",
   "notes": "폴더: contents/261106_실리콘밀폐용기 · 인포크 No.○○○ · 키티챗 키워드 '○○'"
 }
 ```
 
 - 필수: `category`, `productName`, `sourceUrl`(https), `script`. `format`은 `쇼츠` 또는 `캐러셀` (서버가 이 둘만 받는다). 모션 영상은 `쇼츠`, 카드뉴스는 `캐러셀`로 따로 등록한다.
+- 쇼츠의 `script`(웹·시트의 「대본」 칸)에는 `narration.md`의 나레이션 대본을 줄마다 「0.15–3.7 크리스마스 분위기, …」처럼 넣는다 (2026-11-07 결정).
 - 처음 저장하면 도구가 `id`와 `revision`을 파일에 써 넣는다. 다시 `save`하면 같은 줄을 고친다.
 - 웹에서 먼저 고쳐 「시트 내용이 변경됐어요」가 나오면 `node tools/register.mjs list`로 최신 내용을 받아 합친 뒤 `revision`을 바꿔 다시 저장한다.
 - 업로드 기록 칸: `youtubeStatus`·`youtubeDate`(YYYY-MM-DD)·`youtubeLink`, instagram·tiktok도 같은 이름. 링크가 있으면 서버가 업로드완료로 바꾼다.
@@ -148,6 +172,17 @@ clasp --auth .clasprc.hikary-personal.json update-deployment AKfycbzN9mw2OKRKHdE
 
 1. Claude 데스크톱 앱 설치 → Code 탭에서 이 저장소를 연다: `git clone https://github.com/hikary83/content-manager.git`
 2. Node.js 22 이상, Chrome(또는 Edge), ffmpeg — 카드뉴스 PNG·모션 영상에 필요.
+   - 나레이션 음성(4장)에는 Python 3.10 이상과 아래 설치가 필요하다. 내려받는 양은 약 3.5GB(모델 2.5GB + 실행 도구)다. `qwen-tts`를 그냥 설치하면 웹 데모(gradio)까지 깔려서 나눠 설치한다. PowerShell:
+
+     ```powershell
+     python -m venv $HOME\.hikary-voice\venv
+     $py = "$HOME\.hikary-voice\venv\Scripts\python.exe"
+     & $py -m pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+     & $py -m pip install transformers==4.57.3 accelerate==1.12.0 librosa soundfile sox onnxruntime einops
+     & $py -m pip install --no-deps qwen-tts==0.1.1
+     & $py -c "from huggingface_hub import snapshot_download as d; d('Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice', local_dir=r'$HOME\.hikary-voice\Qwen3-TTS-12Hz-0.6B-CustomVoice')"
+     ```
+     「SoX could not be found」·flash-attn 안내는 무시해도 된다. 2026-11-07 이 PC는 torch 2.14.1+cpu로 돌렸다.
 3. 서버 배포까지 할 PC라면: `npm i -g @google/clasp` → `clasp --auth .clasprc.hikary-personal.json login`(개인 계정) → `.clasp.example.json`을 `.clasp.json`으로 복사하고 Script ID를 넣는다. Script ID는 사무실 PC의 `.clasp.json`에 있다.
 4. 만든 파일(`contents/`)은 PC 사이에 자동으로 옮겨지지 않는다. 처음에는 PC 로컬에 두고, 나중에 구글 드라이브로 옮긴다 (2026-11-06). 옮기는 시점과 방법은 미정.
 
