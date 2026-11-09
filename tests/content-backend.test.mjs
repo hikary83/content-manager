@@ -5,7 +5,8 @@ import { readFileSync } from 'node:fs';
 import { createHash, createHmac, randomUUID } from 'node:crypto';
 
 const LEGACY_HEADERS = ['콘텐츠 ID','등록일','카테고리','상품명','원본 링크','변환 링크','대본','YouTube 게시글','YouTube 상태','Instagram 게시글','Instagram 상태','TikTok 게시글','TikTok 상태','비고'];
-const ADDED_HEADERS = ['형식','YouTube 업로드일','YouTube 링크','Instagram 업로드일','Instagram 링크','TikTok 업로드일','TikTok 링크'];
+const V17_HEADERS = ['형식','YouTube 업로드일','YouTube 링크','Instagram 업로드일','Instagram 링크','TikTok 업로드일','TikTok 링크'];
+const ADDED_HEADERS = [...V17_HEADERS,'Instagram 캐러셀 상태','Instagram 캐러셀 업로드일','Instagram 캐러셀 링크','카드뉴스 문구','인포크 No.','인포크 타이틀'];
 function runtime({ legacy = false } = {}) {
   const rows = [legacy ? [...LEGACY_HEADERS] : [...LEGACY_HEADERS, ...ADDED_HEADERS]];
   const props = new Map([['SHEET_ID','test'],['SHEET_NAME','콘텐츠 관리']]);
@@ -69,14 +70,26 @@ test('헤더 불일치·잘못된 업로드 상태를 거부하고 수식을 문
 test('기존 14칸 시트는 오른쪽 빈칸에만 새 머리글을 채우고 다른 내용이 있으면 멈춘다', () => {
   const env=runtime({legacy:true});env.rows.push(['old-id','2026-10-01','여행','기존 상품','https://trip.coupang.com/p','','대본','','미업로드','','미업로드','','미업로드','']);
   const entries=env.context.readEntries_();assert.deepEqual(env.rows[0].slice(14),ADDED_HEADERS);assert.equal(entries[0].productName,'기존 상품');assert.equal(entries[0].format,'');
-  const blocked=runtime({legacy:true});blocked.rows[0][16]='메모';assert.throws(()=>blocked.context.readEntries_(),/15~21/);assert.equal(blocked.writes(),0);
+  const blocked=runtime({legacy:true});blocked.rows[0][16]='메모';assert.throws(()=>blocked.context.readEntries_(),/15~27/);assert.equal(blocked.writes(),0);
+});
+test('v2.2.0 21칸 시트는 22~27번째 빈칸에만 새 머리글을 채우고 기존 줄은 그대로 읽는다', () => {
+  const env=runtime({legacy:true});env.rows[0].push(...V17_HEADERS);
+  env.rows.push(['old-id','2026-11-09','여행','기존 상품','https://trip.coupang.com/p','','대본','','미업로드','','업로드완료','','미업로드','','쇼츠','','','2026-11-10','https://www.instagram.com/p/a/','','']);
+  const [entry]=env.context.readEntries_();
+  assert.deepEqual(env.rows[0].slice(14),ADDED_HEADERS);assert.equal(entry.instagramStatus,'업로드완료');assert.equal(entry.carouselStatus,'');assert.equal(entry.inpockNo,'');
+  const blocked=runtime({legacy:true});blocked.rows[0].push(...V17_HEADERS,'다른 내용');assert.throws(()=>blocked.context.readEntries_(),/15~27/);assert.equal(blocked.writes(),0);
 });
 test('형식·업로드일·게시물 링크를 검증하고 링크가 있으면 업로드완료로 저장한다', () => {
   const env=runtime();const input={...sample(),format:'캐러셀',instagramDate:'2026-11-01',instagramLink:'https://www.instagram.com/p/abc/'};
   env.context.saveEntry_(input);const saved=env.context.readEntries_()[0];
   assert.equal(saved.format,'캐러셀');assert.equal(saved.instagramStatus,'업로드완료');assert.equal(saved.instagramLink,input.instagramLink);assert.equal(saved.youtubeStatus,'미업로드');
-  assert.equal(env.context.saveEntry_(sample()).replayed,false);assert.equal(env.context.readEntries_()[0].format,'쇼츠');
+  assert.equal(env.context.saveEntry_(sample()).replayed,false);assert.equal(env.context.readEntries_()[0].format,'');
   assert.throws(()=>env.context.saveEntry_({...sample(),format:'릴스'}),/형식/);
+  const product={...sample(),carouselScript:'1장: 표지',inpockNo:'252',inpockTitle:'No.252 상품',carouselDate:'2026-11-10',carouselLink:'https://www.instagram.com/p/c/'};
+  env.context.saveEntry_(product);const merged=env.context.readEntries_()[0];
+  assert.equal(merged.carouselStatus,'업로드완료');assert.equal(merged.instagramStatus,'미업로드');assert.equal(merged.inpockNo,'252');assert.equal(merged.carouselScript,'1장: 표지');
+  assert.throws(()=>env.context.saveEntry_({...sample(),inpockNo:'No.1'}),/숫자/);
+  assert.throws(()=>env.context.saveEntry_({...sample(),carouselStatus:'INVALID'}),/업로드 상태/);
   assert.throws(()=>env.context.saveEntry_({...sample(),youtubeDate:'11/01'}),/YYYY-MM-DD/);
   assert.throws(()=>env.context.saveEntry_({...sample(),tiktokLink:'javascript:alert(1)'}),/https/);
 });
@@ -165,6 +178,21 @@ test('지난 한 시간에 20번 불렀으면 21번째는 쿠팡에 보내지 �
 test('쿠팡이 거절한 요청도 횟수에 들어가고, 키 오류는 키를 확인하라고 알린다', () => {
   const { env, call } = coupangEnv(); env.context.UrlFetchApp.fetch = () => ({ getResponseCode: () => 401, getContentText: () => '{"message":"Specified key is not registered."}' });
   assert.match(call({ source: 'goldbox' }).error, /API 키를 받지 않았어요/); assert.equal(JSON.parse(env.props.get('COUPANG_CALLS')).length, 1);
+});
+test('v2.2.0 쿠팡 주소를 POST 서명으로 파트너스 링크로 바꾸고, 같은 주소는 저장된 답을 쓴다', () => {
+  const env = runtime(); env.props.set('COUPANG_ACCESS_KEY', 'access-example'); env.props.set('COUPANG_SECRET_KEY', 'secret-example');
+  const sent = []; env.context.UrlFetchApp.fetch = (url, options) => { sent.push({ url, options }); return { getResponseCode: () => 200, getContentText: () => JSON.stringify({ rCode: '0', data: [{ originalUrl: 'x', shortenUrl: 'https://link.coupang.com/a/abc', landingUrl: 'https://link.coupang.com/re/AFFTDP?lptag=AF1' }] }) }; };
+  const call = url => JSON.parse(env.context.doPost({ postData: { contents: JSON.stringify({ action: 'link', payload: { url } }) } }).text);
+  for (const bad of ['http://www.coupang.com/vp/products/1', 'https://link.coupang.com/a/abc', 'https://coupang.com.evil.invalid/x', 'https://evil.invalid/?https://www.coupang.com/']) assert.equal(call(bad).ok, false);
+  assert.equal(sent.length, 0);
+  const url = 'https://trip.coupang.com/tp/products/10000011531802';
+  const made = call(url); assert.equal(made.data.shortenUrl, 'https://link.coupang.com/a/abc'); assert.equal(made.data.usage.remaining, 19);
+  const path = '/v2/providers/affiliate_open_api/apis/openapi/v1/deeplink';
+  assert.equal(sent[0].url, 'https://api-gateway.coupang.com' + path); assert.equal(sent[0].options.method, 'post');
+  assert.deepEqual(JSON.parse(sent[0].options.payload), { coupangUrls: [url] });
+  const signature = createHmac('sha256', 'secret-example').update('261108T012345Z' + 'POST' + path).digest('hex');
+  assert.equal(sent[0].options.headers.Authorization, 'CEA algorithm=HmacSHA256, access-key=access-example, signed-date=261108T012345Z, signature=' + signature);
+  const again = call(url); assert.equal(again.data.fromCache, true); assert.equal(again.data.usage.remaining, 19); assert.equal(sent.length, 1);
 });
 test('없는 카테고리·짧은 검색어·모르는 방법은 쿠팡을 부르지 않는다', () => {
   const { sent, call } = coupangEnv();

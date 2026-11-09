@@ -5,12 +5,16 @@ import { resolve, extname, sep } from 'node:path';
 import { randomUUID } from 'node:crypto';
 const root = resolve('docs');
 let revision = 0;
-const row = (fields) => ({ id: randomUUID(), category: '생활', sourceUrl: 'https://www.coupang.com/vp/products/1', affiliateUrl: '', script: '대본', youtube: '', instagram: '', tiktok: '', notes: '', format: '쇼츠', youtubeStatus: '미업로드', instagramStatus: '미업로드', tiktokStatus: '미업로드', youtubeDate: '', youtubeLink: '', instagramDate: '', instagramLink: '', tiktokDate: '', tiktokLink: '', createdAt: '2026-11-05', revision: 'r' + (++revision), ...fields });
+const PLACES = ['youtube', 'instagram', 'carousel', 'tiktok'];
+const row = (fields) => ({ id: randomUUID(), category: '생활', sourceUrl: 'https://www.coupang.com/vp/products/1', affiliateUrl: '', script: '대본', carouselScript: '', inpockNo: '', inpockTitle: '', youtube: '', instagram: '', tiktok: '', notes: '', format: '', ...Object.fromEntries(PLACES.flatMap(p => [[p + 'Status', '미업로드'], [p + 'Date', ''], [p + 'Link', '']])), createdAt: '2026-11-05', revision: 'r' + (++revision), ...fields });
+const done = (p, date) => ({ [p + 'Status']: '업로드완료', [p + 'Date']: date, [p + 'Link']: `https://example.com/${p}` });
 const rows = [
-  row({ productName: '접이식 실리콘 밀폐용기 4종 세트', format: '캐러셀', createdAt: '2026-11-05', script: '1장 표지: 냉장고 정리, 이거 하나로\n2장: 접으면 1/3 두께\n3장: 전자레인지 가능 여부는 상품 페이지 확인', instagram: '냉장고 정리 고민이라면 👀\n\n#냉장고정리 #밀폐용기\n\n이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.', instagramStatus: '업로드완료', instagramDate: '2026-11-05', instagramLink: 'https://www.instagram.com/p/example' }),
-  row({ productName: '접이식 실리콘 밀폐용기 4종 세트', createdAt: '2026-11-04', script: '훅: 냉장고 문 열 때마다 쏟아지죠?\n장점: 접으면 얇아져요', youtube: '냉장고 정리 꿀템 #shorts', youtubeStatus: '업로드완료', youtubeDate: '2026-11-04', youtubeLink: 'https://youtube.com/shorts/example', tiktokStatus: '보류' }),
-  row({ productName: '제주 오션뷰 호텔 1박 패키지', category: '여행', sourceUrl: 'https://trip.coupang.com/tp/products/2', createdAt: '2026-11-03', script: '제주 바다가 보이는 객실' }),
-  row({ productName: '무선 미니 청소기', category: '가전·디지털', sourceUrl: 'https://www.coupang.com/vp/products/3', format: '캐러셀', createdAt: '2026-11-02', script: '책상 위 먼지, 손바닥 청소기로' })
+  row({ productName: '씨라이프 코엑스 아쿠아리움 입장권', category: '여행', sourceUrl: 'https://trip.coupang.com/tp/products/30000011240405', affiliateUrl: 'https://link.coupang.com/a/example', createdAt: '2026-11-09', inpockNo: '252', inpockTitle: 'No.252 코엑스 아쿠아리움 입장권',
+    script: '0.15–3.7 주말에 아이랑 어디 가지? 코엑스 아쿠아리움!\n3.85–6.3 쿠팡 구매자 후기, 요약해 봤어요.', carouselScript: '1장: 주말에 아이랑 어디 가지?\n2장: 베스트 후기 4개 중 3개',
+    youtube: '제목: 주말에 아이랑 어디 가지? 코엑스 아쿠아리움 #shorts\n\n이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.\n\n주말에 아이랑 어디 가지?', instagram: '이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.\n\n주말에 아이랑 어디 가지? 🐠', tiktok: '이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.', notes: "폴더: contents/261106_코엑스아쿠아리움 · 인포크 No.252 · 키티챗 키워드 '코엑스'", ...done('instagram', '2026-11-10') }),
+  row({ productName: '접이식 실리콘 밀폐용기 4종 세트', createdAt: '2026-11-04', inpockNo: '251', script: '훅: 냉장고 문 열 때마다 쏟아지죠?\n장점: 접으면 얇아져요', youtube: '냉장고 정리 꿀템 #shorts', ...done('youtube', '2026-11-04'), ...done('instagram', '2026-11-05'), ...done('carousel', '2026-11-05'), ...done('tiktok', '2026-11-06') }),
+  row({ productName: '제주 오션뷰 호텔 1박 패키지', category: '여행', sourceUrl: 'https://trip.coupang.com/tp/products/2', createdAt: '2026-11-03', script: '제주 바다가 보이는 객실', tiktokStatus: '보류' }),
+  row({ productName: '무선 미니 청소기 (v2.2.0 전 형식)', category: '가전·디지털', sourceUrl: 'https://www.coupang.com/vp/products/3', format: '캐러셀', createdAt: '2026-11-02', script: '책상 위 먼지, 손바닥 청소기로' })
 ];
 // Fake product finder: same rolling 20-calls-an-hour budget and 6-hour reuse as backend/Coupang.js, no real Coupang call.
 const CATEGORIES = [[1025, '국내여행'], [1026, '해외여행'], [1012, '식품'], [1014, '생활용품'], [1016, '가전디지털']];
@@ -29,14 +33,14 @@ function products({ source, categoryId, keyword }) {
   saved.set(key, result); return { ...result, fromCache: false, usage: usage() };
 }
 function act({ action, payload }) {
-  if (action === 'status') return { version: '2.1.0 (mock)', aiConfigured: false, coupang: { configured: true, usage: usage(), categories: CATEGORIES } };
+  if (action === 'status') return { version: '2.2.0 (mock)', aiConfigured: false, coupang: { configured: true, usage: usage(), categories: CATEGORIES } };
   if (action === 'products') return products(payload);
   if (action === 'list') return { entries: rows };
   const index = rows.findIndex(item => item.id === payload.id);
   if (action === 'save') {
     if (index < 0 || rows[index].revision !== payload.revision) throw new Error('시트 내용이 변경됐어요. 새로고침한 뒤 다시 열어 수정해주세요.');
     const next = { ...rows[index], ...payload, revision: 'r' + (++revision) };
-    for (const p of ['youtube', 'instagram', 'tiktok']) if (next[p + 'Link']) next[p + 'Status'] = '업로드완료';
+    for (const p of PLACES) if (next[p + 'Link']) next[p + 'Status'] = '업로드완료';
     rows[index] = next; return { id: next.id, revision: next.revision, replayed: false };
   }
   if (action === 'delete') {

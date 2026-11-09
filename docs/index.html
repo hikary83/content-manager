@@ -1,14 +1,14 @@
 <!doctype html>
-<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>HIKARY 콘텐츠 기록</title><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css"><link rel="stylesheet" href="css/app.css?v=2.1.0"></head>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>HIKARY 콘텐츠 기록</title><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css"><link rel="stylesheet" href="css/app.css?v=2.2.0"></head>
 <body>
-<header class="top"><a class="brand" href="./"><b>HIKARY</b><span>콘텐츠 기록 · v2.1.0</span></a><div class="top-links"><span id="connectionState" class="conn">연결 확인 중…</span><a href="https://docs.google.com/spreadsheets/d/1ZSB7FBZTWdT_eLlo3kpom-u2yM5UwHitG059Zci6TUc/edit" target="_blank" rel="noreferrer">운영대장 ↗</a></div></header>
+<header class="top"><a class="brand" href="./"><b>HIKARY</b><span>콘텐츠 기록 · v2.2.0</span></a><div class="top-links"><span id="connectionState" class="conn">연결 확인 중…</span><a href="https://docs.google.com/spreadsheets/d/1ZSB7FBZTWdT_eLlo3kpom-u2yM5UwHitG059Zci6TUc/edit" target="_blank" rel="noreferrer">운영대장 ↗</a></div></header>
 <main>
 <div id="notice" role="status" aria-live="polite" hidden></div>
 <div id="views" class="segments views" role="group" aria-label="화면"><button type="button" class="on" data-view="ledger">기록</button><button type="button" data-view="finder">상품 찾기</button></div>
 <div id="ledgerView">
 <section class="intro"><h1>만든 콘텐츠와<br>업로드 기록</h1><p>콘텐츠는 Claude에서 만들고 「등록해줘」로 여기에 남깁니다. 올린 뒤에는 플랫폼별로 업로드 기록을 남겨주세요.</p></section>
-<section class="stats" aria-label="요약"><div><strong id="statContents">–</strong><span>콘텐츠</span></div><div><strong id="statWaiting">–</strong><span>아직 안 올림</span></div><div><strong id="statPosted">–</strong><span>올린 게시물</span></div></section>
-<section class="toolbar"><input id="search" type="search" placeholder="상품명·카테고리 검색" aria-label="콘텐츠 검색"><div id="filters" class="segments" role="group" aria-label="보기"><button type="button" class="on" data-filter="전체">전체</button><button type="button" data-filter="쇼츠">쇼츠</button><button type="button" data-filter="캐러셀">캐러셀</button><button type="button" data-filter="안 올림">안 올림</button></div><button id="refresh" type="button" class="ghost">새로고침</button></section>
+<section class="stats" aria-label="요약"><div><strong id="statContents">–</strong><span>상품</span></div><div><strong id="statWaiting">–</strong><span>아직 다 못 올림</span></div><div><strong id="statPosted">–</strong><span>올린 게시물</span></div></section>
+<section class="toolbar"><input id="search" type="search" placeholder="상품명·카테고리·No. 검색" aria-label="콘텐츠 검색"><div id="filters" class="segments" role="group" aria-label="보기"><button type="button" class="on" data-filter="전체">전체</button><button type="button" data-filter="남은 것">남은 것 있음</button><button type="button" data-filter="다 올림">다 올림</button></div><button id="refresh" type="button" class="ghost">새로고침</button></section>
 <section id="entries" class="entries"></section>
 </div>
 <div id="finderView" hidden>
@@ -20,19 +20,31 @@
 </div>
 </main>
 <dialog id="detailDialog"><form id="detailForm"><div class="dialog-head"><div><small id="detailMeta"></small><h2>콘텐츠 보기 · 수정</h2></div><button id="detailClose" type="button" class="icon" aria-label="닫기">✕</button></div>
-<div class="dialog-body"><div class="grid2"><label>상품명<input id="d-productName" required maxlength="200"></label><label>카테고리<input id="d-category" required maxlength="80" list="categories"></label></div>
+<div class="dialog-body">
+<h3 class="sec">상품</h3>
+<div class="grid2"><div><div class="copy-head"><label for="d-productName">상품명</label><button type="button" class="ghost small" data-copy="d-productName">복사</button></div><input id="d-productName" required maxlength="200"></div>
+<div><div class="copy-head"><label for="d-category">카테고리</label><button type="button" class="ghost small" data-copy="d-category">복사</button></div><input id="d-category" required maxlength="80" list="categories"></div></div>
 <datalist id="categories"><option>여행</option><option>생활</option><option>가전·디지털</option><option>뷰티</option><option>식품</option><option>체험·문화</option><option>기타</option></datalist>
-<div class="grid2"><label>원본 링크<input id="d-sourceUrl" type="url" required maxlength="2000"></label><label>변환 링크<input id="d-affiliateUrl" type="url" maxlength="2000" placeholder="쿠팡 파트너스 링크"></label></div>
-<label>대본 · 문구<textarea id="d-script" rows="8" required maxlength="12000"></textarea></label>
-<div class="copy-head"><label for="d-youtube">YouTube 게시글</label><button type="button" class="ghost small" data-copy="d-youtube">복사</button></div><textarea id="d-youtube" rows="4" maxlength="12000"></textarea>
-<div class="copy-head"><label for="d-instagram">Instagram 게시글</label><button type="button" class="ghost small" data-copy="d-instagram">복사</button></div><textarea id="d-instagram" rows="4" maxlength="12000"></textarea>
+<div class="grid2"><div><div class="copy-head"><label for="d-sourceUrl">원본 링크</label><button type="button" class="ghost small" data-copy="d-sourceUrl">복사</button></div><input id="d-sourceUrl" type="url" required maxlength="2000"></div>
+<div><div class="copy-head"><label for="d-affiliateUrl">파트너스 링크</label><button type="button" class="ghost small" data-copy="d-affiliateUrl">복사</button></div><input id="d-affiliateUrl" type="url" maxlength="2000" placeholder="https://link.coupang.com/a/…"></div></div>
+<h3 class="sec">인포크링크</h3>
+<div class="grid2 inpock"><div><div class="copy-head"><label for="d-inpockNo">No.</label><button type="button" class="ghost small" data-copy="d-inpockNo">복사</button></div><input id="d-inpockNo" inputmode="numeric" pattern="\d{1,6}" maxlength="6" placeholder="252"></div>
+<div><div class="copy-head"><label for="d-inpockTitle">타이틀</label><button type="button" class="ghost small" data-copy="d-inpockTitle">복사</button></div><input id="d-inpockTitle" maxlength="200" placeholder="No.252 상품 이름"></div></div>
+<p class="hint">연결할 주소는 위 파트너스 링크예요 <button type="button" class="ghost small" data-copy="d-affiliateUrl">주소 복사</button><br>이미지는 Claude가 만든 콘텐츠 폴더의 <code>inpock.png</code>예요 (만든 PC에만 있어요).</p>
+<h3 class="sec">대본</h3>
+<div class="copy-head"><label for="d-script">쇼츠 나레이션 대본</label><button type="button" class="ghost small" data-copy="d-script">복사</button></div><textarea id="d-script" rows="6" required maxlength="12000"></textarea>
+<div class="copy-head"><label for="d-carouselScript">카드뉴스 문구</label><button type="button" class="ghost small" data-copy="d-carouselScript">복사</button></div><textarea id="d-carouselScript" rows="6" maxlength="12000"></textarea>
+<h3 class="sec">게시글</h3>
+<div class="copy-head"><label for="d-youtubeTitle">YouTube 제목 <small>제목 + 해시태그, 100자까지</small></label><button type="button" class="ghost small" data-copy="d-youtubeTitle">복사</button></div><input id="d-youtubeTitle" maxlength="100" placeholder="주말에 아이랑 어디 가지? 코엑스 아쿠아리움 #shorts">
+<div class="copy-head"><label for="d-youtubeBody">YouTube 본문</label><button type="button" class="ghost small" data-copy="d-youtubeBody">복사</button></div><textarea id="d-youtubeBody" rows="4" maxlength="11800"></textarea>
+<div class="copy-head"><label for="d-instagram">Instagram 게시글 <small>릴스·캐러셀 같이 씀</small></label><button type="button" class="ghost small" data-copy="d-instagram">복사</button></div><textarea id="d-instagram" rows="4" maxlength="12000"></textarea>
 <div class="copy-head"><label for="d-tiktok">TikTok 게시글</label><button type="button" class="ghost small" data-copy="d-tiktok">복사</button></div><textarea id="d-tiktok" rows="4" maxlength="12000"></textarea>
-<label>비고<textarea id="d-notes" rows="3" maxlength="5000"></textarea></label></div>
+<div class="copy-head"><label for="d-notes">비고</label><button type="button" class="ghost small" data-copy="d-notes">복사</button></div><textarea id="d-notes" rows="3" maxlength="5000"></textarea></div>
 <div class="dialog-foot"><button id="detailDelete" type="button" class="danger">삭제</button><button type="submit">저장</button></div></form></dialog>
 <dialog id="uploadDialog"><form id="uploadForm"><div class="dialog-head"><div><small id="uploadTarget"></small><h2>업로드 기록</h2></div><button id="uploadClose" type="button" class="icon" aria-label="닫기">✕</button></div>
-<div class="dialog-body"><div id="uploadPlatforms" class="segments wide" role="radiogroup" aria-label="플랫폼"><label><input type="radio" name="platform" value="youtube"><span>YouTube</span></label><label><input type="radio" name="platform" value="instagram"><span>Instagram</span></label><label><input type="radio" name="platform" value="tiktok"><span>TikTok</span></label></div>
+<div class="dialog-body"><div id="uploadPlatforms" class="segments wide" role="radiogroup" aria-label="올린 곳"><label><input type="radio" name="platform" value="youtube"><span>YouTube 쇼츠</span></label><label><input type="radio" name="platform" value="instagram"><span>인스타 릴스</span></label><label><input type="radio" name="platform" value="carousel"><span>인스타 캐러셀</span></label><label><input type="radio" name="platform" value="tiktok"><span>TikTok</span></label></div>
 <label>업로드 여부<select id="uploadStatus"><option>미업로드</option><option>업로드완료</option><option>보류</option></select></label>
 <div class="grid2"><label>업로드일<input id="uploadDate" type="date"></label><label>게시물 링크<input id="uploadLink" type="url" maxlength="2000" placeholder="https://"></label></div>
 <p class="hint">링크를 넣으면 업로드완료로 저장돼요. 올렸는데 날짜를 비워 두면 오늘 날짜로 남깁니다.</p></div>
-<div class="dialog-foot"><button id="uploadClear" type="button" class="danger">이 플랫폼 기록 지우기</button><button type="submit">저장</button></div></form></dialog>
-<script src="js/config.js?v=2.1.0"></script><script src="js/app.js?v=2.1.0"></script></body></html>
+<div class="dialog-foot"><button id="uploadClear" type="button" class="danger">이 기록 지우기</button><button type="submit">저장</button></div></form></dialog>
+<script src="js/config.js?v=2.2.0"></script><script src="js/app.js?v=2.2.0"></script></body></html>

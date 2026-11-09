@@ -1,6 +1,7 @@
 // Registers content made in Claude to the HIKARY ledger through the same Apps Script API the web uses.
 //   node tools/register.mjs list [out.json]          print (or save) every registered row
 //   node tools/register.mjs save <entry.json>        create or update one row, then write id/revision back into the file
+//   node tools/register.mjs link <coupang url>       make the Partners link for a plain Coupang address (spends 1 of 20 hourly API calls)
 // Run "save" only after the owner confirms the content (「컨펌」, CLAUDE.md §2). It writes to the real sheet.
 import fs from 'node:fs';
 import { randomUUID } from 'node:crypto';
@@ -22,7 +23,7 @@ export async function save(file, send = request) {
   entry.id ||= randomUUID();
   // Persist the id before sending: if the reply is lost, a retry with the same id cannot create a second row.
   fs.writeFileSync(file, JSON.stringify(entry, null, 2) + '\n');
-  const saved = await send('save', { format: '쇼츠', ...entry });
+  const saved = await send('save', entry); // v2.2.0: one row per product, no format
   fs.writeFileSync(file, JSON.stringify({ ...entry, revision: saved.revision }, null, 2) + '\n');
   return saved;
 }
@@ -35,8 +36,11 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   } else if (command === 'save' && file) {
     const saved = await save(file);
     console.log(saved.replayed ? `already saved: ${saved.id}` : `saved: ${saved.id}`);
+  } else if (command === 'link' && file) {
+    const made = await request('link', { url: file });
+    console.log(`${made.shortenUrl}\n(${made.fromCache ? 'saved answer, no call spent' : 'new call'} · ${made.usage.remaining}/${made.usage.limit} left this hour)`);
   } else {
-    console.log('usage: node tools/register.mjs list [out.json] | save <entry.json>');
+    console.log('usage: node tools/register.mjs list [out.json] | save <entry.json> | link <coupang url>');
     process.exitCode = 1;
   }
 }

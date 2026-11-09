@@ -1,12 +1,13 @@
 /* HIKARY only. No credentials or endpoints from kic-worktools. */
-var SERVICE_VERSION = '2.1.0';
-// Columns 1-14 are the original ledger. 15-21 (v1.7.0) are appended so existing rows never move.
+var SERVICE_VERSION = '2.2.0';
+// Columns 1-14 are the original ledger. 15-21 (v1.7.0) and 22-27 (v2.2.0) are appended so existing rows never move.
+// v2.2.0: one row per product. Instagram columns are the reel; the card news (carousel) has its own upload columns.
 var LEGACY_HEADER_COUNT = 14;
-var CONTENT_HEADERS = ['콘텐츠 ID', '등록일', '카테고리', '상품명', '원본 링크', '변환 링크', '대본', 'YouTube 게시글', 'YouTube 상태', 'Instagram 게시글', 'Instagram 상태', 'TikTok 게시글', 'TikTok 상태', '비고', '형식', 'YouTube 업로드일', 'YouTube 링크', 'Instagram 업로드일', 'Instagram 링크', 'TikTok 업로드일', 'TikTok 링크'];
-var CONTENT_KEYS = ['id', 'createdAt', 'category', 'productName', 'sourceUrl', 'affiliateUrl', 'script', 'youtube', 'youtubeStatus', 'instagram', 'instagramStatus', 'tiktok', 'tiktokStatus', 'notes', 'format', 'youtubeDate', 'youtubeLink', 'instagramDate', 'instagramLink', 'tiktokDate', 'tiktokLink'];
+var CONTENT_HEADERS = ['콘텐츠 ID', '등록일', '카테고리', '상품명', '원본 링크', '변환 링크', '대본', 'YouTube 게시글', 'YouTube 상태', 'Instagram 게시글', 'Instagram 상태', 'TikTok 게시글', 'TikTok 상태', '비고', '형식', 'YouTube 업로드일', 'YouTube 링크', 'Instagram 업로드일', 'Instagram 링크', 'TikTok 업로드일', 'TikTok 링크', 'Instagram 캐러셀 상태', 'Instagram 캐러셀 업로드일', 'Instagram 캐러셀 링크', '카드뉴스 문구', '인포크 No.', '인포크 타이틀'];
+var CONTENT_KEYS = ['id', 'createdAt', 'category', 'productName', 'sourceUrl', 'affiliateUrl', 'script', 'youtube', 'youtubeStatus', 'instagram', 'instagramStatus', 'tiktok', 'tiktokStatus', 'notes', 'format', 'youtubeDate', 'youtubeLink', 'instagramDate', 'instagramLink', 'tiktokDate', 'tiktokLink', 'carouselStatus', 'carouselDate', 'carouselLink', 'carouselScript', 'inpockNo', 'inpockTitle'];
 var CONTENT_STATUSES = ['미업로드', '업로드완료', '보류'];
-var CONTENT_FORMATS = ['쇼츠', '캐러셀'];
-var UPLOAD_PLATFORMS = ['youtube', 'instagram', 'tiktok'];
+var CONTENT_FORMATS = ['쇼츠', '캐러셀']; // only rows made before v2.2.0 carry a format
+var UPLOAD_PLATFORMS = ['youtube', 'instagram', 'tiktok', 'carousel'];
 
 // Run only in the NEW project. No sheet writes; existing properties are preserved.
 function initializeProject() {
@@ -34,6 +35,7 @@ function doPost(event) {
     else if (action === 'save') data = saveEntry_(payload);
     else if (action === 'delete') data = deleteEntry_(payload);
     else if (action === 'products') data = findProducts_(payload);
+    else if (action === 'link') data = coupangLink_(payload);
     else if (action === 'analyze') data = analyzeProduct_(payload.url);
     else if (action === 'image') data = readImage_(payload.url);
     else if (action === 'generate') data = generateContent_(payload);
@@ -45,7 +47,7 @@ function doPost(event) {
     // Do not log exception text: UrlFetch errors can contain credentials or URLs.
     result = { ok: false, requestId: requestId, error: safeError_(error) };
   }
-  console.info(JSON.stringify({ requestId: requestId, action: ['status','list','save','delete','products','analyze','image','generate','reference','carousel'].indexOf(action) >= 0 ? action : 'unknown', elapsedMs: Date.now() - started, ok: result.ok }));
+  console.info(JSON.stringify({ requestId: requestId, action: ['status','list','save','delete','products','link','analyze','image','generate','reference','carousel'].indexOf(action) >= 0 ? action : 'unknown', elapsedMs: Date.now() - started, ok: result.ok }));
   return jsonResponse_(result);
 }
 
@@ -63,8 +65,8 @@ function getContentSheet_() {
   if (JSON.stringify(headers.slice(0, LEGACY_HEADER_COUNT)) !== JSON.stringify(CONTENT_HEADERS.slice(0, LEGACY_HEADER_COUNT))) throw userError_('운영대장 컬럼이 예상과 달라요. 데이터를 보호하기 위해 작업을 중단했어요.');
   var added = headers.slice(LEGACY_HEADER_COUNT), expected = CONTENT_HEADERS.slice(LEGACY_HEADER_COUNT);
   if (JSON.stringify(added) === JSON.stringify(expected)) return sheet;
-  // Fill the v1.7.0 headers only into empty cells; anything else there is someone's data, so stop.
-  if (added.some(function(value) { return value !== ''; })) throw userError_('운영대장 15~21번째 칸에 다른 내용이 있어요. 데이터를 보호하기 위해 작업을 중단했어요.');
+  // Fill the appended headers only into empty cells; anything else there is someone's data, so stop.
+  if (added.some(function(value, index) { return value !== '' && value !== expected[index]; })) throw userError_('운영대장 15~' + CONTENT_HEADERS.length + '번째 칸에 다른 내용이 있어요. 데이터를 보호하기 위해 작업을 중단했어요.');
   sheet.getRange(1, LEGACY_HEADER_COUNT + 1, 1, expected.length).setValues([expected]);
   return sheet;
 }
@@ -80,16 +82,17 @@ function validateEntry_(input) {
   var entry = {};
   entry.id = field_(input.id, 80);
   if (!/^[a-f0-9-]{36}$/i.test(entry.id)) throw userError_('올바른 콘텐츠 ID가 필요해요.');
-  ['category','productName','sourceUrl','affiliateUrl','script','youtube','instagram','tiktok','notes'].forEach(function(key) {
-    var max = key === 'productName' ? 200 : key === 'category' ? 80 : /Url$/.test(key) ? 2000 : key === 'notes' ? 5000 : 12000;
+  ['category','productName','sourceUrl','affiliateUrl','script','youtube','instagram','tiktok','notes','carouselScript','inpockNo','inpockTitle'].forEach(function(key) {
+    var max = key === 'productName' || key === 'inpockTitle' ? 200 : key === 'category' ? 80 : key === 'inpockNo' ? 10 : /Url$/.test(key) ? 2000 : key === 'notes' ? 5000 : 12000;
     entry[key] = field_(input[key] || '', max);
   });
   if (!entry.category || !entry.productName || !entry.script) throw userError_('상품명·카테고리·대본은 필수예요.');
   if (!/^https:\/\/[^\s@]+\.[^\s]+$/i.test(entry.sourceUrl) || (entry.affiliateUrl && !/^https:\/\/[^\s@]+\.[^\s]+$/i.test(entry.affiliateUrl))) throw userError_('https 상품 링크를 확인해주세요.');
-  ['youtubeStatus','instagramStatus','tiktokStatus'].forEach(function(key) { entry[key] = input[key] || '미업로드'; if (CONTENT_STATUSES.indexOf(entry[key]) < 0) throw userError_('업로드 상태가 올바르지 않아요.'); });
-  // New fields are optional so a v1.6 screen can still save while the server is updated first.
-  entry.format = input.format || '쇼츠';
-  if (CONTENT_FORMATS.indexOf(entry.format) < 0) throw userError_('콘텐츠 형식이 올바르지 않아요.');
+  if (entry.inpockNo && !/^\d{1,6}$/.test(entry.inpockNo)) throw userError_('인포크 No.는 숫자만 입력해주세요.');
+  UPLOAD_PLATFORMS.forEach(function(platform) { var key = platform + 'Status'; entry[key] = input[key] || '미업로드'; if (CONTENT_STATUSES.indexOf(entry[key]) < 0) throw userError_('업로드 상태가 올바르지 않아요.'); });
+  // New fields are optional so an older screen can still save while the server is updated first. Rows from v2.2.0 have no format.
+  entry.format = input.format || '';
+  if (entry.format && CONTENT_FORMATS.indexOf(entry.format) < 0) throw userError_('콘텐츠 형식이 올바르지 않아요.');
   UPLOAD_PLATFORMS.forEach(function(platform) {
     var date = field_(input[platform + 'Date'] || '', 10), link = field_(input[platform + 'Link'] || '', 2000);
     if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw userError_('업로드일은 YYYY-MM-DD 형식으로 입력해주세요.');
@@ -117,7 +120,7 @@ function saveEntry_(input) {
     var range = sheet.getRange(rowNumber, 1, 1, CONTENT_HEADERS.length);
     range.setValues([output]);
     var statusRule = SpreadsheetApp.newDataValidation().requireValueInList(CONTENT_STATUSES, true).setAllowInvalid(false).build();
-    [9,11,13].forEach(function(col) { sheet.getRange(rowNumber, col).setDataValidation(statusRule); });
+    UPLOAD_PLATFORMS.forEach(function(platform) { sheet.getRange(rowNumber, CONTENT_KEYS.indexOf(platform + 'Status') + 1).setDataValidation(statusRule); });
     SpreadsheetApp.flush();
     var saved = rowEntry_(range.getValues()[0]);
     return { id: entry.id, revision: saved.revision, replayed: false };

@@ -26,7 +26,7 @@ test('HTML 권한 오류를 성공으로 처리하지 않는다',async()=>{
 });
 test('화면은 업로드 관리(보기·수정·삭제·업로드 기록)와 상품 찾기를 갖는다',()=>{
   const html=fs.readFileSync(new URL('../docs/index.html',import.meta.url),'utf8');
-  for(const id of ['entries','search','filters','detailDialog','d-productName','d-category','d-sourceUrl','d-affiliateUrl','d-script','d-youtube','d-instagram','d-tiktok','d-notes','detailDelete','uploadDialog','uploadPlatforms','uploadStatus','uploadDate','uploadLink','uploadClear','views','ledgerView','finderView','quotaLeft','quotaBar','finderSource','finderLoad','finderSearch','finderKeyword','finderResults']) assert.ok(html.includes(`id="${id}"`),id);
+  for(const id of ['entries','search','filters','detailDialog','d-productName','d-category','d-sourceUrl','d-affiliateUrl','d-inpockNo','d-inpockTitle','d-script','d-carouselScript','d-youtubeTitle','d-youtubeBody','d-instagram','d-tiktok','d-notes','detailDelete','uploadDialog','uploadPlatforms','uploadStatus','uploadDate','uploadLink','uploadClear','views','ledgerView','finderView','quotaLeft','quotaBar','finderSource','finderLoad','finderSearch','finderKeyword','finderResults']) assert.ok(html.includes(`id="${id}"`),id);
   assert.doesNotMatch(html,/id="(createTab|formatCarousel|analyzeButton|generateButton|carouselMount|referenceDialog)"/);
   assert.doesNotMatch(html,/(production|reference|carousel|image-analysis)\.js/);
   assert.doesNotMatch(html,/accessToken|APP_ACCESS_TOKEN/);assert.doesNotMatch(html,/AIza[A-Za-z0-9_-]{20,}/);
@@ -38,7 +38,7 @@ test('등록 도구는 보내기 전에 ID를 파일에 남기고 저장 후 rev
     let sent,idOnDisk;
     await save(file,async(action,payload)=>{sent={action,payload};idOnDisk=JSON.parse(fs.readFileSync(file,'utf8')).id;return {id:payload.id,revision:'rev-1'};});
     const entry=JSON.parse(fs.readFileSync(file,'utf8'));
-    assert.equal(sent.action,'save');assert.equal(sent.payload.format,'쇼츠');assert.ok(entry.id);assert.equal(idOnDisk,entry.id);assert.equal(entry.revision,'rev-1');
+    assert.equal(sent.action,'save');assert.equal(sent.payload.format,undefined);assert.ok(entry.id);assert.equal(idOnDisk,entry.id);assert.equal(entry.revision,'rev-1');
     await save(file,async(_,payload)=>{assert.equal(payload.id,entry.id);assert.equal(payload.revision,'rev-1');return {id:payload.id,revision:'rev-2'};});
     assert.equal(JSON.parse(fs.readFileSync(file,'utf8')).revision,'rev-2');
   }finally{fs.rmSync(dir,{recursive:true});}

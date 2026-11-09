@@ -34,15 +34,20 @@ function spendCoupangCall_() {
   } finally { lock.releaseLock(); }
 }
 
-function coupangGet_(path, query) {
+// GET with a query, or POST with a JSON body (deeplink). The signature covers method + path + query.
+function coupangCall_(path, query, body) {
   var props = PropertiesService.getScriptProperties();
   var access = props.getProperty('COUPANG_ACCESS_KEY'), secret = props.getProperty('COUPANG_SECRET_KEY'), subId = props.getProperty('COUPANG_SUB_ID');
   if (!access || !secret) throw userError_('쿠팡 파트너스 API 키가 없어요. 스크립트 속성에 COUPANG_ACCESS_KEY·COUPANG_SECRET_KEY를 넣어주세요.');
-  if (subId) query += (query ? '&' : '') + 'subId=' + encodeURIComponent(subId);
+  if (subId && body) body.subId = subId;
+  else if (subId) query += (query ? '&' : '') + 'subId=' + encodeURIComponent(subId);
   spendCoupangCall_();
+  var method = body ? 'POST' : 'GET';
   var datetime = Utilities.formatDate(new Date(), 'GMT', "yyMMdd'T'HHmmss'Z'");
-  var signature = Utilities.computeHmacSha256Signature(datetime + 'GET' + path + query, secret, Utilities.Charset.UTF_8).map(function(byte) { return ('0' + ((byte + 256) % 256).toString(16)).slice(-2); }).join('');
-  var response = UrlFetchApp.fetch(COUPANG_ORIGIN + path + (query ? '?' + query : ''), { method: 'get', muteHttpExceptions: true, headers: { Authorization: 'CEA algorithm=HmacSHA256, access-key=' + access + ', signed-date=' + datetime + ', signature=' + signature } });
+  var signature = Utilities.computeHmacSha256Signature(datetime + method + path + query, secret, Utilities.Charset.UTF_8).map(function(byte) { return ('0' + ((byte + 256) % 256).toString(16)).slice(-2); }).join('');
+  var options = { method: method.toLowerCase(), muteHttpExceptions: true, headers: { Authorization: 'CEA algorithm=HmacSHA256, access-key=' + access + ', signed-date=' + datetime + ', signature=' + signature } };
+  if (body) { options.contentType = 'application/json;charset=UTF-8'; options.payload = JSON.stringify(body); }
+  var response = UrlFetchApp.fetch(COUPANG_ORIGIN + path + (query ? '?' + query : ''), options);
   var code = response.getResponseCode(); var json;
   try { json = JSON.parse(response.getContentText()); } catch (error) { json = null; }
   if (code === 401 || code === 403) throw userError_('쿠팡이 API 키를 받지 않았어요. 스크립트 속성의 키를 확인해주세요.');
@@ -52,9 +57,10 @@ function coupangGet_(path, query) {
 }
 
 // Only https links and plain fields reach the page; anything else from the API is dropped.
+function coupangHttps_(value) { return typeof value === 'string' && /^https:\/\/[^\s]+$/i.test(value) && value.length <= 2000 ? value : ''; }
 function coupangProducts_(data) {
   var list = Array.isArray(data) ? data : data && Array.isArray(data.productData) ? data.productData : [];
-  var https = function(value) { return typeof value === 'string' && /^https:\/\/[^\s]+$/i.test(value) && value.length <= 2000 ? value : ''; };
+  var https = coupangHttps_;
   return list.map(function(item) {
     return { productId: String(item.productId || ''), productName: String(item.productName || '').trim().slice(0, 200), productPrice: Number(item.productPrice) || 0, productImage: https(item.productImage), productUrl: https(item.productUrl), categoryName: String(item.categoryName || '').slice(0, 80), isRocket: !!item.isRocket, isFreeShipping: !!item.isFreeShipping };
   }).filter(function(item) { return /^\d{1,20}$/.test(item.productId) && item.productName && item.productUrl; });
@@ -75,8 +81,25 @@ function findProducts_(payload) {
   var cache = CacheService.getScriptCache(); var key = 'coupang:' + hash_(path + '?' + query);
   var saved = cache.get(key);
   if (saved) { var hit = JSON.parse(saved); hit.fromCache = true; hit.usage = coupangUsage_(); return hit; }
-  var result = { label: label, fetchedAt: new Date().toISOString(), products: coupangProducts_(coupangGet_(COUPANG_ROOT + path, query)) };
+  var result = { label: label, fetchedAt: new Date().toISOString(), products: coupangProducts_(coupangCall_(COUPANG_ROOT + path, query)) };
   try { cache.put(key, JSON.stringify(result), COUPANG_CACHE_SECONDS); } catch (error) { /* over 100KB: show it, just don't keep it */ }
+  result.fromCache = false; result.usage = coupangUsage_();
+  return result;
+}
+
+// v2.2.0: turn a plain Coupang page address into the owner's Partners link (deeplink API). Same address → saved answer for 6 hours.
+function coupangLink_(payload) {
+  var url = typeof payload.url === 'string' ? payload.url.trim() : '';
+  if (url.length > 2000 || !/^https:\/\/((www|m|trip)\.)?coupang\.com\/\S*$/i.test(url)) throw userError_('쿠팡 상품 주소(https://www.coupang.com/… 또는 https://trip.coupang.com/…)를 넣어주세요.');
+  var cache = CacheService.getScriptCache(); var key = 'coupang:' + hash_('deeplink?' + url);
+  var saved = cache.get(key);
+  if (saved) { var hit = JSON.parse(saved); hit.fromCache = true; hit.usage = coupangUsage_(); return hit; }
+  var data = coupangCall_(COUPANG_ROOT + '/deeplink', '', { coupangUrls: [url] });
+  var item = Array.isArray(data) ? data[0] : null;
+  var link = item && coupangHttps_(item.shortenUrl);
+  if (!link) throw userError_('쿠팡이 이 주소의 파트너스 링크를 돌려주지 않았어요.');
+  var result = { url: url, shortenUrl: link, landingUrl: coupangHttps_(item.landingUrl), fetchedAt: new Date().toISOString() };
+  try { cache.put(key, JSON.stringify(result), COUPANG_CACHE_SECONDS); } catch (error) { /* keep going without the saved copy */ }
   result.fromCache = false; result.usage = coupangUsage_();
   return result;
 }
