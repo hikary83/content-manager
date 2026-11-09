@@ -7,7 +7,7 @@
 
 ```powershell
 node scripts/preview-mock.mjs        # 가짜 데이터로 화면 확인 → http://127.0.0.1:4175/
-node tools/carousel/render.mjs contents/<폴더>/carousel.html
+node tools/carousel/render.mjs contents/<폴더>/carousel.html   # cover.html·inpock.html도 (한 장, <body data-size>)
 node tools/register.mjs save contents/<폴더>/entry.json   # 「등록해줘」일 때만
 node --test tests/content-backend.test.mjs tests/content-client.test.mjs tests/travel-extraction.test.mjs tests/production.test.mjs tests/reel.test.mjs tests/reference.test.mjs tests/carousel.test.mjs tests/motion.test.mjs
 ```

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><title>HIKARY 썸네일 템플릿 · 퀴즈</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&display=block">
+<style>
+/* 퀴즈 영상 썸네일(커버) 1080×1920 (2026-11-09) — 쇼츠·릴스·틱톡 커버. 퀴즈 카드뉴스 표지를 세로로 옮겼다. 첫 사례: contents/261106_코엑스아쿠아리움/quiz/cover.html.
+   쓰는 법: contents/<폴더>/cover.html로 복사 → 「…」 자리 글을 바꾸고, 사진은 photo-1.jpg로 옆에 두고 ph 클래스를 뺀다 →
+     node tools/carousel/render.mjs contents/<폴더>/cover.html   → cover.png
+   인스타·틱톡 프로필 격자는 가운데 3:4(y 240~1680)만 보인다. 글자·카드는 모두 y 260~1560 안에 둔다. 위아래 빈 곳은 일부러 비운다.
+   장소·상품 이름은 쓰지 않는다. 고지는 맨 위(.disc). 제목은 영상 .head와 같은 질문, 큰 글자는 「어디게? / 뭐게?」.
+   사진: 카드(.ins)와 흐린 바탕(.bg)에 같은 사진을 쓴다. 이름(간판·로고)이 보이는 사진은 피한다. */
+/* 색: 영상(motion.html)의 :root와 같은 값으로 바꾼다. */
+:root{
+  --point:#e8312f;
+  --on-point:#fff;
+  --hi:#ffe14d;
+  --night:#050a2d;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1080px;height:1920px;overflow:hidden}
+body{position:relative;background:var(--night);font-family:Jua,sans-serif;font-synthesis:none;color:#fff;letter-spacing:-.5px;word-break:keep-all}
+.bg{position:absolute;inset:-60px;background:url(photo-1.jpg) center/cover;filter:blur(26px) brightness(.6);transform:scale(1.2)}
+.shade{position:absolute;inset:0;background:linear-gradient(rgba(5,10,45,.82),rgba(5,10,45,.25) 30%,rgba(5,10,45,.1) 52%,rgba(5,10,45,.55) 72%,rgba(5,10,45,.9))}
+.disc{position:absolute;left:60px;right:60px;top:268px;padding:14px 24px 11px;border-radius:18px;background:rgba(0,0,0,.5);color:rgba(255,255,255,.92);font-size:27px;line-height:1.4;text-align:center}
+.out{text-shadow:5px 5px 0 #000,-5px 5px 0 #000,5px -5px 0 #000,-5px -5px 0 #000,0 7px 0 #000,7px 0 0 #000,-7px 0 0 #000,0 -6px 0 #000}
+.head{position:absolute;left:0;right:0;top:395px;text-align:center;font-size:100px;line-height:1.1}
+.ins{position:absolute;left:90px;top:590px;width:900px;padding:16px 16px 0;border-radius:36px;background:#fff;color:#171717;box-shadow:0 34px 80px rgba(0,0,0,.55);transform:rotate(-3deg)}
+.ins>b{display:block;position:relative;height:500px;border-radius:24px;background:url(photo-1.jpg) center/cover}
+.ins>p{padding:20px 14px 22px;font-size:50px;line-height:1.1}
+.ins>p small{display:block;margin-top:8px;font-size:32px;color:#8a857c}
+.ph::after{content:attr(data-label) " 자리";position:absolute;inset:0;display:grid;place-items:center;border-radius:inherit;background:rgba(0,0,0,.06);color:rgba(0,0,0,.4);font-size:40px}
+.q{position:absolute;left:var(--x);top:var(--y);font-size:var(--s);line-height:1;color:var(--c);transform:rotate(var(--r))}
+.emo{position:absolute;left:var(--x);top:var(--y);font-size:var(--s);line-height:1;transform:rotate(var(--r))}
+.big{position:absolute;left:0;right:0;top:1295px;text-align:center;font-size:270px;line-height:1;color:var(--hi);text-shadow:9px 9px 0 #000,-9px 9px 0 #000,9px -9px 0 #000,-9px -9px 0 #000,0 12px 0 #000,12px 0 0 #000,-12px 0 0 #000,0 -10px 0 #000,0 18px 34px rgba(0,0,0,.5)}
+</style></head>
+<body data-size="1080x1920">
+<div class="bg"></div><div class="shade"></div>
+<p class="disc">이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.</p>
+<p class="head out">…에 …랑 갈 곳,</p>
+<div class="ins"><b class="ph" data-label="사진 1"></b><p>힌트 한 줄<small>지역</small></p></div>
+<i class="q out" style="--x:40px;--y:540px;--s:150px;--c:var(--hi);--r:-14deg">?</i>
+<i class="q out" style="--x:900px;--y:1080px;--s:170px;--c:var(--point);--r:10deg">?</i>
+<span class="emo" style="--x:850px;--y:520px;--s:150px;--r:8deg">🤔</span>
+<p class="big">어디게?</p>
+</body></html>

@@ -12,3 +12,18 @@ test('AI 응답은 공통 블록 구조·개수·길이를 검증한다',()=>{
   data=sample();data.content.facts.items=[];assert.deepEqual(server.validateCarousel_(data).content.facts.items,[]);
   assert.equal(server.carouselSchema_(server.CAROUSEL_SPEC_).properties.checks.properties.items.maxItems,5);
 });
+// v2.4.x: a page without numbered slides (cover.html, inpock.html) is one PNG at <body data-size>.
+import {execFileSync,spawnSync} from 'node:child_process';import os from 'node:os';import path from 'node:path';import {fileURLToPath} from 'node:url';
+const render=fileURLToPath(new URL('../tools/carousel/render.mjs',import.meta.url));
+const canShoot=[process.env.CHROME,'C:/Program Files/Google/Chrome/Application/chrome.exe','C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe','/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'].some(p=>p&&fs.existsSync(p))&&spawnSync('ffprobe',['-version']).status===0;
+test('장이 없는 HTML은 data-size 크기로 한 장(파일 이름.png)을 찍는다',{skip:!canShoot&&'Chrome·ffprobe가 필요해요'},()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'hikary-cover-'));
+  try{
+    const page=path.join(dir,'cover.html');
+    fs.writeFileSync(page,'<!doctype html><body data-size="1080x1920" style="margin:0;background:#f00"></body>');
+    execFileSync(process.execPath,[render,page],{stdio:'ignore'});
+    assert.equal(execFileSync('ffprobe',['-v','error','-show_entries','stream=width,height','-of','csv=p=0',path.join(dir,'cover.png')],{encoding:'utf8'}).trim(),'1080,1920');
+    fs.writeFileSync(page,'<!doctype html><body></body>');
+    assert.throws(()=>execFileSync(process.execPath,[render,page],{stdio:'pipe'}),/data-size/);
+  }finally{fs.rmSync(dir,{recursive:true,force:true});}
+});
