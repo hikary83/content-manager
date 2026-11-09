@@ -1,5 +1,5 @@
 /* HIKARY only. No credentials or endpoints from kic-worktools. */
-var SERVICE_VERSION = '2.3.0';
+var SERVICE_VERSION = '2.4.0';
 // Columns 1-14 are the original ledger. 15-21 (v1.7.0), 22-27 (v2.2.0) and 28-30 (v2.3.0) are appended so existing rows never move.
 // v2.2.0: one row per product. Instagram columns are the reel; the card news (carousel) has its own upload columns.
 // v2.3.0: KittyChat keyword and DM text, and a small Inpock thumbnail as a data URL. 「카드뉴스 문구」 is no longer filled.
@@ -99,8 +99,9 @@ function validateEntry_(input) {
   entry.format = input.format || '';
   if (entry.format && CONTENT_FORMATS.indexOf(entry.format) < 0) throw userError_('콘텐츠 형식이 올바르지 않아요.');
   UPLOAD_PLATFORMS.forEach(function(platform) {
-    var date = field_(input[platform + 'Date'] || '', 10), link = field_(input[platform + 'Link'] || '', 2000);
-    if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw userError_('업로드일은 YYYY-MM-DD 형식으로 입력해주세요.');
+    // v2.4.0: an upload may carry a time too — 「2026-11-10」 or 「2026-11-10 19:30」.
+    var date = field_(input[platform + 'Date'] || '', 16), link = field_(input[platform + 'Link'] || '', 2000);
+    if (date && !/^\d{4}-\d{2}-\d{2}( ([01]\d|2[0-3]):[0-5]\d)?$/.test(date)) throw userError_('업로드일은 YYYY-MM-DD 형식(시간은 HH:mm)으로 입력해주세요.');
     if (link && !/^https:\/\/[^\s@]+\.[^\s]+$/i.test(link)) throw userError_('게시물 링크는 https 주소로 입력해주세요.');
     entry[platform + 'Date'] = date; entry[platform + 'Link'] = link;
     if (link) entry[platform + 'Status'] = '업로드완료';
@@ -119,7 +120,8 @@ function saveEntry_(input) {
     if (existing && (!input.revision || input.revision !== existing.revision)) throw userError_('시트 내용이 변경됐어요. 새로고침한 뒤 다시 열어 수정해주세요.');
     if (!existing && input.revision) throw userError_('기존 콘텐츠를 찾지 못했어요. 새로고침해서 다시 확인해주세요.');
     entry.createdAt = existing ? existing.createdAt : Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd');
-    var output = CONTENT_KEYS.map(function(key) { return sheetLiteral_(entry[key]); });
+    // Upload dates are written as text so Sheets does not turn 「2026-11-10 19:30」 into a date in its own time zone.
+    var output = CONTENT_KEYS.map(function(key) { return /Date$/.test(key) && entry[key] ? "'" + entry[key] : sheetLiteral_(entry[key]); });
     var rowNumber = existing ? index + 2 : Math.max(2, sheet.getLastRow() + 1);
     if (rowNumber > sheet.getMaxRows()) sheet.insertRowsAfter(sheet.getMaxRows(), 100);
     var range = sheet.getRange(rowNumber, 1, 1, CONTENT_HEADERS.length);

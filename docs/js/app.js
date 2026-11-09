@@ -131,7 +131,11 @@
   };
 
   const platform = () => document.querySelector('[name=platform]:checked').value;
-  function fillUpload() { const key = platform(); $('uploadStatus').value = current[key + 'Status'] || '미업로드'; $('uploadDate').value = current[key + 'Date'] || ''; $('uploadLink').value = current[key + 'Link'] || ''; }
+  // v2.4.0: the date cell may carry a time — 「2026-11-10」 or 「2026-11-10 19:30」.
+  function fillUpload() {
+    const key = platform(); const [date = '', time = ''] = (current[key + 'Date'] || '').split(' ');
+    $('uploadStatus').value = current[key + 'Status'] || '미업로드'; $('uploadDate').value = date; $('uploadTime').value = time; $('uploadLink').value = current[key + 'Link'] || '';
+  }
   function openUpload(row) {
     current = row; $('uploadTarget').textContent = `${row.productName}${row.inpockNo ? ' · No.' + row.inpockNo : ''}`;
     // Start on the first place not uploaded yet.
@@ -147,8 +151,11 @@
   $('uploadForm').onsubmit = event => {
     event.preventDefault();
     const key = platform(); const link = $('uploadLink').value.trim(); const status = link ? '업로드완료' : $('uploadStatus').value;
-    const date = $('uploadDate').value || (status === '업로드완료' ? new Date().toLocaleDateString('sv-SE') : '');
-    void task(async () => { await save({ [key + 'Status']: status, [key + 'Date']: date, [key + 'Link']: link }, '업로드 기록을 저장했어요.'); $('uploadDialog').close(); });
+    // Uploaded with both boxes empty → now. A time without a date → today. A date without a time stays a date.
+    const now = new Date(); let date = $('uploadDate').value, time = $('uploadTime').value;
+    if (!date && (time || status === '업로드완료')) { date = now.toLocaleDateString('sv-SE'); if (!time && status === '업로드완료') time = now.toTimeString().slice(0, 5); }
+    const when = date ? date + (time ? ' ' + time : '') : '';
+    void task(async () => { await save({ [key + 'Status']: status, [key + 'Date']: when, [key + 'Link']: link }, '업로드 기록을 저장했어요.'); $('uploadDialog').close(); });
   };
   $('uploadClear').onclick = () => {
     const key = platform();

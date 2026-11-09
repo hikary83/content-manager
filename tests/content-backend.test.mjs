@@ -79,6 +79,14 @@ test('v2.2.0 21칸 시트는 22~27번째 빈칸에만 새 머리글을 채우고
   assert.deepEqual(env.rows[0].slice(14),ADDED_HEADERS);assert.equal(entry.instagramStatus,'업로드완료');assert.equal(entry.carouselStatus,'');assert.equal(entry.inpockNo,'');
   const blocked=runtime({legacy:true});blocked.rows[0].push(...V17_HEADERS,'다른 내용');assert.throws(()=>blocked.context.readEntries_(),/15~30/);assert.equal(blocked.writes(),0);
 });
+test('v2.4.0 업로드일에 시간을 같이 저장하고, 시간 형식이 틀리면 거절한다', () => {
+  const env=runtime();
+  env.context.saveEntry_({...sample(),youtubeDate:'2026-11-10 19:30',youtubeLink:'https://youtube.com/shorts/a',carouselDate:'2026-11-11'});
+  const saved=env.context.readEntries_()[0];
+  assert.equal(saved.youtubeDate,'2026-11-10 19:30');assert.equal(saved.youtubeStatus,'업로드완료');assert.equal(saved.carouselDate,'2026-11-11');
+  for(const bad of ['2026-11-10 7:30','2026-11-10 24:00','2026-11-10T19:30']) assert.throws(()=>env.context.saveEntry_({...sample(),tiktokDate:bad}),/YYYY-MM-DD/);
+  assert.throws(()=>env.context.saveEntry_({...sample(),tiktokDate:'2026-11-10 19:30:00'}),/길이/,'16자를 넘으면 길이에서 막힌다');
+});
 test('v2.3.0 키티챗 칸과 인포크 이미지(JPEG·PNG 데이터만)를 저장한다', () => {
   const env=runtime();const image='data:image/jpeg;base64,'+Buffer.from('jpeg').toString('base64');
   env.context.saveEntry_({...sample(),kittyKeyword:'어디',kittyDm:'정답은 …\nhttps://link.coupang.com/a/x',inpockImage:image});
