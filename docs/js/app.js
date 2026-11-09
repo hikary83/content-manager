@@ -88,8 +88,19 @@
     await HikaryApi.request('save', payload); await load(); notice(done);
   }
 
+  // v2.3.1: the detail dialog is split into tabs. The last tab stays open for the next product.
+  let detailTab = 'product';
+  function showTab(tab) {
+    detailTab = tab;
+    for (const node of $('detailTabs').children) { const on = node.dataset.tab === tab; node.classList.toggle('on', on); node.setAttribute('aria-selected', on); }
+    for (const panel of document.querySelectorAll('[data-panel]')) panel.hidden = panel.dataset.panel !== tab;
+  }
+  for (const node of $('detailTabs').children) node.onclick = () => { showTab(node.dataset.tab); $('detailDialog').querySelector('.dialog-body').scrollTop = 0; };
+  // A required field on a hidden tab cannot show its message, so open that tab first.
+  $('detailForm').addEventListener('invalid', event => { const panel = event.target.closest('[data-panel]'); if (panel?.hidden) showTab(panel.dataset.panel); }, true);
+
   function openDetail(row) {
-    current = row; dirty = false;
+    current = row; dirty = false; showTab(detailTab);
     for (const key of TEXT_KEYS) $('d-' + key).value = row[key] || '';
     [$('d-youtubeTitle').value, $('d-youtubeBody').value] = splitYoutube(row.youtube);
     const image = imageUrl(row.inpockImage);
@@ -97,7 +108,7 @@
     $('d-inpockImage').src = image; $('d-inpockSave').href = image || '#';
     $('d-inpockSave').download = `inpock-${row.inpockNo || 'image'}.${image.startsWith('data:image/png') ? 'png' : 'jpg'}`;
     $('detailMeta').textContent = `${row.format ? row.format + ' · ' : ''}${row.createdAt} 등록`;
-    $('detailDialog').showModal();
+    $('detailDialog').showModal(); $('detailDialog').querySelector('.dialog-body').scrollTop = 0;
   }
   function closeDetail() { if (!dirty || confirm('고친 내용을 저장하지 않고 닫을까요?')) { dirty = false; $('detailDialog').close(); } }
   $('detailForm').oninput = () => { dirty = true; };
@@ -106,7 +117,7 @@
   $('detailForm').onsubmit = event => {
     event.preventDefault();
     const changes = Object.fromEntries(TEXT_KEYS.map(key => [key, $('d-' + key).value.trim()]));
-    changes.youtube = joinYoutube($('d-youtubeTitle').value.trim(), $('d-youtubeBody').value.trim());
+    changes.youtube = joinYoutube($('d-youtubeTitle').value.replace(/\s+/g, ' ').trim(), $('d-youtubeBody').value.trim()); // the title is one line
     void task(async () => { await save(changes, '저장했어요.'); dirty = false; $('detailDialog').close(); });
   };
   $('detailDelete').onclick = () => {

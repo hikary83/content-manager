@@ -146,7 +146,7 @@ AI 영상은 보류 — 유료이고, AI가 상품 모양을 바꾸면 실제와
   "sourceUrl": "https://www.coupang.com/vp/products/...",
   "affiliateUrl": "https://link.coupang.com/a/...",
   "script": "나레이션 대본 (줄마다 「0.15–3.7 문장」)",
-  "youtube": "제목: 상황 질문? 상품 #shorts\n\n설명 본문", "instagram": "릴스·캐러셀 게시글", "tiktok": "게시글",
+  "youtube": "제목: 상황 질문, 어디게? #해시태그 #해시태그\n\n설명 본문", "instagram": "릴스·캐러셀 게시글", "tiktok": "게시글",
   "kittyKeyword": "어디", "kittyDm": "정답은 ○○이에요!\n링크 👇\nhttps://link.coupang.com/a/...\n\n(파트너스 고지)",
   "inpockNo": "254", "inpockTitle": "No.254 상품 이름", "inpockImage": "inpock.png",
   "notes": "메모\n\n작업 폴더: D:\\Codex\\shopping-shorts\\contents\\254_20261110_실리콘밀폐용기\n최종본: D:\\01.개인자료\\@SNS Contents\\254_20261110_실리콘밀폐용기"
@@ -155,7 +155,7 @@ AI 영상은 보류 — 유료이고, AI가 상품 모양을 바꾸면 실제와
 
 - 상품 하나에 한 줄이다 (v2.2.0, 2026-11-09). 필수: `category`, `productName`, `sourceUrl`(https), `script`. `format`은 쓰지 않는다 (v2.2.0 전에 등록한 줄에만 `쇼츠`·`캐러셀`이 남아 있다).
 - `script`(웹·시트의 「대본」 칸)에는 `narration.md`의 나레이션 대본을 줄마다 「0.15–3.7 크리스마스 분위기, …」처럼 넣는다 (2026-11-07 결정).
-- `youtube`는 첫 줄을 `제목: …`(제목 + 해시태그, 100자까지)으로 쓰고 빈 줄 뒤에 설명을 쓴다. 웹은 이것을 제목·본문 두 칸으로 나눠 보여 준다.
+- `youtube`는 첫 줄을 `제목: …`(제목 + 해시태그, 100자까지)으로 쓰고 빈 줄 뒤에 설명을 쓴다. 웹은 이것을 제목·본문 두 칸으로 나눠 보여 준다. 해시태그는 제목에만 넣고 설명에는 넣지 않으며, `#shorts`는 쓰지 않는다 (2026-11-09).
 - 처음 저장하면 도구가 `id`와 `revision`을 파일에 써 넣는다. 다시 `save`하면 같은 줄을 고친다.
 - 웹에서 먼저 고쳐 「시트 내용이 변경됐어요」가 나오면 `node tools/register.mjs list`로 최신 내용을 받아 합친 뒤 `revision`을 바꿔 다시 저장한다.
 - 업로드 기록 칸: `youtubeStatus`·`youtubeDate`(YYYY-MM-DD)·`youtubeLink`, `instagram…`(릴스)·`carousel…`(인스타 캐러셀)·`tiktok…`도 같은 이름. 링크가 있으면 서버가 업로드완료로 바꾼다.
