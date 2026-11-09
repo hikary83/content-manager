@@ -6,7 +6,7 @@ import { createHash, createHmac, randomUUID } from 'node:crypto';
 
 const LEGACY_HEADERS = ['콘텐츠 ID','등록일','카테고리','상품명','원본 링크','변환 링크','대본','YouTube 게시글','YouTube 상태','Instagram 게시글','Instagram 상태','TikTok 게시글','TikTok 상태','비고'];
 const V17_HEADERS = ['형식','YouTube 업로드일','YouTube 링크','Instagram 업로드일','Instagram 링크','TikTok 업로드일','TikTok 링크'];
-const ADDED_HEADERS = [...V17_HEADERS,'Instagram 캐러셀 상태','Instagram 캐러셀 업로드일','Instagram 캐러셀 링크','카드뉴스 문구','인포크 No.','인포크 타이틀'];
+const ADDED_HEADERS = [...V17_HEADERS,'Instagram 캐러셀 상태','Instagram 캐러셀 업로드일','Instagram 캐러셀 링크','카드뉴스 문구','인포크 No.','인포크 타이틀','키티챗 키워드','키티챗 DM 문구','인포크 이미지'];
 function runtime({ legacy = false } = {}) {
   const rows = [legacy ? [...LEGACY_HEADERS] : [...LEGACY_HEADERS, ...ADDED_HEADERS]];
   const props = new Map([['SHEET_ID','test'],['SHEET_NAME','콘텐츠 관리']]);
@@ -70,14 +70,22 @@ test('헤더 불일치·잘못된 업로드 상태를 거부하고 수식을 문
 test('기존 14칸 시트는 오른쪽 빈칸에만 새 머리글을 채우고 다른 내용이 있으면 멈춘다', () => {
   const env=runtime({legacy:true});env.rows.push(['old-id','2026-10-01','여행','기존 상품','https://trip.coupang.com/p','','대본','','미업로드','','미업로드','','미업로드','']);
   const entries=env.context.readEntries_();assert.deepEqual(env.rows[0].slice(14),ADDED_HEADERS);assert.equal(entries[0].productName,'기존 상품');assert.equal(entries[0].format,'');
-  const blocked=runtime({legacy:true});blocked.rows[0][16]='메모';assert.throws(()=>blocked.context.readEntries_(),/15~27/);assert.equal(blocked.writes(),0);
+  const blocked=runtime({legacy:true});blocked.rows[0][16]='메모';assert.throws(()=>blocked.context.readEntries_(),/15~30/);assert.equal(blocked.writes(),0);
 });
 test('v2.2.0 21칸 시트는 22~27번째 빈칸에만 새 머리글을 채우고 기존 줄은 그대로 읽는다', () => {
   const env=runtime({legacy:true});env.rows[0].push(...V17_HEADERS);
   env.rows.push(['old-id','2026-11-09','여행','기존 상품','https://trip.coupang.com/p','','대본','','미업로드','','업로드완료','','미업로드','','쇼츠','','','2026-11-10','https://www.instagram.com/p/a/','','']);
   const [entry]=env.context.readEntries_();
   assert.deepEqual(env.rows[0].slice(14),ADDED_HEADERS);assert.equal(entry.instagramStatus,'업로드완료');assert.equal(entry.carouselStatus,'');assert.equal(entry.inpockNo,'');
-  const blocked=runtime({legacy:true});blocked.rows[0].push(...V17_HEADERS,'다른 내용');assert.throws(()=>blocked.context.readEntries_(),/15~27/);assert.equal(blocked.writes(),0);
+  const blocked=runtime({legacy:true});blocked.rows[0].push(...V17_HEADERS,'다른 내용');assert.throws(()=>blocked.context.readEntries_(),/15~30/);assert.equal(blocked.writes(),0);
+});
+test('v2.3.0 키티챗 칸과 인포크 이미지(JPEG·PNG 데이터만)를 저장한다', () => {
+  const env=runtime();const image='data:image/jpeg;base64,'+Buffer.from('jpeg').toString('base64');
+  env.context.saveEntry_({...sample(),kittyKeyword:'어디',kittyDm:'정답은 …\nhttps://link.coupang.com/a/x',inpockImage:image});
+  const saved=env.context.readEntries_()[0];
+  assert.equal(saved.kittyKeyword,'어디');assert.match(saved.kittyDm,/정답은/);assert.equal(saved.inpockImage,image);
+  for(const bad of ['https://evil.invalid/a.jpg','data:text/html;base64,PHNjcmlwdD4=','data:image/svg+xml;base64,PHN2Zz4=','data:image/png;base64,"onerror="']) assert.throws(()=>env.context.saveEntry_({...sample(),inpockImage:bad}),/인포크 이미지/);
+  assert.throws(()=>env.context.saveEntry_({...sample(),inpockImage:'data:image/png;base64,'+'A'.repeat(45000)}),/길이/);
 });
 test('형식·업로드일·게시물 링크를 검증하고 링크가 있으면 업로드완료로 저장한다', () => {
   const env=runtime();const input={...sample(),format:'캐러셀',instagramDate:'2026-11-01',instagramLink:'https://www.instagram.com/p/abc/'};

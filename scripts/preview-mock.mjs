@@ -6,12 +6,14 @@ import { randomUUID } from 'node:crypto';
 const root = resolve('docs');
 let revision = 0;
 const PLACES = ['youtube', 'instagram', 'carousel', 'tiktok'];
-const row = (fields) => ({ id: randomUUID(), category: '생활', sourceUrl: 'https://www.coupang.com/vp/products/1', affiliateUrl: '', script: '대본', carouselScript: '', inpockNo: '', inpockTitle: '', youtube: '', instagram: '', tiktok: '', notes: '', format: '', ...Object.fromEntries(PLACES.flatMap(p => [[p + 'Status', '미업로드'], [p + 'Date', ''], [p + 'Link', '']])), createdAt: '2026-11-05', revision: 'r' + (++revision), ...fields });
+const THUMB = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAACXBIWXMAAAABAAAAAQBPJcTWAAABt0lEQVR4nNWXa46DMAyEnTCFY+w59kR7/9+FsgqvAnkUFhLPjuSqICHZjOcDzNf3T989n7KudnfsilVAU4uxJl3GDEP0fS9sAupGjLFeyf6ctcMQr66Tf+GATHd+X8NKta2wCKjrVYMBB2y4XE6EYKWAptk1NzkQuPvrkjkXrxeTA2bTYCrYYle5UFwpeA7EQhwM+ZSLyQ0eB+wU4jOlhFpsKPThrjOiFt5zYI/SZA70UYvBgQRp/PNcqMXiQKCBmTR+8aAWMYzGHeBCLcYQn3SACLV4h/ikAySoRep1OtggGWoRe51OFhFq8emDZmmQFLUYKXRwBQhRi/fLXMSBIyhVRC1Sz4FtA5yoxTBAooltA3yohfupgLgDRyijiFrMf2xVefYfWQFt1GJ94C5aMnHCdk3UInSyejwCDXCiFjFrrMuF1wAfapHaL3eRW6njDZRHLVIDjFNMuSBFLeSgWFELOSFG1OLMAIyohfxRLKiFXBADaiEXpY1aXB1AG7WQG6WBWsjNKo1aSAaVRC0ko0qgFpJZuVELKaCcqEWJAXKiFlJYd6MWoqA7UQtR0l2ohdYAs66i9hcf/9Rp2k/JHAAAAABJRU5ErkJggg==';
+const row = (fields) => ({ id: randomUUID(), category: '생활', sourceUrl: 'https://www.coupang.com/vp/products/1', affiliateUrl: '', script: '대본', carouselScript: '', inpockNo: '', inpockTitle: '', kittyKeyword: '', kittyDm: '', inpockImage: '', youtube: '', instagram: '', tiktok: '', notes: '', format: '', ...Object.fromEntries(PLACES.flatMap(p => [[p + 'Status', '미업로드'], [p + 'Date', ''], [p + 'Link', '']])), createdAt: '2026-11-05', revision: 'r' + (++revision), ...fields });
 const done = (p, date) => ({ [p + 'Status']: '업로드완료', [p + 'Date']: date, [p + 'Link']: `https://example.com/${p}` });
 const rows = [
   row({ productName: '씨라이프 코엑스 아쿠아리움 입장권', category: '여행', sourceUrl: 'https://trip.coupang.com/tp/products/30000011240405', affiliateUrl: 'https://link.coupang.com/a/example', createdAt: '2026-11-09', inpockNo: '252', inpockTitle: 'No.252 코엑스 아쿠아리움 입장권',
     script: '0.15–3.7 주말에 아이랑 어디 가지? 코엑스 아쿠아리움!\n3.85–6.3 쿠팡 구매자 후기, 요약해 봤어요.', carouselScript: '1장: 주말에 아이랑 어디 가지?\n2장: 베스트 후기 4개 중 3개',
-    youtube: '제목: 주말에 아이랑 어디 가지? 코엑스 아쿠아리움 #shorts\n\n이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.\n\n주말에 아이랑 어디 가지?', instagram: '이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.\n\n주말에 아이랑 어디 가지? 🐠', tiktok: '이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.', notes: "폴더: contents/261106_코엑스아쿠아리움 · 인포크 No.252 · 키티챗 키워드 '코엑스'", ...done('instagram', '2026-11-10') }),
+    youtube: '제목: 주말에 아이랑 어디 가지? 코엑스 아쿠아리움 #shorts\n\n이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.\n\n주말에 아이랑 어디 가지?', instagram: '이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.\n\n주말에 아이랑 어디 가지? 🐠', tiktok: '이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.', kittyKeyword: '어디', kittyDm: '정답은 씨라이프 코엑스 아쿠아리움이에요! 🐠\n입장권은 여기서 볼 수 있어요 👇\nhttps://link.coupang.com/a/example\n\n이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.', inpockImage: THUMB,
+    notes: "키티챗 키워드 '어디'\n\n작업 폴더: D:\\Codex\\shopping-shorts\\contents\\261106_코엑스아쿠아리움\\quiz\n최종본: D:\\01.개인자료\\@SNS Contents\\252_20261106_코엑스아쿠아리움", ...done('instagram', '2026-11-10') }),
   row({ productName: '접이식 실리콘 밀폐용기 4종 세트', createdAt: '2026-11-04', inpockNo: '251', script: '훅: 냉장고 문 열 때마다 쏟아지죠?\n장점: 접으면 얇아져요', youtube: '냉장고 정리 꿀템 #shorts', ...done('youtube', '2026-11-04'), ...done('instagram', '2026-11-05'), ...done('carousel', '2026-11-05'), ...done('tiktok', '2026-11-06') }),
   row({ productName: '제주 오션뷰 호텔 1박 패키지', category: '여행', sourceUrl: 'https://trip.coupang.com/tp/products/2', createdAt: '2026-11-03', script: '제주 바다가 보이는 객실', tiktokStatus: '보류' }),
   row({ productName: '무선 미니 청소기 (v2.2.0 전 형식)', category: '가전·디지털', sourceUrl: 'https://www.coupang.com/vp/products/3', format: '캐러셀', createdAt: '2026-11-02', script: '책상 위 먼지, 손바닥 청소기로' })
@@ -33,7 +35,7 @@ function products({ source, categoryId, keyword }) {
   saved.set(key, result); return { ...result, fromCache: false, usage: usage() };
 }
 function act({ action, payload }) {
-  if (action === 'status') return { version: '2.2.0 (mock)', aiConfigured: false, coupang: { configured: true, usage: usage(), categories: CATEGORIES } };
+  if (action === 'status') return { version: '2.3.0 (mock)', aiConfigured: false, coupang: { configured: true, usage: usage(), categories: CATEGORIES } };
   if (action === 'products') return products(payload);
   if (action === 'list') return { entries: rows };
   const index = rows.findIndex(item => item.id === payload.id);

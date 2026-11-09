@@ -41,7 +41,7 @@ Claude의 이름은 **루미**다 (2026-11-09, 사용자가 지었다). 사용�
    - 파트너스 링크는 **사람이 파트너스 사이트에서 직접 만든다** (2026-11-09 결정). 받으면 같은 상품으로 가는지 확인한다.
    - 인포크링크에 넣을 것: 연결할 주소(파트너스 링크) · 타이틀(`No.252 코엑스 아쿠아리움 입장권`처럼 번호 먼저) · 이미지(`inpock.png`, 1080×1080 — 실제 상품 사진 + 포인트 색 No. 배지. 첫 사례 `contents/261106_코엑스아쿠아리움/inpock.html`을 복사해 headless Chrome으로 찍는다. 아직 도구는 없다).
    - 올리기 전에 상품 페이지가 아직 판매 중인지 본다. 롯데월드 상품이 만든 뒤 판매가 멈췄다 (2026-11-09).
-5. **웹 등록 (Claude)** — 상품 하나에 `entry.json` 하나, 운영대장 한 줄이다 (2026-11-09 결정). `node tools/register.mjs save contents/<폴더>/entry.json`. 나레이션 대본은 `script`, 카드뉴스 문구는 `carouselScript`, 게시글은 `youtube`(첫 줄 `제목: …`)·`instagram`(릴스·캐러셀 같이)·`tiktok`, 인포크는 `inpockNo`·`inpockTitle`, 메모(`notes`)에는 `폴더 · 키티챗 키워드 '○○'`.
+5. **웹 등록 (Claude)** — 상품 하나에 `entry.json` 하나, 운영대장 한 줄이다 (2026-11-09 결정). `node tools/register.mjs save contents/<폴더>/entry.json`. 나레이션 대본은 `script`, 게시글은 `youtube`(첫 줄 `제목: …`)·`instagram`(릴스·캐러셀 같이)·`tiktok`, 키티챗은 `kittyKeyword`·`kittyDm`, 인포크는 `inpockNo`·`inpockTitle`·`inpockImage`(`"inpock.png"` — 등록 도구가 400px JPEG로 줄여 운영대장에 넣는다), 메모(`notes`)는 맨 아래에 **작업 폴더와 최종본 폴더의 전체 경로**를 적는다 (2026-11-09). 카드뉴스 문구(`carouselScript`)는 채우지 않는다 (2026-11-09).
    - 등록하면 **최종본**을 `D:\01.개인자료\@SNS Contents\<No>_<YYYYMMDD>_<상품명>\`에 복사한다 (예: `252_20261106_코엑스아쿠아리움`) (2026-11-09 결정, 사무실 PC): 올릴 영상 `motion-bgm.mp4`·`motion.mp4`, 카드뉴스 `slide-NN.png`, `inpock.png`, `posts.md`. 작업 파일(HTML·사진·voice)은 `contents/`에 둔다.
 6. **업로드 (사람)** — 파트너스 링크·타이틀·이미지를 그 번호로 인포크링크에 추가하고, 올리고(YouTube 쇼츠·인스타 릴스·인스타 캐러셀·TikTok), 인스타 게시물을 키티챗에 연결한다.
 7. **업로드 기록** — 사람이 게시물 링크를 주면 `entry.json`의 `instagramLink` 등을 채워 다시 `save`한다. 웹에서 직접 남겨도 된다.
@@ -146,10 +146,10 @@ AI 영상은 보류 — 유료이고, AI가 상품 모양을 바꾸면 실제와
   "sourceUrl": "https://www.coupang.com/vp/products/...",
   "affiliateUrl": "https://link.coupang.com/a/...",
   "script": "나레이션 대본 (줄마다 「0.15–3.7 문장」)",
-  "carouselScript": "카드뉴스 장별 문구 (「1장: …」)",
   "youtube": "제목: 상황 질문? 상품 #shorts\n\n설명 본문", "instagram": "릴스·캐러셀 게시글", "tiktok": "게시글",
-  "inpockNo": "252", "inpockTitle": "No.252 상품 이름",
-  "notes": "폴더: 254_20261110_실리콘밀폐용기 · 키티챗 키워드 '○○'"
+  "kittyKeyword": "어디", "kittyDm": "정답은 ○○이에요!\n링크 👇\nhttps://link.coupang.com/a/...\n\n(파트너스 고지)",
+  "inpockNo": "254", "inpockTitle": "No.254 상품 이름", "inpockImage": "inpock.png",
+  "notes": "메모\n\n작업 폴더: D:\\Codex\\shopping-shorts\\contents\\254_20261110_실리콘밀폐용기\n최종본: D:\\01.개인자료\\@SNS Contents\\254_20261110_실리콘밀폐용기"
 }
 ```
 

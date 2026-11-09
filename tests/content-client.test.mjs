@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
+import {execFileSync,spawnSync} from 'node:child_process';
 import {save} from '../tools/register.mjs';
 // Point the default endpoint at a test address so no test can reach the real server.
 const code = fs.readFileSync(new URL('../docs/js/config.js',import.meta.url),'utf8').replace(/apiUrl: '[^']*'/,"apiUrl: 'https://script.google.com/macros/s/test-default/exec'");
@@ -26,7 +27,7 @@ test('HTML 권한 오류를 성공으로 처리하지 않는다',async()=>{
 });
 test('화면은 업로드 관리(보기·수정·삭제·업로드 기록)와 상품 찾기를 갖는다',()=>{
   const html=fs.readFileSync(new URL('../docs/index.html',import.meta.url),'utf8');
-  for(const id of ['entries','search','filters','detailDialog','d-productName','d-category','d-sourceUrl','d-affiliateUrl','d-inpockNo','d-inpockTitle','d-script','d-carouselScript','d-youtubeTitle','d-youtubeBody','d-instagram','d-tiktok','d-notes','detailDelete','uploadDialog','uploadPlatforms','uploadStatus','uploadDate','uploadLink','uploadClear','views','ledgerView','finderView','quotaLeft','quotaBar','finderSource','finderLoad','finderSearch','finderKeyword','finderResults']) assert.ok(html.includes(`id="${id}"`),id);
+  for(const id of ['entries','search','filters','detailDialog','d-productName','d-category','d-sourceUrl','d-affiliateUrl','d-inpockNo','d-inpockTitle','d-inpockImage','d-inpockSave','d-script','d-youtubeTitle','d-youtubeBody','d-instagram','d-kittyKeyword','d-kittyDm','d-tiktok','d-notes','detailDelete','uploadDialog','uploadPlatforms','uploadStatus','uploadDate','uploadLink','uploadClear','views','ledgerView','finderView','quotaLeft','quotaBar','finderSource','finderLoad','finderSearch','finderKeyword','finderResults']) assert.ok(html.includes(`id="${id}"`),id);
   assert.doesNotMatch(html,/id="(createTab|formatCarousel|analyzeButton|generateButton|carouselMount|referenceDialog)"/);
   assert.doesNotMatch(html,/(production|reference|carousel|image-analysis)\.js/);
   assert.doesNotMatch(html,/accessToken|APP_ACCESS_TOKEN/);assert.doesNotMatch(html,/AIza[A-Za-z0-9_-]{20,}/);
@@ -41,5 +42,16 @@ test('등록 도구는 보내기 전에 ID를 파일에 남기고 저장 후 rev
     assert.equal(sent.action,'save');assert.equal(sent.payload.format,undefined);assert.ok(entry.id);assert.equal(idOnDisk,entry.id);assert.equal(entry.revision,'rev-1');
     await save(file,async(_,payload)=>{assert.equal(payload.id,entry.id);assert.equal(payload.revision,'rev-1');return {id:payload.id,revision:'rev-2'};});
     assert.equal(JSON.parse(fs.readFileSync(file,'utf8')).revision,'rev-2');
+  }finally{fs.rmSync(dir,{recursive:true});}
+});
+const ffmpeg=spawnSync('ffmpeg',['-version']).status===0;
+test('v2.3.0 등록 도구는 옆의 inpock.png를 45,000자 안의 JPEG 데이터로 보내고 파일 경로는 그대로 둔다',{skip:!ffmpeg&&'ffmpeg가 필요해요'},async()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'hikary-inpock-'));const file=path.join(dir,'entry.json');
+  try{
+    execFileSync('ffmpeg',['-v','error','-f','lavfi','-i','testsrc2=size=1080x1080','-frames:v','1',path.join(dir,'inpock.png')]);
+    fs.writeFileSync(file,JSON.stringify({productName:'상품',category:'생활',sourceUrl:'https://www.coupang.com/vp/products/1',script:'대본',inpockImage:'inpock.png'}));
+    let sent;await save(file,async(_,payload)=>{sent=payload;return {id:payload.id,revision:'rev-1'};});
+    assert.match(sent.inpockImage,/^data:image\/jpeg;base64,/);assert.ok(sent.inpockImage.length<=45000);
+    assert.equal(JSON.parse(fs.readFileSync(file,'utf8')).inpockImage,'inpock.png','파일에는 경로를 남긴다');
   }finally{fs.rmSync(dir,{recursive:true});}
 });

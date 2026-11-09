@@ -1,10 +1,11 @@
 /* HIKARY only. No credentials or endpoints from kic-worktools. */
-var SERVICE_VERSION = '2.2.0';
-// Columns 1-14 are the original ledger. 15-21 (v1.7.0) and 22-27 (v2.2.0) are appended so existing rows never move.
+var SERVICE_VERSION = '2.3.0';
+// Columns 1-14 are the original ledger. 15-21 (v1.7.0), 22-27 (v2.2.0) and 28-30 (v2.3.0) are appended so existing rows never move.
 // v2.2.0: one row per product. Instagram columns are the reel; the card news (carousel) has its own upload columns.
+// v2.3.0: KittyChat keyword and DM text, and a small Inpock thumbnail as a data URL. 「카드뉴스 문구」 is no longer filled.
 var LEGACY_HEADER_COUNT = 14;
-var CONTENT_HEADERS = ['콘텐츠 ID', '등록일', '카테고리', '상품명', '원본 링크', '변환 링크', '대본', 'YouTube 게시글', 'YouTube 상태', 'Instagram 게시글', 'Instagram 상태', 'TikTok 게시글', 'TikTok 상태', '비고', '형식', 'YouTube 업로드일', 'YouTube 링크', 'Instagram 업로드일', 'Instagram 링크', 'TikTok 업로드일', 'TikTok 링크', 'Instagram 캐러셀 상태', 'Instagram 캐러셀 업로드일', 'Instagram 캐러셀 링크', '카드뉴스 문구', '인포크 No.', '인포크 타이틀'];
-var CONTENT_KEYS = ['id', 'createdAt', 'category', 'productName', 'sourceUrl', 'affiliateUrl', 'script', 'youtube', 'youtubeStatus', 'instagram', 'instagramStatus', 'tiktok', 'tiktokStatus', 'notes', 'format', 'youtubeDate', 'youtubeLink', 'instagramDate', 'instagramLink', 'tiktokDate', 'tiktokLink', 'carouselStatus', 'carouselDate', 'carouselLink', 'carouselScript', 'inpockNo', 'inpockTitle'];
+var CONTENT_HEADERS = ['콘텐츠 ID', '등록일', '카테고리', '상품명', '원본 링크', '변환 링크', '대본', 'YouTube 게시글', 'YouTube 상태', 'Instagram 게시글', 'Instagram 상태', 'TikTok 게시글', 'TikTok 상태', '비고', '형식', 'YouTube 업로드일', 'YouTube 링크', 'Instagram 업로드일', 'Instagram 링크', 'TikTok 업로드일', 'TikTok 링크', 'Instagram 캐러셀 상태', 'Instagram 캐러셀 업로드일', 'Instagram 캐러셀 링크', '카드뉴스 문구', '인포크 No.', '인포크 타이틀', '키티챗 키워드', '키티챗 DM 문구', '인포크 이미지'];
+var CONTENT_KEYS = ['id', 'createdAt', 'category', 'productName', 'sourceUrl', 'affiliateUrl', 'script', 'youtube', 'youtubeStatus', 'instagram', 'instagramStatus', 'tiktok', 'tiktokStatus', 'notes', 'format', 'youtubeDate', 'youtubeLink', 'instagramDate', 'instagramLink', 'tiktokDate', 'tiktokLink', 'carouselStatus', 'carouselDate', 'carouselLink', 'carouselScript', 'inpockNo', 'inpockTitle', 'kittyKeyword', 'kittyDm', 'inpockImage'];
 var CONTENT_STATUSES = ['미업로드', '업로드완료', '보류'];
 var CONTENT_FORMATS = ['쇼츠', '캐러셀']; // only rows made before v2.2.0 carry a format
 var UPLOAD_PLATFORMS = ['youtube', 'instagram', 'tiktok', 'carousel'];
@@ -82,10 +83,14 @@ function validateEntry_(input) {
   var entry = {};
   entry.id = field_(input.id, 80);
   if (!/^[a-f0-9-]{36}$/i.test(entry.id)) throw userError_('올바른 콘텐츠 ID가 필요해요.');
-  ['category','productName','sourceUrl','affiliateUrl','script','youtube','instagram','tiktok','notes','carouselScript','inpockNo','inpockTitle'].forEach(function(key) {
-    var max = key === 'productName' || key === 'inpockTitle' ? 200 : key === 'category' ? 80 : key === 'inpockNo' ? 10 : /Url$/.test(key) ? 2000 : key === 'notes' ? 5000 : 12000;
+  ['category','productName','sourceUrl','affiliateUrl','script','youtube','instagram','tiktok','notes','carouselScript','inpockNo','inpockTitle','kittyKeyword','kittyDm'].forEach(function(key) {
+    var max = key === 'productName' || key === 'inpockTitle' ? 200 : key === 'category' ? 80 : key === 'inpockNo' ? 10 : key === 'kittyKeyword' ? 50 : /Url$/.test(key) ? 2000 : key === 'notes' || key === 'kittyDm' ? 5000 : 12000;
     entry[key] = field_(input[key] || '', max);
   });
+  // A sheet cell holds at most 50,000 characters, so the thumbnail is a small JPEG/PNG data URL (tools/register.mjs makes it).
+  // ponytail: every list call carries these images (~40KB a product); move them out if the ledger grows past a few hundred rows.
+  entry.inpockImage = field_(input.inpockImage || '', 45000);
+  if (entry.inpockImage && !/^data:image\/(jpeg|png);base64,[A-Za-z0-9+\/]+=*$/.test(entry.inpockImage)) throw userError_('인포크 이미지는 JPEG·PNG 데이터만 받아요.');
   if (!entry.category || !entry.productName || !entry.script) throw userError_('상품명·카테고리·대본은 필수예요.');
   if (!/^https:\/\/[^\s@]+\.[^\s]+$/i.test(entry.sourceUrl) || (entry.affiliateUrl && !/^https:\/\/[^\s@]+\.[^\s]+$/i.test(entry.affiliateUrl))) throw userError_('https 상품 링크를 확인해주세요.');
   if (entry.inpockNo && !/^\d{1,6}$/.test(entry.inpockNo)) throw userError_('인포크 No.는 숫자만 입력해주세요.');

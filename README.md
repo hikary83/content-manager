@@ -1,6 +1,6 @@
 # HIKARY 콘텐츠 기록
 
-서비스 버전 **v2.2.0** · 2026-11-09
+서비스 버전 **v2.3.0** · 2026-11-09
 
 쿠팡 상품으로 쇼츠·캐러셀을 **Claude에서 직접 만들고**, 이 웹에는 등록 이력과 플랫폼별 업로드 기록만 남깁니다.
 작업 기준은 [CLAUDE.md](CLAUDE.md)(지시서), 설정·배포·변경 이력은 [SETUP.md](SETUP.md)를 참고하세요.
@@ -12,7 +12,7 @@ node tools/register.mjs save contents/<폴더>/entry.json   # 「등록해줘」
 node --test tests/content-backend.test.mjs tests/content-client.test.mjs tests/travel-extraction.test.mjs tests/production.test.mjs tests/reel.test.mjs tests/reference.test.mjs tests/carousel.test.mjs tests/motion.test.mjs
 ```
 
-- 웹(`docs/`, GitHub Pages `main /docs`): 「기록」 탭은 상품 하나에 한 줄(업로드 4곳: YouTube 쇼츠·인스타 릴스·인스타 캐러셀·TikTok), 보기·수정(칸마다 복사, 인포크링크 No.·타이틀, YouTube 제목·본문)·삭제, 업로드 기록. 「상품 찾기」 탭은 쿠팡 파트너스 API로 특가·카테고리 베스트·검색을 보여 주고 남은 API 횟수를 표시합니다.
+- 웹(`docs/`, GitHub Pages `main /docs`): 「기록」 탭은 상품 하나에 한 줄(업로드 4곳: YouTube 쇼츠·인스타 릴스·인스타 캐러셀·TikTok), 보기·수정(칸마다 복사, 인포크링크 No.·타이틀·썸네일, YouTube 제목·본문, 키티챗 키워드·DM 문구)·삭제, 업로드 기록. 「상품 찾기」 탭은 쿠팡 파트너스 API로 특가·카테고리 베스트·검색을 보여 주고 남은 API 횟수를 표시합니다.
 - 서버(`backend/`, Apps Script): `status` · `list` · `save` · `delete` · `products`(쿠팡 상품 찾기, 한 시간 20회·6시간 저장) · `link`(쿠팡 주소 → 파트너스 링크, 같은 상한). 접속 코드 없이 공개되어 있어 서버 주소를 아는 누구나 호출할 수 있습니다. Gemini 동작은 웹에서 쓰지 않지만 남아 있습니다(일일 한도로 제한).
 - 운영대장(Google Sheets)에는 상품마다 한 줄로 콘텐츠 ID·등록일·카테고리·상품명·원본/파트너스 링크·나레이션 대본·카드뉴스 문구·플랫폼별 게시글·업로드 상태/날짜/링크(인스타 캐러셀 따로)·인포크 No./타이틀·비고를 저장합니다. 사진·영상 파일은 저장하지 않습니다.
 - 만든 파일은 각 PC의 `contents/`에 둡니다(git 제외).

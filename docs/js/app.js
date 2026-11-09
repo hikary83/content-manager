@@ -5,7 +5,9 @@
   // v2.2.0: one row per product. Four uploads (YouTube shorts, Instagram reel and carousel, TikTok) and the Inpock link fields.
   const $ = id => document.getElementById(id);
   const PLATFORMS = [['youtube', 'YouTube 쇼츠'], ['instagram', '인스타 릴스'], ['carousel', '인스타 캐러셀'], ['tiktok', 'TikTok']];
-  const TEXT_KEYS = ['productName', 'category', 'sourceUrl', 'affiliateUrl', 'inpockNo', 'inpockTitle', 'script', 'carouselScript', 'instagram', 'tiktok', 'notes'];
+  // v2.3.0: KittyChat keyword/DM and the Inpock thumbnail. Card news text is no longer shown (old cells are kept as they are).
+  const TEXT_KEYS = ['productName', 'category', 'sourceUrl', 'affiliateUrl', 'inpockNo', 'inpockTitle', 'script', 'instagram', 'kittyKeyword', 'kittyDm', 'tiktok', 'notes'];
+  const imageUrl = value => /^data:image\/(jpeg|png);base64,[A-Za-z0-9+/]+=*$/.test(value || '') ? value : '';
   // The ledger keeps one YouTube cell: first line 「제목: …」, a blank line, then the description.
   const splitYoutube = text => { const match = /^제목:[ \t]*(.*)(?:\r?\n([\s\S]*))?$/.exec(text || ''); return match ? [match[1].trim(), (match[2] || '').trim()] : ['', (text || '').trim()]; };
   const joinYoutube = (title, body) => title ? `제목: ${title}${body ? '\n\n' + body : ''}` : body;
@@ -90,6 +92,10 @@
     current = row; dirty = false;
     for (const key of TEXT_KEYS) $('d-' + key).value = row[key] || '';
     [$('d-youtubeTitle').value, $('d-youtubeBody').value] = splitYoutube(row.youtube);
+    const image = imageUrl(row.inpockImage);
+    $('d-inpockFigure').hidden = !image; $('d-inpockNone').hidden = !!image;
+    $('d-inpockImage').src = image; $('d-inpockSave').href = image || '#';
+    $('d-inpockSave').download = `inpock-${row.inpockNo || 'image'}.${image.startsWith('data:image/png') ? 'png' : 'jpg'}`;
     $('detailMeta').textContent = `${row.format ? row.format + ' · ' : ''}${row.createdAt} 등록`;
     $('detailDialog').showModal();
   }
