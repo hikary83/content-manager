@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><title>HIKARY 카드뉴스 템플릿 · 퀴즈</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&display=block">
+<style>
+/* 퀴즈 카드뉴스 6장 (1080×1350, 템플릿 3, 2026-11-09) — 모션 템플릿 퀴즈와 같은 스타일.
+   표지 「어디게? / 뭐게?」 → 힌트 ① 후기 → 힌트 ② 특징 사진 → 힌트 ③ 알고 가면 좋은 것 → 가기 전에 꼭 확인 → 정답은 프로필 링크.
+   장소·상품 이름은 어느 장에도 쓰지 않는다. 화면 가득 사진 + 아래 큰 자막(검은 테두리, 핵심어 <em> = 노랑). 첫 사례: contents/261107_서울랜드/t3/.
+   쓰는 법: contents/<폴더>/carousel.html로 복사 → 「…」 자리 글을 확인된 사실로 바꾸고, 사진은 photo-1.jpg…로 옆에 두고 ph 클래스를 뺀다 →
+     node tools/carousel/render.mjs contents/<폴더>/carousel.html   → slide-01.png …
+   사진: 화면 가득 쓰는 .bg는 큰 사진. 작은 사진이면 .bg에 blur를 붙이고 .ins 카드로 올린다. 이름(간판·로고)이 크게 보이는 사진은 피한다.
+   장은 <section class="slide" id="sN">으로 더하거나 뺀다. 고지는 첫 장과 마지막 장. */
+/* 색: 상품에 맞춰 이 블록만 바꾼다 (CLAUDE.md §4 · 후보는 node tools/colors.mjs). 모션 퀴즈와 같은 값을 쓴다.
+   포인트 --point(힌트 꼬리표·칩·링크 알약) · --on-point(그 위 글자) · --hi(자막 핵심어·힌트 번호) · --night(바탕) */
+:root{--point:#e8312f;--on-point:#fff;--hi:#ffe14d;--night:#050a2d}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#222;font-family:Jua,sans-serif;font-synthesis:none;color:#fff;padding:40px 0;letter-spacing:-.5px;word-break:keep-all}
+em,i{font-style:normal}
+.slide{position:relative;width:1080px;height:1350px;overflow:hidden;margin:0 auto 40px;background:var(--night)}
+body:has(.slide:target){background:none;padding:0}
+body:has(.slide:target) .slide{margin:0}
+body:has(.slide:target) .slide:not(:target){display:none}
+/* 사진 자리 표시: 사진을 넣으면 ph 클래스를 뺀다 */
+.ph::after{content:attr(data-label) " 자리";position:absolute;inset:0;display:grid;place-items:center;border-radius:inherit;background:rgba(255,255,255,.08);color:rgba(255,255,255,.5);font-size:44px}
+.ins>b.ph{position:relative}
+.ins>b.ph::after{background:rgba(0,0,0,.06);color:rgba(0,0,0,.4);font-size:30px}
+
+.bg{position:absolute;inset:-30px;background:var(--img) var(--pos,50% 50%)/cover}
+.bg.dim{filter:brightness(.62)}
+.bg.blur{filter:blur(24px) brightness(.55)}
+.shade{position:absolute;inset:0;background:linear-gradient(rgba(5,10,45,.7),rgba(5,10,45,.12) 26%,rgba(5,10,45,.1) 55%,rgba(5,10,45,.85))}
+
+.disc{position:absolute;left:60px;right:60px;top:40px;padding:12px 22px 10px;border-radius:18px;background:rgba(0,0,0,.5);color:rgba(255,255,255,.92);font-size:25px;line-height:1.4}
+.hint{position:absolute;left:0;right:0;margin:auto;top:60px;width:max-content;display:flex;align-items:center;gap:14px;padding:14px 30px 10px;border-radius:999px;background:var(--point);color:var(--on-point);font-size:40px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+.hint b{font-weight:400;color:var(--hi)}
+.cap{position:absolute;left:60px;right:60px;text-align:center;font-size:88px;line-height:1.22;text-shadow:4px 4px 0 #000,-4px 4px 0 #000,4px -4px 0 #000,-4px -4px 0 #000,0 6px 0 #000,6px 0 0 #000,-6px 0 0 #000,0 -5px 0 #000,0 10px 18px rgba(0,0,0,.5)}
+.cap em{color:var(--hi)}
+.sub{position:absolute;left:60px;right:60px;text-align:center;font-size:34px;color:rgba(255,255,255,.9);text-shadow:0 3px 8px rgba(0,0,0,.85)}
+.page{position:absolute;right:60px;bottom:44px;font-size:28px;color:rgba(255,255,255,.7)}
+.swipe{position:absolute;left:60px;bottom:44px;font-size:30px;color:#fff}
+.q{position:absolute;left:var(--x);top:var(--y);font-size:var(--s);color:var(--c);transform:rotate(var(--r));text-shadow:5px 5px 0 #000,-5px 5px 0 #000,5px -5px 0 #000,-5px -5px 0 #000}
+.emo{position:absolute;left:var(--x);top:var(--y);font-size:var(--s,140px);line-height:1;transform:rotate(var(--r,0deg))}
+
+/* 1 표지 */
+.cover{position:absolute;left:60px;right:60px;top:300px;text-align:center}
+.cover small{display:block;font-size:72px;line-height:1.2;text-shadow:4px 4px 0 #000,-4px 4px 0 #000,4px -4px 0 #000,-4px -4px 0 #000,0 8px 20px rgba(0,0,0,.5)}
+.cover b{display:block;margin-top:10px;font-weight:400;font-size:210px;line-height:1.05;color:var(--hi);text-shadow:7px 7px 0 #000,-7px 7px 0 #000,7px -7px 0 #000,-7px -7px 0 #000,0 14px 30px rgba(0,0,0,.5)}
+
+/* 2 후기 카드 */
+.rcard{position:absolute;left:90px;right:90px;top:180px;padding:30px 40px 6px;border-radius:40px;background:#fff;color:#171717;box-shadow:0 30px 70px rgba(0,0,0,.45)}
+.stat{display:flex;align-items:center;gap:26px;padding-bottom:22px;border-bottom:2px solid #eee}
+.stat>b{flex:none;font-weight:400;font-size:120px;line-height:1;color:var(--point);padding-top:12px}
+.stat>b small{font-size:60px;color:#171717}
+.stat p{font-size:44px;line-height:1.25}
+.stat p small{display:block;margin-top:6px;font-size:26px;color:#8a857c}
+.row{display:flex;justify-content:space-between;align-items:center;padding:24px 0 20px;border-bottom:2px solid #f2f0ec;font-size:42px}
+.row:last-child{border:0}
+.chip{padding:10px 22px 6px;border-radius:999px;background:var(--point);color:var(--on-point);font-size:32px}
+
+/* 3 사진 카드 */
+.ins{position:absolute;left:var(--x);top:var(--y);width:var(--w,480px);padding:12px 12px 0;border-radius:28px;background:#fff;color:#171717;box-shadow:0 30px 70px rgba(0,0,0,.55);transform:rotate(var(--r))}
+.ins>b{display:block;height:var(--h,300px);border-radius:18px;background:var(--img) center/cover}
+.ins>p{padding:14px 10px 16px;font-size:38px;line-height:1.2}
+.ins>p small{display:block;margin-top:4px;font-size:26px;color:#8a857c}
+
+/* 4 스티커 */
+.tip{position:absolute;left:var(--x);top:var(--y);display:flex;align-items:center;gap:18px;padding:22px 36px 16px 26px;border-radius:26px;background:#fff;color:#171717;font-size:50px;line-height:1.15;box-shadow:0 18px 40px rgba(0,0,0,.4);transform:rotate(var(--r))}
+.tip.p{background:var(--point);color:var(--on-point)}
+.tip.h{background:var(--hi);color:#171717}
+.tip>i{font-size:58px;line-height:1}
+.tip small{display:block;margin-top:4px;font-size:27px;opacity:.7}
+
+/* 5 체크리스트 */
+.memo{position:absolute;left:90px;right:90px;top:180px;padding:22px 40px;border-radius:36px;background:#fff;color:#171717;list-style:none;box-shadow:0 30px 70px rgba(0,0,0,.45)}
+.memo li{display:flex;gap:20px;align-items:flex-start;padding:20px 0 16px;border-bottom:2px solid #f2f0ec;font-size:40px;line-height:1.25}
+.memo li:last-child{border:0}
+.memo li::before{content:"✓";flex:none;display:grid;place-items:center;width:52px;height:52px;margin-top:-4px;border-radius:14px;background:var(--point);color:var(--on-point);font-size:34px;padding-top:4px}
+.memo small{display:block;margin-top:6px;font-size:27px;color:#8a857c}
+
+/* 6 정답은 링크에서 */
+.big{position:absolute;left:0;right:0;top:170px;text-align:center;font-size:360px;line-height:1;color:var(--hi);text-shadow:8px 8px 0 #000,-8px 8px 0 #000,8px -8px 0 #000,-8px -8px 0 #000,0 14px 30px rgba(0,0,0,.5)}
+.link{position:absolute;left:0;right:0;margin:auto;top:830px;width:max-content;display:flex;align-items:center;gap:20px;padding:20px 22px 16px 44px;border-radius:999px;background:var(--point);color:var(--on-point);font-size:66px;box-shadow:0 20px 50px rgba(0,0,0,.45);transform:rotate(-3deg)}
+.link i{display:grid;place-items:center;width:84px;height:84px;border-radius:50%;background:#fff;color:var(--point);font-size:58px;line-height:1;padding-top:6px}
+</style></head>
+<body>
+
+<section class="slide" id="s1">
+  <div class="bg ph" data-label="큰 사진 1" style="--img:url(photo-1.jpg);--pos:50% 50%"></div><div class="shade"></div>
+  <p class="disc">이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.</p>
+  <i class="q" style="--x:90px;--y:760px;--s:150px;--c:var(--hi);--r:-14deg">?</i>
+  <i class="q" style="--x:860px;--y:240px;--s:120px;--c:#fff;--r:12deg">?</i>
+  <i class="q" style="--x:820px;--y:880px;--s:160px;--c:var(--point);--r:10deg">?</i>
+  <span class="emo" style="--x:130px;--y:230px;--s:150px;--r:-8deg">🤔</span>
+  <div class="cover"><small>보는 사람 상황<br>한 줄,</small><b>어디게?</b></div>
+  <p class="sub" style="top:1090px">힌트 3개, 넘겨서 맞혀 보세요</p>
+  <span class="swipe">넘기기 →</span><span class="page">1 / 6</span>
+</section>
+
+<section class="slide" id="s2">
+  <div class="bg dim ph" data-label="큰 사진 2" style="--img:url(photo-2.jpg);--pos:50% 50%"></div><div class="shade"></div>
+  <p class="hint"><b>힌트 ①</b> 먼저 다녀온 사람들</p>
+  <div class="rcard">
+    <div class="stat"><b>N<small>/M</small></b><p>가장 많이 나온 말<br>한 줄 요약<small>쿠팡 구매자 후기 요약 · 어디서 몇 개</small></p></div>
+    <p class="row">후기 요약 1<span class="chip">n개</span></p>
+    <p class="row">후기 요약 2<span class="chip">n개</span></p>
+    <p class="row">후기 요약 3<span class="chip">n개</span></p>
+  </div>
+  <span class="emo" style="--x:850px;--y:120px;--s:120px;--r:12deg">👍</span>
+  <p class="cap" style="top:1010px"><em>가장 많이 나온 말</em><br>한 줄 요약</p>
+  <span class="page">2 / 6</span>
+</section>
+
+<section class="slide" id="s3">
+  <div class="bg blur" style="--img:url(photo-3.jpg)"></div><div class="shade"></div>
+  <p class="hint"><b>힌트 ②</b> 꼬리표</p>
+  <div class="ins" style="--x:60px;--y:180px;--r:-4deg;--img:url(photo-3.jpg)"><b class="ph" data-label="사진 3"></b><p>특징 1<small>짧은 설명</small></p></div>
+  <div class="ins" style="--x:540px;--y:230px;--r:4deg;--img:url(photo-4.jpg)"><b class="ph" data-label="사진 4"></b><p>특징 2<small>짧은 설명</small></p></div>
+  <div class="ins" style="--x:300px;--y:590px;--r:-2deg;--img:url(photo-5.jpg)"><b class="ph" data-label="사진 5"></b><p>특징 3<small>짧은 설명</small></p></div>
+  <span class="emo" style="--x:880px;--y:110px;--s:110px;--r:10deg">✨</span>
+  <p class="cap" style="top:1050px"><em>특징 1</em><br>특징 2</p>
+  <p class="sub" style="top:1290px;font-size:27px;left:60px;right:200px;text-align:left">일정·가격은 공식 홈페이지·상품 페이지에서</p>
+  <span class="page">3 / 6</span>
+</section>
+
+<section class="slide" id="s4">
+  <div class="bg dim ph" data-label="큰 사진 3" style="--img:url(photo-6.jpg);--pos:50% 50%"></div><div class="shade"></div>
+  <p class="hint"><b>힌트 ③</b> 알고 가면 좋은 것</p>
+  <p class="tip" style="--x:80px;--y:190px;--r:-4deg"><i>📱</i><span>사실 1<small>짧은 설명</small></span></p>
+  <p class="tip p" style="--x:330px;--y:380px;--r:3deg"><i>✅</i><span>사실 2<small>짧은 설명</small></span></p>
+  <p class="tip" style="--x:90px;--y:560px;--r:-3deg"><i>👶</i><span>사실 3<small>짧은 설명</small></span></p>
+  <p class="tip h" style="--x:250px;--y:745px;--r:2deg"><i>💰</i><span>사실 4<small>짧은 설명</small></span></p>
+  <p class="cap" style="top:1010px">가장 중요한<br><em>사실 한 줄</em></p>
+  <span class="page">4 / 6</span>
+</section>
+
+<section class="slide" id="s5">
+  <div class="bg dim ph" data-label="큰 사진 4" style="--img:url(photo-7.jpg);--pos:50% 50%"></div><div class="shade"></div>
+  <p class="hint">가기 전에 꼭 확인</p>
+  <ul class="memo">
+    <li><p>확인 사항 1</p></li>
+    <li><p>확인 사항 2<small>짧은 설명</small></p></li>
+    <li><p>확인 사항 3<small>짧은 설명</small></p></li>
+    <li><p>확인 사항 4</p></li>
+    <li><p>운영 시간은 공식 홈페이지에서<small>가격·유효기간은 상품 페이지에서</small></p></li>
+  </ul>
+  <p class="cap" style="top:1030px">헛걸음 없게<br><em>미리 체크</em></p>
+  <span class="page">5 / 6</span>
+</section>
+
+<section class="slide" id="s6">
+  <div class="bg blur" style="--img:url(photo-1.jpg)"></div><div class="shade"></div>
+  <p class="disc">이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.</p>
+  <p class="big">?</p>
+  <p class="cap" style="top:560px">어딘지<br><em>궁금하면?</em></p>
+  <div class="link">프로필 링크 No.○○○<i>+</i></div>
+  <p class="sub" style="top:990px">인스타는 댓글에 '키워드' 남기면 DM으로 알려 드려요</p>
+  <p class="sub" style="top:1110px;font-size:30px;color:rgba(255,255,255,.75)">저장해 두고 꺼내 보세요</p>
+  <span class="page">6 / 6</span>
+</section>
+
+</body></html>
