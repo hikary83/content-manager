@@ -35,7 +35,7 @@ function products({ source, categoryId, keyword }) {
   saved.set(key, result); return { ...result, fromCache: false, usage: usage() };
 }
 function act({ action, payload }) {
-  if (action === 'status') return { version: '2.4.0 (mock)', aiConfigured: false, coupang: { configured: true, usage: usage(), categories: CATEGORIES } };
+  if (action === 'status') return { version: '2.5.0 (mock)', aiConfigured: false, coupang: { configured: true, usage: usage(), categories: CATEGORIES } };
   if (action === 'products') return products(payload);
   if (action === 'list') return { entries: rows };
   const index = rows.findIndex(item => item.id === payload.id);

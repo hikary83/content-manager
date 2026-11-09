@@ -60,10 +60,11 @@ textarea{resize:vertical;line-height:1.7}
 .pill.carousel{background:var(--accent)}
 .date{font-size:13px;color:var(--muted)}
 .chips{display:flex;gap:6px;flex-wrap:wrap}
-.chip{border:1px solid var(--line);border-radius:999px;padding:2px 10px;font-size:12px;color:var(--muted);text-decoration:none;white-space:nowrap}
+.chip{border:1px solid var(--line);border-radius:999px;padding:2px 10px;font-size:12px;font-weight:500;background:transparent;color:var(--muted);text-decoration:none;white-space:nowrap}
 .chip.done{background:var(--done);border-color:var(--done);color:#fff;font-weight:700}
 .chip.hold{background:#ece7dc}
-a.chip.done::after{content:" ↗"}
+.chip:hover{border-color:var(--ink);color:var(--ink)} /* v2.5.0: a chip opens its upload dialog */
+.chip.done:hover{color:#fff;opacity:.8}
 .line-actions{display:flex;gap:6px}
 .empty{display:grid;gap:4px;text-align:center;padding:48px 20px;border:1.5px dashed var(--line);border-radius:20px;color:var(--muted)}
 .empty strong{color:var(--ink);font-size:17px}
@@ -71,7 +72,9 @@ a.chip.done::after{content:" ↗"}
 dialog{border:0;border-radius:24px;padding:0;width:min(720px,calc(100vw - 24px));max-height:calc(100dvh - 24px);background:var(--card);color:var(--ink);box-shadow:0 30px 80px rgba(29,27,23,.3)}
 dialog::backdrop{background:rgba(29,27,23,.45)}
 dialog form{display:flex;flex-direction:column;max-height:calc(100dvh - 24px)}
-#uploadDialog{width:min(520px,calc(100vw - 24px))}
+#uploadDialog{width:min(600px,calc(100vw - 24px))}
+textarea[readonly],input[readonly]{background:#faf8f2;color:var(--ink)}
+.grid2.kitty{grid-template-columns:1fr 2fr}
 .dialog-head{display:flex;justify-content:space-between;align-items:flex-start;padding:22px 24px 8px}
 .dialog-head small{color:var(--accent-ink);font-size:13px;font-weight:700}
 .dialog-head h2{margin:2px 0 0;font-size:22px;letter-spacing:-.5px}
@@ -143,6 +146,7 @@ h3.sec small{font-weight:400;color:var(--muted);margin-left:6px}
   .line-actions button{flex:1}
   .grid2{grid-template-columns:1fr}
   #uploadPlatforms{grid-template-columns:repeat(2,1fr)}
+  .grid2.kitty{grid-template-columns:1fr}
   .grid2.keep{grid-template-columns:1fr 1fr}
   .tabs{display:grid;grid-template-columns:repeat(3,1fr);width:auto;margin:6px 16px 4px;max-width:none;border-radius:18px}
   .tabs button{padding:7px 6px}

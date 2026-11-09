@@ -5,6 +5,7 @@
   // v2.2.0: one row per product. Four uploads (YouTube shorts, Instagram reel and carousel, TikTok) and the Inpock link fields.
   const $ = id => document.getElementById(id);
   const PLATFORMS = [['youtube', 'YouTube 쇼츠'], ['instagram', '인스타 릴스'], ['carousel', '인스타 캐러셀'], ['tiktok', 'TikTok']];
+  // v2.5.0: a platform chip opens one dialog with that place's post text (copy) above its upload record.
   // v2.3.0: KittyChat keyword/DM and the Inpock thumbnail. Card news text is no longer shown (old cells are kept as they are).
   const TEXT_KEYS = ['productName', 'category', 'sourceUrl', 'affiliateUrl', 'inpockNo', 'inpockTitle', 'script', 'instagram', 'kittyKeyword', 'kittyDm', 'tiktok', 'notes'];
   const imageUrl = value => /^data:image\/(jpeg|png);base64,[A-Za-z0-9+/]+=*$/.test(value || '') ? value : '';
@@ -70,9 +71,9 @@
         for (const [key, label] of PLATFORMS) {
           const status = row[key + 'Status'] || '미업로드'; const state = status === '업로드완료' ? 'done' : status === '보류' ? 'hold' : '';
           const text = `${label} ${state === 'done' ? (row[key + 'Date'] ? row[key + 'Date'].slice(5).replace('-', '.') : '완료') : state === 'hold' ? '보류' : '—'}`;
-          chips.append(https(row[key + 'Link']) ? link(text, row[key + 'Link'], `chip ${state}`) : element('span', `chip ${state}`, text));
+          chips.append(button(text, () => openUpload(row, key), `chip ${state}`)); // v2.5.0: post text + upload record in one dialog
         }
-        actions.append(button('보기·수정', () => openDetail(row)), button('업로드 기록', () => openUpload(row), 'small'));
+        actions.append(button('보기·수정', () => openDetail(row)));
         line.append(info, chips, actions); card.append(line);
       }
       $('entries').append(card);
@@ -135,16 +136,22 @@
   function fillUpload() {
     const key = platform(); const [date = '', time = ''] = (current[key + 'Date'] || '').split(' ');
     $('uploadStatus').value = current[key + 'Status'] || '미업로드'; $('uploadDate').value = date; $('uploadTime').value = time; $('uploadLink').value = current[key + 'Link'] || '';
+    // v2.5.0: the post text for this place sits above its record. Reels and carousel share the Instagram text.
+    for (const node of $('uploadDialog').querySelectorAll('[data-show]')) node.hidden = !node.dataset.show.split(' ').includes(key);
+    $('uploadNoPost').hidden = !!current[{ youtube: 'youtube', tiktok: 'tiktok' }[key] || 'instagram'];
+    const post = current[key + 'Link']; $('uploadOpen').hidden = !https(post); $('uploadOpen').href = https(post) ? post : '#';
   }
-  function openUpload(row) {
+  function openUpload(row, key) {
     current = row; $('uploadTarget').textContent = `${row.productName}${row.inpockNo ? ' · No.' + row.inpockNo : ''}`;
-    // Start on the first place not uploaded yet.
-    const first = (PLATFORMS.find(([key]) => row[key + 'Status'] !== '업로드완료') || PLATFORMS[0])[0];
+    [$('u-youtubeTitle').value, $('u-youtubeBody').value] = splitYoutube(row.youtube);
+    for (const name of ['instagram', 'kittyKeyword', 'kittyDm', 'tiktok']) $('u-' + name).value = row[name] || '';
+    // Open on the chip that was clicked, else on the first place not uploaded yet.
+    const first = key || (PLATFORMS.find(([name]) => row[name + 'Status'] !== '업로드완료') || PLATFORMS[0])[0];
     for (const radio of document.getElementsByName('platform')) {
       radio.checked = radio.value === first;
       radio.nextElementSibling.className = { 업로드완료: 'done', 보류: 'hold' }[row[radio.value + 'Status']] || '';
     }
-    fillUpload(); $('uploadDialog').showModal();
+    fillUpload(); $('uploadDialog').showModal(); $('uploadDialog').querySelector('.dialog-body').scrollTop = 0;
   }
   for (const radio of document.getElementsByName('platform')) radio.onchange = fillUpload;
   $('uploadClose').onclick = () => $('uploadDialog').close();
