@@ -21,6 +21,10 @@
   function notice(text, error = false) { $('notice').hidden = !text; $('notice').className = error ? 'error' : ''; $('notice').textContent = text; }
   const https = value => /^https:\/\//i.test(value || '');
   const posted = row => PLATFORMS.filter(([key]) => row[key + 'Status'] === '업로드완료').length;
+  // v2.6.0: 「보류」 is a platform the owner chose to skip, so it counts as done for 「다 올림」.
+  const settled = row => PLATFORMS.every(([key]) => ['업로드완료', '보류'].includes(row[key + 'Status']));
+  // Uploads dated (「2026-11-10」 or 「2026-11-10 08:45」) within the last 7 days — the summary shows growth, not what is left.
+  const recent = row => PLATFORMS.filter(([key]) => row[key + 'Status'] === '업로드완료' && row[key + 'Date'] && Date.now() - new Date(row[key + 'Date'].replace(' ', 'T')) < 7 * 864e5).length;
   async function task(work) {
     if (busy) return;
     busy = true; notice('처리 중입니다…');
@@ -43,10 +47,11 @@
 
   // One card per product (same original link). Rows made before v2.2.0 (one per format) still show as extra lines.
   function render() {
-    const all = row => posted(row) === PLATFORMS.length;
+    const all = settled;
     $('statContents').textContent = new Set(rows.map(row => row.sourceUrl || row.productName)).size;
-    $('statWaiting').textContent = rows.filter(row => !all(row)).length;
     $('statPosted').textContent = rows.reduce((sum, row) => sum + posted(row), 0);
+    const week = rows.reduce((sum, row) => sum + recent(row), 0);
+    $('statWeek').textContent = week ? `+${week}` : '0';
     const query = $('search').value.trim().toLowerCase();
     const shown = rows.filter(row => `${row.productName} ${row.category} No.${row.inpockNo}`.toLowerCase().includes(query)
       && (filter === '전체' || (filter === '다 올림' ? all(row) : !all(row))));

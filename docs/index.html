@@ -1,18 +1,18 @@
 <!doctype html>
-<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>HIKARY 콘텐츠 기록</title><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css"><link rel="stylesheet" href="css/app.css?v=2.5.0"></head>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>HIKARY 콘텐츠 기록</title><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css"><link rel="stylesheet" href="css/app.css?v=2.6.0"></head>
 <body>
-<header class="top"><a class="brand" href="./"><b>HIKARY</b><span>콘텐츠 기록 · v2.5.0</span></a><div class="top-links"><span id="connectionState" class="conn">연결 확인 중…</span><a href="https://docs.google.com/spreadsheets/d/1ZSB7FBZTWdT_eLlo3kpom-u2yM5UwHitG059Zci6TUc/edit" target="_blank" rel="noreferrer">운영대장 ↗</a></div></header>
+<header class="top"><a class="brand" href="./"><b>HIKARY</b><span>콘텐츠 기록 · v2.6.0</span></a><div class="top-links"><span id="connectionState" class="conn">연결 확인 중…</span><a href="https://docs.google.com/spreadsheets/d/1ZSB7FBZTWdT_eLlo3kpom-u2yM5UwHitG059Zci6TUc/edit" target="_blank" rel="noreferrer">운영대장 ↗</a></div></header>
 <main>
 <div id="notice" role="status" aria-live="polite" hidden></div>
 <div id="views" class="segments views" role="group" aria-label="화면"><button type="button" class="on" data-view="ledger">기록</button><button type="button" data-view="finder">상품 찾기</button></div>
 <div id="ledgerView">
-<section class="intro"><h1>만든 콘텐츠와<br>업로드 기록</h1><p>콘텐츠는 Claude에서 만들고 「등록해줘」로 여기에 남깁니다. 올릴 때는 플랫폼 버튼(YouTube 쇼츠·인스타 릴스…)을 눌러 게시글을 복사하고, 올린 뒤 같은 창에 업로드 기록을 남겨주세요.</p></section>
-<section class="stats" aria-label="요약"><div><strong id="statContents">–</strong><span>상품</span></div><div><strong id="statWaiting">–</strong><span>아직 다 못 올림</span></div><div><strong id="statPosted">–</strong><span>올린 게시물</span></div></section>
+<section class="intro"><h1>만든 콘텐츠와 업로드 기록</h1></section>
+<section class="stats" aria-label="요약"><div><strong><b id="statContents">–</b><small>개</small></strong><span>만든 상품</span></div><div><strong><b id="statPosted">–</b><small>개</small></strong><span>올린 게시물</span></div><div><strong id="statWeek">–</strong><span>최근 7일에 올림</span></div></section>
 <section class="toolbar"><input id="search" type="search" placeholder="상품명·카테고리·No. 검색" aria-label="콘텐츠 검색"><div id="filters" class="segments" role="group" aria-label="보기"><button type="button" class="on" data-filter="전체">전체</button><button type="button" data-filter="남은 것">남은 것 있음</button><button type="button" data-filter="다 올림">다 올림</button></div><button id="refresh" type="button" class="ghost">새로고침</button></section>
 <section id="entries" class="entries"></section>
 </div>
 <div id="finderView" hidden>
-<section class="intro"><h1>만들 상품<br>찾기</h1><p>쿠팡 파트너스 API로 오늘의 특가·카테고리 베스트·검색 결과를 봅니다. 고른 상품은 「Claude용 글 복사」를 눌러 Claude에 붙여 넣으세요.</p></section>
+<section class="intro"><h1>만들 상품 찾기</h1></section>
 <section class="quota" aria-label="쿠팡 API 남은 횟수"><div><strong id="quotaLeft">–</strong><span>남은 API 횟수 (한 시간)</span></div><div class="quota-bar"><i id="quotaBar"></i></div><p id="quotaHint" class="hint"></p></section>
 <section class="finder-tools"><div class="pick"><select id="finderSource" aria-label="볼 목록"></select><button id="finderLoad" type="button">불러오기</button></div><form id="finderSearch" class="pick"><input id="finderKeyword" type="search" minlength="2" maxlength="50" required placeholder="쿠팡 검색 (예: 아쿠아리움 입장권)" aria-label="쿠팡 상품 검색어"><button type="submit">검색</button></form></section>
 <p id="finderMeta" class="hint"></p>
@@ -45,7 +45,7 @@
 <div class="copy-head"><label for="d-tiktok">게시글</label><button type="button" class="ghost small" data-copy="d-tiktok">복사</button></div><textarea id="d-tiktok" rows="5" maxlength="12000"></textarea>
 </section>
 <section data-panel="kitty" role="tabpanel" hidden>
-<p class="hint">인스타 댓글에 키워드를 남기면 키티챗이 DM을 보내요. 릴스·캐러셀 게시물에 각각 연결해 주세요.</p>
+<p class="hint">인스타 댓글에 키워드를 남기면 키티챗이 DM을 보내요. 릴스·캐러셀 게시물에 각각 연결해 주세요.<a class="ghost small" href="https://kittychat.ai" target="_blank" rel="noopener noreferrer">키티챗 열기 ↗</a></p>
 <div class="copy-head"><label for="d-kittyKeyword">키워드</label><button type="button" class="ghost small" data-copy="d-kittyKeyword">복사</button></div><input id="d-kittyKeyword" maxlength="50" placeholder="어디">
 <div class="copy-head"><label for="d-kittyDm">DM 문구</label><button type="button" class="ghost small" data-copy="d-kittyDm">복사</button></div><textarea id="d-kittyDm" rows="7" maxlength="5000"></textarea>
 </section>
@@ -62,7 +62,7 @@
 <div data-show="youtube"><div class="copy-head"><label for="u-youtubeTitle">제목</label><button type="button" class="ghost small" data-copy="u-youtubeTitle">복사</button></div><textarea id="u-youtubeTitle" rows="2" readonly></textarea>
 <div class="copy-head"><label for="u-youtubeBody">설명</label><button type="button" class="ghost small" data-copy="u-youtubeBody">복사</button></div><textarea id="u-youtubeBody" rows="6" readonly></textarea></div>
 <div data-show="instagram carousel"><div class="copy-head"><label for="u-instagram">게시글 <small>릴스·캐러셀 같이 씀</small></label><button type="button" class="ghost small" data-copy="u-instagram">복사</button></div><textarea id="u-instagram" rows="6" readonly></textarea>
-<div class="grid2 kitty"><div><div class="copy-head"><label for="u-kittyKeyword">키티챗 키워드</label><button type="button" class="ghost small" data-copy="u-kittyKeyword">복사</button></div><input id="u-kittyKeyword" readonly></div>
+<div class="grid2 kitty"><div><div class="copy-head"><label for="u-kittyKeyword">키티챗 키워드</label><a class="ext" href="https://kittychat.ai" target="_blank" rel="noopener noreferrer">키티챗 열기 ↗</a><button type="button" class="ghost small" data-copy="u-kittyKeyword">복사</button></div><input id="u-kittyKeyword" readonly></div>
 <div><div class="copy-head"><label for="u-kittyDm">키티챗 DM</label><button type="button" class="ghost small" data-copy="u-kittyDm">복사</button></div><textarea id="u-kittyDm" rows="3" readonly></textarea></div></div></div>
 <div data-show="tiktok"><div class="copy-head"><label for="u-tiktok">게시글</label><button type="button" class="ghost small" data-copy="u-tiktok">복사</button></div><textarea id="u-tiktok" rows="5" readonly></textarea></div>
 <p id="uploadNoPost" class="hint">이 플랫폼 게시글이 아직 없어요. 「보기·수정」에서 넣을 수 있어요.</p>
@@ -72,4 +72,4 @@
 <div class="copy-head"><label for="uploadLink">게시물 링크</label><a id="uploadOpen" class="ghost small" target="_blank" rel="noopener noreferrer">게시물 열기 ↗</a></div><input id="uploadLink" type="url" maxlength="2000" placeholder="https://">
 <p class="hint">링크를 넣으면 업로드완료로 저장돼요. 올렸는데 날짜와 시간을 비워 두면 지금 날짜·시간으로 남겨요. 시간만 비우면 날짜만 남아요.</p></div>
 <div class="dialog-foot"><button id="uploadClear" type="button" class="danger">이 기록 지우기</button><button type="submit">저장</button></div></form></dialog>
-<script src="js/config.js?v=2.5.0"></script><script src="js/app.js?v=2.5.0"></script></body></html>
+<script src="js/config.js?v=2.6.0"></script><script src="js/app.js?v=2.6.0"></script></body></html>
