@@ -1,7 +1,7 @@
 <!doctype html>
-<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>HIKARY 콘텐츠 기록</title><link rel="icon" type="image/png" href="assets/favicon.png?v=2.7.0"><link rel="apple-touch-icon" href="assets/apple-touch-icon.png?v=2.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css"><link rel="stylesheet" href="css/app.css?v=2.7.0"></head>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>HIKARY 콘텐츠 기록</title><link rel="icon" type="image/png" href="assets/favicon.png?v=2.7.1"><link rel="apple-touch-icon" href="assets/apple-touch-icon.png?v=2.7.1"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css"><link rel="stylesheet" href="css/app.css?v=2.7.1"></head>
 <body>
-<header class="top"><a class="brand" href="./"><img class="brand-mascot" src="assets/logo-mascot.png?v=2.7.0" alt=""><img class="brand-word" src="assets/logo-word.png?v=2.7.0" alt="HIKARY"><span>콘텐츠 기록 · v2.7.0</span></a><div class="top-links"><span id="connectionState" class="conn">연결 확인 중…</span><a href="https://docs.google.com/spreadsheets/d/1ZSB7FBZTWdT_eLlo3kpom-u2yM5UwHitG059Zci6TUc/edit" target="_blank" rel="noreferrer">운영대장 ↗</a></div></header>
+<header class="top"><a class="brand" href="./"><img class="brand-mascot" src="assets/logo-mascot.png?v=2.7.1" alt=""><img class="brand-word" src="assets/logo-word.png?v=2.7.1" alt="HIKARY"><span>콘텐츠 기록 · v2.7.1</span></a><div class="top-links"><span id="connectionState" class="conn">연결 확인 중…</span><a href="https://docs.google.com/spreadsheets/d/1ZSB7FBZTWdT_eLlo3kpom-u2yM5UwHitG059Zci6TUc/edit" target="_blank" rel="noreferrer">운영대장 ↗</a></div></header>
 <main>
 <div id="notice" role="status" aria-live="polite" hidden></div>
 <div id="views" class="segments views" role="group" aria-label="화면"><button type="button" class="on" data-view="ledger">기록</button><button type="button" data-view="finder">상품 찾기</button></div>
@@ -12,10 +12,10 @@
 <section id="entries" class="entries"></section>
 </div>
 <div id="finderView" hidden>
-<section class="intro"><h1>만들 상품 찾기</h1></section>
+<section class="intro intro-row"><h1>만들 상품 찾기</h1><div class="intro-links"><a class="ghost small" target="_blank" rel="noopener noreferrer" href="https://www.coupang.com/">쿠팡 ↗</a><a class="ghost small" target="_blank" rel="noopener noreferrer" href="https://partners.coupang.com/">쿠팡 파트너스 ↗</a></div></section>
 <section class="quota" aria-label="쿠팡 API 남은 횟수"><div><strong id="quotaLeft">–</strong><span>남은 API 횟수 (한 시간)</span></div><div class="quota-bar"><i id="quotaBar"></i></div><p id="quotaHint" class="hint"></p></section>
 <section class="finder-tools"><div class="pick"><select id="finderSource" aria-label="볼 목록"></select><button id="finderLoad" type="button">불러오기</button></div><form id="finderSearch" class="pick"><input id="finderKeyword" type="search" minlength="2" maxlength="50" required placeholder="쿠팡 검색 (예: 아쿠아리움 입장권)" aria-label="쿠팡 상품 검색어"><button type="submit">검색</button></form></section>
-<section class="linker" aria-label="쿠팡 주소로 파트너스 링크 만들기"><form id="linkForm" class="pick"><input id="linkUrl" type="url" maxlength="2000" required placeholder="쿠팡 상품 주소를 붙여 넣으면 파트너스 링크를 만들어요" aria-label="쿠팡 상품 주소"><button type="submit">링크 만들기</button></form>
+<section class="linker" aria-label="쿠팡 주소로 파트너스 링크 만들기"><form id="linkForm" class="pick"><input id="linkUrl" type="url" maxlength="2000" required placeholder="쿠팡 상품 주소 붙여넣기" aria-label="쿠팡 상품 주소"><button type="submit">링크 만들기</button></form>
 <div id="linkResult" class="link-result" hidden>
 <div class="copy-head"><label for="linkOut">파트너스 링크</label><button type="button" class="ghost small" data-copy="linkOut">복사</button></div><input id="linkOut" readonly>
 <p id="linkHint" class="hint"></p>
@@ -80,4 +80,4 @@
 <div class="copy-head"><label for="uploadLink">게시물 링크</label><a id="uploadOpen" class="ghost small" target="_blank" rel="noopener noreferrer">게시물 열기 ↗</a></div><input id="uploadLink" type="url" maxlength="2000" placeholder="https://">
 <p class="hint">링크를 넣으면 업로드완료로 저장돼요. 올렸는데 날짜와 시간을 비워 두면 지금 날짜·시간으로 남겨요. 시간만 비우면 날짜만 남아요.</p></div>
 <div class="dialog-foot"><button id="uploadClear" type="button" class="danger">이 기록 지우기</button><button type="submit">저장</button></div></form></dialog>
-<script src="js/config.js?v=2.7.0"></script><script src="js/app.js?v=2.7.0"></script></body></html>
+<script src="js/config.js?v=2.7.1"></script><script src="js/app.js?v=2.7.1"></script></body></html>

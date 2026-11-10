@@ -124,6 +124,9 @@ h3.sec small{font-weight:400;color:var(--muted);margin-left:6px}
 .pick{display:flex;gap:8px;align-items:center}
 .pick select,.pick input{flex:1;min-width:0}
 .pick button{flex:none}
+/* v2.7.1: 상품 찾기 제목 옆 쿠팡 · 쿠팡 파트너스 (새 창) */
+.intro-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:4px 12px}
+.intro-links{display:flex;gap:8px}
 /* v2.7.0: 쿠팡 주소 → 파트너스 링크, 보낸 요청 */
 .linker{margin-top:10px}
 .link-result{display:grid;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:4px 18px 16px;margin-top:10px}
