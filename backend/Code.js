@@ -1,12 +1,16 @@
 /* HIKARY only. No credentials or endpoints from kic-worktools. */
-var SERVICE_VERSION = '2.5.0';
-// Columns 1-14 are the original ledger. 15-21 (v1.7.0), 22-27 (v2.2.0) and 28-30 (v2.3.0) are appended so existing rows never move.
+var SERVICE_VERSION = '2.6.0';
+// Columns 1-14 are the original ledger. 15-21 (v1.7.0), 22-27 (v2.2.0), 28-30 (v2.3.0) and 31-36 (v2.6.0) are appended so existing rows never move.
 // v2.2.0: one row per product. Instagram columns are the reel; the card news (carousel) has its own upload columns.
 // v2.3.0: KittyChat keyword and DM text, and a small Inpock thumbnail as a data URL. 「카드뉴스 문구」 is no longer filled.
+// v2.6.0: 「게시」 (Publish.js) — the hosted video, the Buffer post of each place and the last publishing errors.
 var LEGACY_HEADER_COUNT = 14;
-var CONTENT_HEADERS = ['콘텐츠 ID', '등록일', '카테고리', '상품명', '원본 링크', '변환 링크', '대본', 'YouTube 게시글', 'YouTube 상태', 'Instagram 게시글', 'Instagram 상태', 'TikTok 게시글', 'TikTok 상태', '비고', '형식', 'YouTube 업로드일', 'YouTube 링크', 'Instagram 업로드일', 'Instagram 링크', 'TikTok 업로드일', 'TikTok 링크', 'Instagram 캐러셀 상태', 'Instagram 캐러셀 업로드일', 'Instagram 캐러셀 링크', '카드뉴스 문구', '인포크 No.', '인포크 타이틀', '키티챗 키워드', '키티챗 DM 문구', '인포크 이미지'];
-var CONTENT_KEYS = ['id', 'createdAt', 'category', 'productName', 'sourceUrl', 'affiliateUrl', 'script', 'youtube', 'youtubeStatus', 'instagram', 'instagramStatus', 'tiktok', 'tiktokStatus', 'notes', 'format', 'youtubeDate', 'youtubeLink', 'instagramDate', 'instagramLink', 'tiktokDate', 'tiktokLink', 'carouselStatus', 'carouselDate', 'carouselLink', 'carouselScript', 'inpockNo', 'inpockTitle', 'kittyKeyword', 'kittyDm', 'inpockImage'];
-var CONTENT_STATUSES = ['미업로드', '업로드완료', '보류'];
+var CONTENT_HEADERS = ['콘텐츠 ID', '등록일', '카테고리', '상품명', '원본 링크', '변환 링크', '대본', 'YouTube 게시글', 'YouTube 상태', 'Instagram 게시글', 'Instagram 상태', 'TikTok 게시글', 'TikTok 상태', '비고', '형식', 'YouTube 업로드일', 'YouTube 링크', 'Instagram 업로드일', 'Instagram 링크', 'TikTok 업로드일', 'TikTok 링크', 'Instagram 캐러셀 상태', 'Instagram 캐러셀 업로드일', 'Instagram 캐러셀 링크', '카드뉴스 문구', '인포크 No.', '인포크 타이틀', '키티챗 키워드', '키티챗 DM 문구', '인포크 이미지', '영상 주소', '영상 올린 날', 'YouTube 예약 ID', 'Instagram 예약 ID', 'TikTok 예약 ID', '게시 오류'];
+var CONTENT_KEYS = ['id', 'createdAt', 'category', 'productName', 'sourceUrl', 'affiliateUrl', 'script', 'youtube', 'youtubeStatus', 'instagram', 'instagramStatus', 'tiktok', 'tiktokStatus', 'notes', 'format', 'youtubeDate', 'youtubeLink', 'instagramDate', 'instagramLink', 'tiktokDate', 'tiktokLink', 'carouselStatus', 'carouselDate', 'carouselLink', 'carouselScript', 'inpockNo', 'inpockTitle', 'kittyKeyword', 'kittyDm', 'inpockImage', 'videoUrl', 'videoDate', 'youtubePostId', 'instagramPostId', 'tiktokPostId', 'publishError'];
+// 「예약됨」·「오류」 are set by 「게시」 and the result check (Publish.js); the upload dialog may still set any of them by hand.
+var CONTENT_STATUSES = ['미업로드', '업로드완료', '보류', '예약됨', '오류'];
+// Written by tools/register.mjs video and Publish.js. A save that leaves one out keeps what the sheet has (entry.json never carries them).
+var MANAGED_KEYS = ['videoUrl', 'videoDate', 'youtubePostId', 'instagramPostId', 'tiktokPostId', 'publishError'];
 var CONTENT_FORMATS = ['쇼츠', '캐러셀']; // only rows made before v2.2.0 carry a format
 var UPLOAD_PLATFORMS = ['youtube', 'instagram', 'tiktok', 'carousel'];
 
@@ -31,7 +35,7 @@ function doPost(event) {
     var payload = input.payload || {};
     action = String(input.action || '');
     var data;
-    if (action === 'status') { getContentSheet_(); data = { version: SERVICE_VERSION, aiConfigured: !!PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY'), coupang: coupangStatus_() }; }
+    if (action === 'status') { getContentSheet_(); data = { version: SERVICE_VERSION, aiConfigured: !!PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY'), coupang: coupangStatus_(), publishing: publishStatus_() }; }
     else if (action === 'list') data = { entries: readEntries_() };
     else if (action === 'save') data = saveEntry_(payload);
     else if (action === 'delete') data = deleteEntry_(payload);
@@ -40,6 +44,7 @@ function doPost(event) {
     else if (action === 'request') data = addRequest_(payload); // v2.5.0: 루미한테 요청하기 (Requests.js)
     else if (action === 'requests') data = readRequests_();
     else if (action === 'requestUpdate') data = updateRequest_(payload);
+    else if (action === 'publish') data = publish_(payload); // v2.6.0: 「게시」 through Buffer (Publish.js), needs PUBLISH_CODE
     else if (action === 'analyze') data = analyzeProduct_(payload.url);
     else if (action === 'image') data = readImage_(payload.url);
     else if (action === 'generate') data = generateContent_(payload);
@@ -51,7 +56,7 @@ function doPost(event) {
     // Do not log exception text: UrlFetch errors can contain credentials or URLs.
     result = { ok: false, requestId: requestId, error: safeError_(error) };
   }
-  console.info(JSON.stringify({ requestId: requestId, action: ['status','list','save','delete','products','link','request','requests','requestUpdate','analyze','image','generate','reference','carousel'].indexOf(action) >= 0 ? action : 'unknown', elapsedMs: Date.now() - started, ok: result.ok }));
+  console.info(JSON.stringify({ requestId: requestId, action: ['status','list','save','delete','products','link','request','requests','requestUpdate','publish','analyze','image','generate','reference','carousel'].indexOf(action) >= 0 ? action : 'unknown', elapsedMs: Date.now() - started, ok: result.ok }));
   return jsonResponse_(result);
 }
 
@@ -109,6 +114,11 @@ function validateEntry_(input) {
     entry[platform + 'Date'] = date; entry[platform + 'Link'] = link;
     if (link) entry[platform + 'Status'] = '업로드완료';
   });
+  // v2.6.0: managed fields are checked for shape only; saveEntry_ fills the ones left out. Publish.js decides what may be posted.
+  MANAGED_KEYS.forEach(function(key) { if (input[key] !== undefined) entry[key] = field_(input[key], key === 'videoDate' ? 16 : key === 'videoUrl' || key === 'publishError' ? 2000 : 64); });
+  if (entry.videoUrl && !/^https:\/\/[^\s@]+\.[^\s]+$/i.test(entry.videoUrl)) throw userError_('영상 주소는 https 주소로 입력해주세요.');
+  if (entry.videoDate && !/^\d{4}-\d{2}-\d{2}( ([01]\d|2[0-3]):[0-5]\d)?$/.test(entry.videoDate)) throw userError_('영상 올린 날은 YYYY-MM-DD HH:mm 형식이어야 해요.');
+  ['youtubePostId', 'instagramPostId', 'tiktokPostId'].forEach(function(key) { if (entry[key] && !/^[A-Za-z0-9_-]+$/.test(entry[key])) throw userError_('예약 ID 형식이 올바르지 않아요.'); });
   return entry;
 }
 function sameEntry_(existing, candidate) { return CONTENT_KEYS.filter(function(key) { return key !== 'createdAt'; }).every(function(key) { return existing[key] === candidate[key]; }); }
@@ -119,22 +129,26 @@ function saveEntry_(input) {
   try {
     var sheet = getContentSheet_(); var rows = readSheetRows_(sheet); var index = rows.findIndex(function(row) { return String(row[0]) === entry.id; });
     var existing = index >= 0 ? rowEntry_(rows[index]) : null;
+    MANAGED_KEYS.forEach(function(key) { if (entry[key] === undefined) entry[key] = existing ? existing[key] : ''; });
     if (existing && sameEntry_(existing, entry)) return { id: entry.id, revision: existing.revision, replayed: true };
     if (existing && (!input.revision || input.revision !== existing.revision)) throw userError_('시트 내용이 변경됐어요. 새로고침한 뒤 다시 열어 수정해주세요.');
     if (!existing && input.revision) throw userError_('기존 콘텐츠를 찾지 못했어요. 새로고침해서 다시 확인해주세요.');
     entry.createdAt = existing ? existing.createdAt : Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd');
-    // Upload dates are written as text so Sheets does not turn 「2026-11-10 19:30」 into a date in its own time zone.
-    var output = CONTENT_KEYS.map(function(key) { return /Date$/.test(key) && entry[key] ? "'" + entry[key] : sheetLiteral_(entry[key]); });
-    var rowNumber = existing ? index + 2 : Math.max(2, sheet.getLastRow() + 1);
-    if (rowNumber > sheet.getMaxRows()) sheet.insertRowsAfter(sheet.getMaxRows(), 100);
-    var range = sheet.getRange(rowNumber, 1, 1, CONTENT_HEADERS.length);
-    range.setValues([output]);
-    var statusRule = SpreadsheetApp.newDataValidation().requireValueInList(CONTENT_STATUSES, true).setAllowInvalid(false).build();
-    UPLOAD_PLATFORMS.forEach(function(platform) { sheet.getRange(rowNumber, CONTENT_KEYS.indexOf(platform + 'Status') + 1).setDataValidation(statusRule); });
-    SpreadsheetApp.flush();
-    var saved = rowEntry_(range.getValues()[0]);
+    var saved = writeEntry_(sheet, existing ? index + 2 : Math.max(2, sheet.getLastRow() + 1), entry);
     return { id: entry.id, revision: saved.revision, replayed: false };
   } finally { lock.releaseLock(); }
+}
+// Call with the script lock held. Publish.js writes through here too.
+function writeEntry_(sheet, rowNumber, entry) {
+  // Upload dates are written as text so Sheets does not turn 「2026-11-10 19:30」 into a date in its own time zone.
+  var output = CONTENT_KEYS.map(function(key) { return /Date$/.test(key) && entry[key] ? "'" + entry[key] : sheetLiteral_(entry[key]); });
+  if (rowNumber > sheet.getMaxRows()) sheet.insertRowsAfter(sheet.getMaxRows(), 100);
+  var range = sheet.getRange(rowNumber, 1, 1, CONTENT_HEADERS.length);
+  range.setValues([output]);
+  var statusRule = SpreadsheetApp.newDataValidation().requireValueInList(CONTENT_STATUSES, true).setAllowInvalid(false).build();
+  UPLOAD_PLATFORMS.forEach(function(platform) { sheet.getRange(rowNumber, CONTENT_KEYS.indexOf(platform + 'Status') + 1).setDataValidation(statusRule); });
+  SpreadsheetApp.flush();
+  return rowEntry_(range.getValues()[0]);
 }
 // v2.0.0: content is made in Claude; the web lists, edits and deletes. Same revision guard as save.
 function deleteEntry_(input) {

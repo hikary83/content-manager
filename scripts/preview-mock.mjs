@@ -13,7 +13,9 @@ const rows = [
   row({ productName: '씨라이프 코엑스 아쿠아리움 입장권', category: '여행', sourceUrl: 'https://trip.coupang.com/tp/products/30000011240405', affiliateUrl: 'https://link.coupang.com/a/example', createdAt: '2026-11-09', inpockNo: '252', inpockTitle: 'No.252 코엑스 아쿠아리움 입장권',
     script: '0.15–3.7 주말에 아이랑 어디 가지? 코엑스 아쿠아리움!\n3.85–6.3 쿠팡 구매자 후기, 요약해 봤어요.', carouselScript: '1장: 주말에 아이랑 어디 가지?\n2장: 베스트 후기 4개 중 3개',
     youtube: '제목: 주말에 아이랑 갈 곳, 여기 어디게? #아이와가볼만한곳 #서울나들이 #주말나들이\n\n이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.\n\n주말에 아이랑 어디 가지?', instagram: '이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.\n\n주말에 아이랑 어디 가지? 🐠', tiktok: '이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.', kittyKeyword: '어디', kittyDm: '정답은 씨라이프 코엑스 아쿠아리움이에요! 🐠\n입장권은 여기서 볼 수 있어요 👇\nhttps://link.coupang.com/a/example\n\n이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.', inpockImage: THUMB,
-    notes: "키티챗 키워드 '어디'\n\n작업 폴더: D:\\Codex\\shopping-shorts\\contents\\261106_코엑스아쿠아리움\\quiz\n최종본: D:\\01.개인자료\\@SNS Contents\\252_20261106_코엑스아쿠아리움", ...done('instagram', '2026-11-10 19:30') }),
+    notes: "키티챗 키워드 '어디'\n\n작업 폴더: D:\\Codex\\shopping-shorts\\contents\\261106_코엑스아쿠아리움\\quiz\n최종본: D:\\01.개인자료\\@SNS Contents\\252_20261106_코엑스아쿠아리움", ...done('instagram', '2026-11-10 19:30'),
+    // v2.8.0 「게시」: a hosted video, one place scheduled and one failed
+    videoUrl: 'https://res.cloudinary.com/demo/video/upload/v1/hikary/example.mp4', videoDate: '2026-11-10 17:00', youtubeStatus: '예약됨', youtubeDate: '2026-11-12 18:00', youtubePostId: 'mock1', tiktokStatus: '오류', publishError: 'TikTok: Buffer 게시 실패 — 예시 오류 문구' }),
   row({ productName: '접이식 실리콘 밀폐용기 4종 세트', createdAt: '2026-11-04', inpockNo: '251', script: '훅: 냉장고 문 열 때마다 쏟아지죠?\n장점: 접으면 얇아져요', youtube: '냉장고 정리 꿀템 #shorts', ...done('youtube', '2026-11-04'), ...done('instagram', '2026-11-05'), ...done('carousel', '2026-11-05'), ...done('tiktok', '2026-11-06') }),
   row({ productName: '제주 오션뷰 호텔 1박 패키지', category: '여행', sourceUrl: 'https://trip.coupang.com/tp/products/2', createdAt: '2026-11-03', script: '제주 바다가 보이는 객실', tiktokStatus: '보류' }),
   row({ productName: '무선 미니 청소기 (v2.2.0 전 형식)', category: '가전·디지털', sourceUrl: 'https://www.coupang.com/vp/products/3', format: '캐러셀', createdAt: '2026-11-02', script: '책상 위 먼지, 손바닥 청소기로' })
@@ -60,7 +62,18 @@ function act({ action, payload }) {
     if (payload.delete) { requests.splice(at, 1); return { id: payload.id, deleted: true }; }
     requests[at].status = payload.status; return { request: requests[at] };
   }
-  if (action === 'status') return { version: '2.7.2 (mock)', aiConfigured: false, coupang: { configured: true, usage: usage(), categories: CATEGORIES } };
+  if (action === 'status') return { version: '2.6.0 (mock)', aiConfigured: false, coupang: { configured: true, usage: usage(), categories: CATEGORIES }, publishing: { buffer: true, video: true, code: true } };
+  if (action === 'publish') { // v2.8.0 mock: code 「mock」, every chosen place is scheduled
+    if (payload.code !== 'mock') throw new Error('게시 비밀번호가 맞지 않아요. (목업 비밀번호: mock)');
+    const at = rows.findIndex(item => item.id === payload.id);
+    if (at < 0 || rows[at].revision !== payload.revision) throw new Error('시트 내용이 변경됐어요. 새로고침한 뒤 다시 게시해주세요.');
+    if (!rows[at].videoUrl) throw new Error('게시할 영상이 없어요.');
+    const when = new Date(payload.dueAt).toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 16);
+    const next = { ...rows[at], revision: 'r' + (++revision) };
+    for (const p of payload.platforms) Object.assign(next, { [p + 'Status']: '예약됨', [p + 'Date']: when, [p + 'PostId']: 'mock-' + p });
+    next.publishError = (next.publishError || '').split('\n').filter(line => !payload.platforms.some(p => line.startsWith({ youtube: 'YouTube', instagram: '인스타 릴스', tiktok: 'TikTok' }[p] + ': '))).join('\n');
+    rows[at] = next; return { id: next.id, revision: next.revision, results: Object.fromEntries(payload.platforms.map(p => [p, { ok: true }])) };
+  }
   if (action === 'products') return products(payload);
   if (action === 'list') return { entries: rows };
   const index = rows.findIndex(item => item.id === payload.id);

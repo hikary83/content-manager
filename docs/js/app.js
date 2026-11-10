@@ -5,6 +5,14 @@
   // v2.2.0: one row per product. Four uploads (YouTube shorts, Instagram reel and carousel, TikTok) and the Inpock link fields.
   const $ = id => document.getElementById(id);
   const PLATFORMS = [['youtube', 'YouTube 쇼츠'], ['instagram', '인스타 릴스'], ['carousel', '인스타 캐러셀'], ['tiktok', 'TikTok']];
+  // v2.8.0 「게시」 (server 2.6.0): the video places go through Buffer; the carousel stays manual.
+  // ERROR_LABELS are the line prefixes the server writes into 「게시 오류」 (backend/Publish.js PUBLISH_LABELS).
+  const PUBLISH = PLATFORMS.filter(([key]) => key !== 'carousel');
+  const ERROR_LABELS = { youtube: 'YouTube', instagram: '인스타 릴스', tiktok: 'TikTok' };
+  const STATE = { 업로드완료: 'done', 보류: 'hold', 예약됨: 'sched', 오류: 'err' };
+  const errorFor = (row, key) => ERROR_LABELS[key] && (row.publishError || '').split('\n').find(line => line.startsWith(ERROR_LABELS[key] + ': '))?.slice(ERROR_LABELS[key].length + 2) || '';
+  const settledPlace = status => ['업로드완료', '예약됨', '보류'].includes(status);
+  const openToPublish = row => PUBLISH.some(([key]) => !settledPlace(row[key + 'Status']));
   // v2.5.0: a platform chip opens one dialog with that place's post text (copy) above its upload record.
   // v2.3.0: KittyChat keyword/DM and the Inpock thumbnail. Card news text is no longer shown (old cells are kept as they are).
   const TEXT_KEYS = ['productName', 'category', 'sourceUrl', 'affiliateUrl', 'inpockNo', 'inpockTitle', 'script', 'instagram', 'kittyKeyword', 'kittyDm', 'tiktok', 'notes'];
@@ -74,10 +82,11 @@
         if (row.format) info.append(element('span', row.format === '캐러셀' ? 'pill carousel' : 'pill', row.format)); // pre-v2.2.0 rows only
         info.append(element('span', 'date', row.createdAt));
         for (const [key, label] of PLATFORMS) {
-          const status = row[key + 'Status'] || '미업로드'; const state = status === '업로드완료' ? 'done' : status === '보류' ? 'hold' : '';
-          const text = `${label} ${state === 'done' ? (row[key + 'Date'] ? row[key + 'Date'].slice(5).replace('-', '.') : '완료') : state === 'hold' ? '보류' : '—'}`;
+          const state = STATE[row[key + 'Status']] || ''; const when = row[key + 'Date'] ? row[key + 'Date'].slice(5).replace('-', '.') : '';
+          const text = `${label} ${{ done: when || '완료', hold: '보류', sched: `예약 ${when}`, err: '오류' }[state] || '—'}`;
           chips.append(button(text, () => openUpload(row, key), `chip ${state}`)); // v2.5.0: post text + upload record in one dialog
         }
+        if (openToPublish(row)) actions.append(button('게시', () => openPublish(row), 'small accent'));
         actions.append(button('보기·수정', () => openDetail(row)));
         line.append(info, chips, actions); card.append(line);
       }
@@ -144,6 +153,7 @@
     // v2.5.0: the post text for this place sits above its record. Reels and carousel share the Instagram text.
     for (const node of $('uploadDialog').querySelectorAll('[data-show]')) node.hidden = !node.dataset.show.split(' ').includes(key);
     $('uploadNoPost').hidden = !!current[{ youtube: 'youtube', tiktok: 'tiktok' }[key] || 'instagram'];
+    const error = errorFor(current, key); $('uploadError').hidden = !error; $('uploadError').textContent = error && `게시 오류: ${error}`;
     const post = current[key + 'Link']; $('uploadOpen').hidden = !https(post); $('uploadOpen').href = https(post) ? post : '#';
   }
   function openUpload(row, key) {
@@ -154,7 +164,7 @@
     const first = key || (PLATFORMS.find(([name]) => row[name + 'Status'] !== '업로드완료') || PLATFORMS[0])[0];
     for (const radio of document.getElementsByName('platform')) {
       radio.checked = radio.value === first;
-      radio.nextElementSibling.className = { 업로드완료: 'done', 보류: 'hold' }[row[radio.value + 'Status']] || '';
+      radio.nextElementSibling.className = STATE[row[radio.value + 'Status']] || '';
     }
     fillUpload(); $('uploadDialog').showModal(); $('uploadDialog').querySelector('.dialog-body').scrollTop = 0;
   }
@@ -173,6 +183,55 @@
     const key = platform();
     if (!confirm('이 기록의 업로드 여부·날짜·링크를 지울까요?')) return;
     void task(async () => { await save({ [key + 'Status']: '미업로드', [key + 'Date']: '', [key + 'Link']: '' }, '업로드 기록을 지웠어요.'); $('uploadDialog').close(); });
+  };
+
+  // v2.8.0 「게시」: pick a time and the places, type the publish code (never kept), and the server schedules each place in Buffer.
+  const PLACE_NOTES = { youtube: '제목·설명은 운영대장 글 그대로', instagram: '피드에도 공유 · 커버는 3초 장면', tiktok: '커버는 3초 장면' };
+  const monthDay = date => `${date.getMonth() + 1}월 ${date.getDate()}일`;
+  function countPlaces() {
+    const count = $('publishPlaces').querySelectorAll('input:checked').length;
+    $('publishSubmit').textContent = count ? `${count}곳 예약하기` : '예약하기';
+    $('publishSubmit').disabled = !count || !current.videoUrl;
+  }
+  function openPublish(row) {
+    current = row; $('publishTarget').textContent = `${row.productName}${row.inpockNo ? ' · No.' + row.inpockNo : ''}`;
+    $('publishNo').textContent = row.inpockNo ? `No.${row.inpockNo}` : '이 상품 번호';
+    const video = $('publishVideo');
+    if (row.videoUrl) {
+      const until = new Date(new Date(row.videoDate.replace(' ', 'T')).getTime() + 30 * 864e5);
+      video.className = 'video-box ok'; video.textContent = `영상 준비됨 · ${row.videoDate} 올림 · ${isNaN(until) ? '30일' : monthDay(until)}까지 보관 (그 전에 게시돼야 해요)`;
+    } else { video.className = 'video-box none'; video.textContent = `게시할 영상이 아직 없어요. 루미에게 「No.${row.inpockNo || '○○○'} 영상 올려줘」라고 해 주세요.`; }
+    // Default: the next full hour at least 30 minutes away.
+    const at = new Date(Date.now() + 90 * 60000); at.setMinutes(0, 0, 0);
+    $('publishDate').value = at.toLocaleDateString('sv-SE'); $('publishTime').value = at.toTimeString().slice(0, 5); $('publishCode').value = '';
+    $('publishPlaces').replaceChildren(...PUBLISH.map(([key, label]) => {
+      const status = row[key + 'Status'] || '미업로드'; const when = row[key + 'Date'] || '';
+      const place = element('label', 'place'); const box = document.createElement('input'); box.type = 'checkbox'; box.value = key;
+      box.checked = ['미업로드', '오류'].includes(status); box.disabled = ['업로드완료', '예약됨'].includes(status); box.onchange = countPlaces;
+      const note = { 업로드완료: `올라감 ${when}`, 예약됨: `예약됨 ${when}`, 오류: `지난번 오류 — 다시 걸기`, 보류: '보류해 둔 곳' }[status] || PLACE_NOTES[key];
+      place.classList.toggle('off', box.disabled); place.append(box, element('span', '', label), element('small', '', note)); return place;
+    }), Object.assign(element('div', 'place off'), { textContent: '인스타 캐러셀' }));
+    $('publishPlaces').lastChild.append(element('small', '', '아직 직접 올려요'));
+    countPlaces(); $('publishDialog').showModal(); $('publishDialog').querySelector('.dialog-body').scrollTop = 0;
+  }
+  $('publishClose').onclick = $('publishCancel').onclick = () => $('publishDialog').close();
+  $('publishForm').onsubmit = event => {
+    event.preventDefault();
+    const due = new Date(`${$('publishDate').value}T${$('publishTime').value}`);
+    if (isNaN(due) || due < Date.now() + 2 * 60000) { alert('예약 시간은 지금부터 2분 뒤 이후로 골라주세요.'); return; }
+    const platforms = [...$('publishPlaces').querySelectorAll('input:checked')].map(box => box.value);
+    const code = $('publishCode').value;
+    void task(async () => {
+      const result = await HikaryApi.request('publish', { id: current.id, revision: current.revision, dueAt: due.toISOString(), platforms, code });
+      $('publishCode').value = ''; $('publishDialog').close(); await load();
+      const label = key => PUBLISH.find(([name]) => name === key)[1];
+      const ok = platforms.filter(key => result.results[key]?.ok).map(label); const failed = platforms.filter(key => !result.results[key]?.ok);
+      notice([ok.length ? `${ok.join('·')} 예약했어요 (${$('publishDate').value} ${$('publishTime').value}).` : '', ...failed.map(key => `${label(key)}: ${result.results[key]?.error || '예약하지 못했어요.'}`)].filter(Boolean).join('\n'), failed.length > 0);
+    }).then(() => { // task() re-enables every control; places already up or scheduled stay locked
+      if (!$('publishDialog').open) return;
+      for (const box of $('publishPlaces').querySelectorAll('input')) box.disabled = box.closest('.place').classList.contains('off');
+      countPlaces();
+    });
   };
 
   // v2.1.0 product finder. Lists load only on a click: every real Coupang call spends from one hourly budget shared by all visitors.

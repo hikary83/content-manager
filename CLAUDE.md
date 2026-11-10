@@ -22,8 +22,11 @@ Claude의 이름은 **루미**다 (2026-11-09, 사용자가 지었다). 사용�
 | 제휴 링크를 인포크링크에 추가하고 번호(No.)를 붙인다. 인스타·틱톡 프로필 링크가 인포크링크다. 유튜브는 아직 제휴 링크를 못 달았다 (2026-11-06) | 사람 |
 | 인스타 댓글 키워드에 DM으로 링크 보내기 | 키티챗(kittychat.ai, 무료 요금제 월 500건)이 자동으로 보낸다. 게시물을 올린 뒤 사람이 키티챗에서 게시물·키워드·DM 문구를 연결한다 (문구는 Claude가 `posts.md`와 웹 「키티챗」 탭에 만든다). **모든 댓글에 DM**으로 설정하고, 키워드는 상품 한 단어로 적어 둔다 (예: `아쿠아리움`, 2026-11-09) |
 | 등록 (운영대장 시트에 한 줄) | Claude — 컨펌을 받은 뒤 |
-| 업로드 | 사람이 직접 (반자동). Claude는 올리지 않는다 |
-| 업로드 기록 (플랫폼별 날짜·게시물 링크), 콘텐츠 보기·수정·삭제 | 웹 또는 Claude |
+| 게시할 영상을 Cloudinary에 올려 두기 (`node tools/register.mjs video`) | Claude — 등록할 때 (2026-11-10) |
+| 업로드: YouTube 쇼츠·인스타 릴스·TikTok | 사람이 웹 「게시」 버튼을 누르면 서버가 Buffer로 예약한다 (v2.8.0, 2026-11-10). Claude는 「게시」를 누르지 않는다 — 비밀번호(`PUBLISH_CODE`)는 사람만 안다 |
+| 업로드: 인스타 캐러셀 | 사람이 직접 |
+| 업로드 기록 (플랫폼별 날짜·게시물 링크) | Buffer로 올린 것은 서버가 10분마다 자동으로 채운다. 직접 올린 것은 웹 또는 Claude |
+| 콘텐츠 보기·수정·삭제 | 웹 또는 Claude |
 | 만들 상품 찾기 (쿠팡 특가·카테고리 베스트·검색), 쿠팡 주소로 파트너스 링크 만들기, 「루미한테 요청하기」 | 웹 「상품 찾기」 탭 (2026-11-08, 링크·요청은 2026-11-10) |
 
 웹: https://hikary83.github.io/content-manager/ · 운영대장: 웹 오른쪽 위 링크
@@ -44,9 +47,13 @@ Claude의 이름은 **루미**다 (2026-11-09, 사용자가 지었다). 사용�
    - 올리기 전에 상품 페이지가 아직 판매 중인지 본다. 롯데월드 상품이 만든 뒤 판매가 멈췄다 (2026-11-09).
 5. **웹 등록 (Claude)** — 상품 하나에 `entry.json` 하나, 운영대장 한 줄이다 (2026-11-09 결정). `node tools/register.mjs save contents/<폴더>/entry.json`. 나레이션 대본은 `script`, 게시글은 `youtube`(첫 줄 `제목: …`)·`instagram`(릴스·캐러셀 같이)·`tiktok`, 키티챗은 `kittyKeyword`·`kittyDm`, 인포크는 `inpockNo`·`inpockTitle`·`inpockImage`(`"inpock.png"` — 등록 도구가 400px JPEG로 줄여 운영대장에 넣는다), 메모(`notes`)는 맨 아래에 **작업 폴더와 최종본 폴더의 전체 경로**를 적는다 (2026-11-09). 카드뉴스 문구(`carouselScript`)는 채우지 않는다 (2026-11-09).
    - 등록하면 **최종본**을 `D:\01.개인자료\@SNS Contents\<No>_<YYYYMMDD>_<상품명>\`에 복사한다 (예: `252_20261106_코엑스아쿠아리움`) (2026-11-09 결정, 사무실 PC): 올릴 영상 `motion-bgm.mp4`·`motion.mp4`, 썸네일 `cover.png`, 카드뉴스 `slide-NN.png`, `inpock.png`, `posts.md`. 작업 파일(HTML·사진·voice)은 `contents/`에 둔다.
-6. **업로드 (사람)** — 파트너스 링크·타이틀·이미지를 그 번호로 인포크링크에 추가하고, 올리고(YouTube 쇼츠·인스타 릴스·인스타 캐러셀·TikTok, 영상 커버는 `cover.png`), 인스타 게시물을 키티챗에 연결한다.
-   - **인스타 웹(PC)에서 올릴 때는 자르기 단계에서 「원본」을 고른다.** 그대로 두면 1:1로 잘린다 — 코엑스 릴스가 720×720 정사각형으로 올라갔다 (2026-11-09). 캐러셀(1080×1350)도 같다. 올린 뒤에는 비율을 바꿀 수 없어 지우고 다시 올려야 한다.
-7. **업로드 기록** — 사람이 게시물 링크를 주면 `entry.json`의 `instagramLink` 등을 채워 다시 `save`한다. 웹에서 직접 남겨도 된다.
+   - 등록한 뒤 **게시할 영상을 올린다**: `node tools/register.mjs video contents/<폴더>/entry.json` (2026-11-10). 옆의 `motion-bgm.mp4`가 Cloudinary에 올라가고 주소가 운영대장 「영상 주소」에 들어간다. 다른 파일이면 뒤에 이름을 붙인다. 키는 저장소의 `.env`(git 제외)에서 읽는다. 서버가 다 게시된 뒤나 30일 뒤에 지우므로, 「영상 다시 올려줘」라고 하면 같은 명령을 다시 돌린다.
+6. **업로드 (사람)** — 파트너스 링크·타이틀·이미지를 그 번호로 인포크링크에 **먼저** 추가한다. 그다음 웹 카드의 **「게시」**를 눌러 날짜·시간과 올릴 곳(YouTube 쇼츠·인스타 릴스·TikTok)을 고르고 비밀번호를 넣으면 서버가 Buffer에 예약한다 (v2.8.0, 2026-11-10). 인스타 캐러셀은 직접 올린다. 인스타 게시물이 올라가면 키티챗에 연결한다.
+   - Buffer는 예약하는 순간의 운영대장 글을 가져간다. 글을 고칠 거면 「게시」 전에 고친다. 예약을 바꾸거나 취소하려면 Buffer(publish.buffer.com)에서 지우고 다시 「게시」한다 — 서버가 「오류: Buffer에서 예약을 찾지 못했어요」로 남긴 곳은 다시 걸 수 있다.
+   - 이미 업로드완료·예약됨인 곳은 다시 걸지 않는다. 기록을 손으로 지워도 Buffer에 예약이 살아 있으면 두 번 걸지 않는다. 한 곳이 실패해도 나머지는 예약되고, 실패한 곳은 「오류」 칩을 눌러 이유를 본다.
+   - Buffer로 올리면 인스타·틱톡 커버는 영상 3초 장면이다 (`cover.png`를 커버로 보낼 수 없다). 인스타 릴스가 세로 그대로 올라가는지는 첫 게시(No.254) 때 **확인 필요**.
+   - **인스타 웹(PC)에서 직접 올릴 때는 자르기 단계에서 「원본」을 고른다.** 그대로 두면 1:1로 잘린다 — 코엑스 릴스가 720×720 정사각형으로 올라갔다 (2026-11-09). 캐러셀(1080×1350)도 같다. 올린 뒤에는 비율을 바꿀 수 없어 지우고 다시 올려야 한다.
+7. **업로드 기록** — Buffer로 올린 곳은 서버가 10분마다 결과를 받아 업로드완료·날짜·게시물 링크를 채운다. 직접 올린 곳(캐러셀)은 사람이 게시물 링크를 주면 `entry.json`의 `carouselLink` 등을 채워 다시 `save`하거나, 웹에서 직접 남긴다.
 
 ## 3. 문구 규칙
 
@@ -104,7 +111,7 @@ AI 영상은 보류 — 유료이고, AI가 상품 모양을 바꾸면 실제와
 - 효과음은 `<body data-sfx="0.12 pop .5, 1.9 whoosh .35, …">`(「초 소리 [크기]」) 목록대로 녹화할 때 같이 들어간다. 소리는 `tools/motion/sfx.mjs`가 직접 만든다 (whoosh · swoosh · pop · click · tick · thud · ding · notify). 두 템플릿에 장면 시각에 맞춘 목록이 있으니, 장면 시각이나 검색창 타자 글자 수를 바꾸면 목록도 같이 고친다. 다시 녹화하지 않고 소리만 고칠 때: `node tools/motion/sfx.mjs contents/<폴더>/motion.html` (나레이션도 다시 넣고, 배경음악 버전도 같이 다시 만든다).
 - 배경음악은 `tools/motion/bgm.mjs`가 음 하나하나를 직접 만든다. 폴더 이름에 따라 키·빠르기·코드 진행·악기(마림바·벨·건반·뜯는 소리)·비트가 달라져 영상마다 곡이 다르고, 같은 폴더는 다시 녹화해도 같은 곡이다. 효과음보다 작게 깔고 끝에서 2초 동안 줄어든다. 다른 곡을 원하면 `<body data-bgm="아무 글자">`, 배경음악을 빼려면 `data-bgm="off"`. 음악만 다시 만들 때: `node tools/motion/bgm.mjs contents/<폴더>/motion.html`.
 - 영상은 두 개가 나온다 — `motion.mp4`(효과음 + 나레이션)와 `motion-bgm.mp4`(효과음 + 나레이션 + 배경음악). 기본은 `motion-bgm.mp4`를 올린다. 앱에서 유행 음원을 넣고 싶을 때만 `motion.mp4`를 올려 앱 음악을 고른다 (두 음악이 겹치지 않게).
-- 인스타 비즈니스 계정은 앱 음악 목록이 제한될 수 있다. 계정이 비즈니스인지 크리에이터인지 **확인 필요**.
+- 인스타 계정은 **비즈니스 계정**이다 (2026-11-10 확인 — Buffer 자동 게시가 된다). 비즈니스 계정은 앱 음악 목록이 제한될 수 있다.
 - 영상 만들기: `node tools/motion/record.mjs contents/<폴더>/motion.html` → 같은 폴더에 `motion.mp4`와 `motion-bgm.mp4` (사무실 PC에서 18~21초 영상에 약 50~70초. 처음 읽는 나레이션은 한 줄에 30~50초 더).
 - 만든 영상은 장면마다 프레임을 뽑아 직접 보고(글자 넘침·겹침·가림·고지) 보여준다. 프레임 묶음: `node scripts/reel/review.mjs contents/<폴더>/motion.mp4`.
 
@@ -179,7 +186,12 @@ AI 영상은 보류 — 유료이고, AI가 상품 모양을 바꾸면 실제와
 
 - 웹: `docs/` (GitHub Pages, `main` / `docs`). 탭은 「기록」(업로드 관리)과 「상품 찾기」 두 개다.
 - 상품 찾기는 쿠팡 파트너스 Open API를 서버(`backend/Coupang.js`)로 부른다. 쿠팡은 한 시간에 30번 이상 부르면 키를 24시간 멈추고 세 번이면 계정을 정지한다고 해서, 서버가 지난 60분 기준 20회로 막고 같은 목록은 6시간 저장해 다시 쓴다. 상한을 올리지 않는다. 키는 스크립트 속성 `COUPANG_ACCESS_KEY`·`COUPANG_SECRET_KEY`에 사람이 넣는다. 카테고리는 `COUPANG_CATEGORIES` 한 줄로 늘린다.
-- 서버: `backend/` (Apps Script). 동작: `status` · `list` · `save` · `delete` · `products` · `link`(파트너스 링크) · `request`·`requests`·`requestUpdate`(「요청」 탭, 2.5.0 — `backend/Requests.js`). Gemini 동작(`analyze`·`generate`·`carousel` 등)은 웹에서 안 쓰지만 되돌리기 대비로 남겨 두었다 — 지울지는 나중에 정한다.
+- 서버: `backend/` (Apps Script). 동작: `status` · `list` · `save` · `delete` · `products` · `link`(파트너스 링크) · `request`·`requests`·`requestUpdate`(「요청」 탭, 2.5.0 — `backend/Requests.js`) · `publish`(「게시」, 2.6.0 — `backend/Publish.js`). Gemini 동작(`analyze`·`generate`·`carousel` 등)은 웹에서 안 쓰지만 되돌리기 대비로 남겨 두었다 — 지울지는 나중에 정한다.
+- 「게시」 (2.6.0): Buffer API(api.buffer.com, 무료 요금제 — 채널 3개, 채널마다 예약 10개)로 예약하고, 시간 트리거 `syncPublishing`(Apps Script 편집기 → 트리거 → 10분마다, 사람이 한 번 추가)이 결과를 받아 운영대장을 채운다. 세 곳이 모두 업로드완료·보류가 되면(또는 올린 지 30일이 지나면) Cloudinary 영상을 지운다. 서버 주소가 공개라 `publish`는 비밀번호 `PUBLISH_CODE`가 있어야 하고, 5번 틀리면 1시간 막는다. 운영대장 칸 31~36: 영상 주소 · 영상 올린 날 · 플랫폼별 예약 ID · 게시 오류. 상태에 「예약됨」「오류」가 있다.
+  - 스크립트 속성(사람이 넣는다): `BUFFER_API_KEY`, `CLOUDINARY_CLOUD_NAME`·`CLOUDINARY_API_KEY`·`CLOUDINARY_API_SECRET`, `PUBLISH_CODE`. 이 PC의 `.env`에도 같은 Cloudinary 값과 `BUFFER_API_KEY`가 있다 (등록 도구·테스트용).
+  - Buffer 개인 API 키 「HIKARY」는 권한 4개(account:read · posts:read · posts:write · insights:read)이고 **2027-11-10에 만료**된다 — 한 달 전쯤 새 키를 만들어 두 곳에 바꿔 넣는다.
+  - Buffer에 연결된 채널: 인스타 hikary.vibe(비즈니스) · 유튜브 HikaryVibe · 틱톡 hikary.vibe (2026-11-10). 서버는 채널을 이름이 아니라 종류로 찾는다 — 같은 종류를 둘 연결하면 예약을 막는다.
+  - 운영대장 시트 공유는 「제한됨」이다 (2026-11-10). 서버는 주인 권한으로 돌아서 웹·등록 도구는 그대로 쓴다.
 - 로컬 확인: `node scripts/preview-mock.mjs` → http://127.0.0.1:4175/ (가짜 데이터라 실제 시트를 건드리지 않는다)
 - 테스트: `node --test tests/content-backend.test.mjs tests/content-client.test.mjs tests/travel-extraction.test.mjs tests/production.test.mjs tests/reel.test.mjs tests/reference.test.mjs tests/carousel.test.mjs tests/motion.test.mjs`
 - 버전을 올릴 때: `docs/index.html`의 `?v=`·표시 버전, `docs/js/config.js`, `backend/Code.js`의 `SERVICE_VERSION`, README·SETUP.
@@ -212,13 +224,15 @@ clasp --auth .clasprc.hikary-personal.json update-deployment AKfycbzN9mw2OKRKHdE
      ```
      「SoX could not be found」·flash-attn 안내는 무시해도 된다. 2026-11-07 이 PC는 torch 2.14.1+cpu로 돌렸다.
 3. 서버 배포까지 할 PC라면: `npm i -g @google/clasp` → `clasp --auth .clasprc.hikary-personal.json login`(개인 계정) → `.clasp.example.json`을 `.clasp.json`으로 복사하고 Script ID를 넣는다. Script ID는 사무실 PC의 `.clasp.json`에 있다.
-4. 만든 파일(`contents/`)은 PC 사이에 자동으로 옮겨지지 않는다. 작업 파일은 `contents/`에, 최종본은 사무실 PC `D:\01.개인자료\@SNS Contents\<폴더>`에 둔다 (2026-11-09, 2장 5번). 구글 드라이브는 용량이 모자라 쓰지 않는다. 집 PC와 맞추는 방법은 미정.
+4. 「게시」할 영상을 올릴 PC라면 저장소 맨 위에 `.env`를 만들고 `CLOUDINARY_CLOUD_NAME=`·`CLOUDINARY_API_KEY=`·`CLOUDINARY_API_SECRET=`(`BUFFER_API_KEY=`는 선택)를 사람이 채운다. 값은 Cloudinary 콘솔 「API Keys」(개인 계정)에 있다. `.env`는 git에서 빠진다. 키를 채팅에 붙여 넣지 않는다.
+5. 만든 파일(`contents/`)은 PC 사이에 자동으로 옮겨지지 않는다. 작업 파일은 `contents/`에, 최종본은 사무실 PC `D:\01.개인자료\@SNS Contents\<폴더>`에 둔다 (2026-11-09, 2장 5번). 구글 드라이브는 용량이 모자라 쓰지 않는다. 집 PC와 맞추는 방법은 미정.
 
 ## 8. 정해지지 않은 것
 
 - 쿠팡 파트너스 Open API: 상품 찾기는 v2.1.0에서 만들었다. 상품 이미지를 콘텐츠 사진으로 받아 쓰는 것은 아직 (사용 범위 확인 필요)
 - 만든 파일 보관: 작업 파일은 PC 로컬 `contents/`, 최종본은 사무실 PC `D:\01.개인자료\@SNS Contents\` (2026-11-09). 구글 드라이브는 용량 때문에 쓰지 않기로 했다. 집 PC와 맞추는 방법은 미정
 - 서버의 Gemini 기능을 지울지
-- 업로드 자동화: 지금은 반자동. 나중에 Instagram 캐러셀부터 공식 API 검토
+- 업로드 자동화: YouTube 쇼츠·인스타 릴스·TikTok은 웹 「게시」 → Buffer 예약으로 됐다 (v2.8.0, 2026-11-10). 인스타 캐러셀은 아직 직접 — Buffer는 이미지도 받으니 카드뉴스 PNG를 올려 두면 같은 길로 할 수 있다 (미정). 인스타 커버로 `cover.png`를 보낼 수 있는지(Buffer `thumbnailUrl`)도 미정
+- 키티챗 대신 Buffer로 댓글 단 사람에게 DM을 보낼 수 있는지: 확인 전 (키에 engagements 권한을 일부러 넣지 않았다)
 - 키티챗 연결을 Claude가 Chrome 확장으로 대신할지: 시험 전. 키티챗은 공개 API가 없어 보인다. Meta API로 직접 만드는 길은 댓글 알림에 고급 권한·앱 게시·비즈니스 인증이 필요해 접었다 (2026-11-06)
-- 운영대장 시트 공유가 「링크가 있는 모든 사용자 — 편집자」였다 (2026-11-06 확인). 「제한됨」으로 바꿀지는 소유자가 정한다
+- 서버의 `save`는 아직 비밀번호 없이 누구나 부를 수 있다 (게시는 비밀번호가 있다). 저장에도 비밀번호를 걸지는 미정

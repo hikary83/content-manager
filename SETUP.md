@@ -1,4 +1,4 @@
-# HIKARY 콘텐츠 기록 v2.7.2
+# HIKARY 콘텐츠 기록 v2.8.0
 
 2026-11-06 · GitHub Pages + Google Apps Script + Google Sheets. 콘텐츠는 Claude에서 만든다.
 
@@ -6,14 +6,28 @@
 
 - 작업 기준은 저장소 맨 위 [CLAUDE.md](CLAUDE.md)(지시서)입니다. 어느 PC에서든 Claude가 이 파일을 먼저 읽습니다.
 - `docs/`: 「기록」(업로드 관리)·「상품 찾기」 두 탭. Pages 설정은 `main` / `/docs`.
-- `backend/`: Apps Script 서버. 웹이 쓰는 동작은 `status` · `list` · `save` · `delete` · `products` · `link` · `request` · `requests` · `requestUpdate`. Gemini 동작은 되돌리기 대비로 남아 있습니다.
-- `tools/register.mjs`: Claude가 만든 콘텐츠를 운영대장에 등록. `tools/carousel/`: 캐러셀 HTML → 1080×1350 PNG.
+- `backend/`: Apps Script 서버. 웹이 쓰는 동작은 `status` · `list` · `save` · `delete` · `products` · `link` · `request` · `requests` · `requestUpdate` · `publish`, 시간 트리거 `syncPublishing`. Gemini 동작은 되돌리기 대비로 남아 있습니다.
+- `tools/register.mjs`: Claude가 만든 콘텐츠를 운영대장에 등록, 「게시」할 영상을 Cloudinary에 올림(`video`). `tools/carousel/`: 캐러셀 HTML → 1080×1350 PNG.
 - `scripts/preview-mock.mjs`: 가짜 데이터로 웹 확인 (http://127.0.0.1:4175/). `scripts/preview-content.mjs`: 실제 서버로 웹 확인 (http://127.0.0.1:4173/).
 - `scripts/reel/`: 사진 4장 + `video-job.json` → ffmpeg 무자막 MP4.
 - `contents/`: 만든 파일 보관 폴더. git에서 제외합니다(저장소가 공개).
 - `app/`, `worker/`, `db/` 등은 이전 Sites/React 코드입니다. Pages 배포에는 포함하지 않습니다. 백업 태그: `legacy-chatgpt-sites-2026-08-11`.
 
 ## 최초 연결
+
+### v2.8.0 게시 — Buffer 예약 (2026-11-10, 서버 2.6.0)
+
+- 「기록」 카드에 **「게시」** 버튼. 누르면 「게시 예약」 창: 영상 준비 상태(올린 날·보관 기한) · 날짜·시간 · 올릴 곳(YouTube 쇼츠·인스타 릴스·TikTok, 인스타 캐러셀은 직접) · 게시 비밀번호. 이미 업로드완료·예약됨인 곳은 고를 수 없고, 오류였던 곳은 다시 고를 수 있습니다. 비밀번호는 기억하지 않습니다.
+- 서버 `publish`(`backend/Publish.js`): 비밀번호 확인(5번 틀리면 1시간 막음) → 운영대장 영상이 우리 Cloudinary의 mp4인지 확인 → 플랫폼마다 Buffer `createPost`(customScheduled). YouTube는 「제목:」 줄을 제목으로, 나머지를 설명으로, 카테고리는 여행·체험이면 19(여행·이벤트), 그 밖은 22, 공개. 인스타는 릴스 + 피드 공유. 인스타·틱톡 커버는 3초 장면. 한 곳이 실패해도 나머지는 예약하고 실패한 곳은 「오류」 + 「게시 오류」 칸에 이유.
+- 시간 트리거 `syncPublishing`(10분마다): 「예약됨」인 곳만 Buffer에 물어 게시됨 → 업로드완료·시간·게시물 링크, 실패 → 오류. 세 곳이 모두 업로드완료·보류면(또는 올린 지 30일이 지나면) Cloudinary 영상을 지우고 「영상 주소」를 비웁니다.
+- 중복 방지: 업로드완료·예약됨은 다시 걸지 않고, 기록을 손으로 지웠어도 Buffer에 그 예약이 살아 있으면 다시 걸지 않고 기록을 되살립니다.
+- 운영대장 칸 31~36: 영상 주소 · 영상 올린 날 · YouTube/Instagram/TikTok 예약 ID · 게시 오류. 상태에 「예약됨」「오류」 추가. 등록 도구가 이 칸들을 비워 보내도 시트 값을 지킵니다.
+- 등록 도구 `node tools/register.mjs video contents/<폴더>/entry.json [mp4]`: 옆의 `motion-bgm.mp4`를 Cloudinary `hikary/<콘텐츠 ID>`로 올리고(다시 하면 바꿔 넣음) 운영대장에 주소·시간을 씁니다. 키는 `.env`.
+- 처음 한 번 할 일 (사람):
+  1. 스크립트 속성에 `BUFFER_API_KEY`(Buffer → Settings → API 개인 키), `CLOUDINARY_CLOUD_NAME`·`CLOUDINARY_API_KEY`·`CLOUDINARY_API_SECRET`(Cloudinary 콘솔 → API Keys), `PUBLISH_CODE`(직접 정한 게시 비밀번호).
+  2. Apps Script 편집기 → 트리거 → 트리거 추가: 함수 `syncPublishing`, 이벤트 소스 「시간 기반」, 「분 단위 타이머」, 「10분마다」.
+  3. 운영대장 시트 공유를 「제한됨」으로 (2026-11-10 완료). 시트 글이 그대로 게시되기 때문입니다.
+- 확인된 것 (2026-11-10): Cloudinary 올리기·받기·지우기, Buffer로 유튜브 비공개 예약 → 4초 뒤 게시·링크 받기. 확인 필요: 인스타 릴스가 세로 그대로 올라가는지, 틱톡 게시 — 첫 실제 게시(No.254)에서 봅니다.
 
 ### v2.7.2 보낸 요청에 링크 (2026-11-10, 화면만)
 
@@ -240,6 +254,9 @@ v1.3.0 서버: 기존 개인 배포 ID의 Apps Script v4로 갱신. v3(서비스
 | `COUPANG_ACCESS_KEY` · `COUPANG_SECRET_KEY` | 쿠팡 파트너스 Open API 키, 직접 입력 (v2.1.0 상품 찾기) |
 | `COUPANG_SUB_ID` | 선택. 파트너스 채널 ID |
 | `COUPANG_CALLS` | 서버가 쓰는 지난 한 시간 호출 시각. 손대지 않음 |
+| `BUFFER_API_KEY` | Buffer 개인 API 키, 직접 입력 (v2.8.0 게시). 2027-11-10 만료 |
+| `CLOUDINARY_CLOUD_NAME` · `CLOUDINARY_API_KEY` · `CLOUDINARY_API_SECRET` | 게시할 영상을 지울 때 씀, 직접 입력 (v2.8.0) |
+| `PUBLISH_CODE` | 「게시」 비밀번호, 직접 정해 입력 (v2.8.0) |
 
 ### 접근 제어
 

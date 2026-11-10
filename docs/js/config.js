@@ -1,5 +1,5 @@
 /* Public configuration only. Never put API keys in this file. The server needs no access code (v1.6.1). */
-window.HIKARY_CONFIG = Object.freeze({ version: '2.7.2', apiUrl: 'https://script.google.com/macros/s/AKfycbzN9mw2OKRKHdEYjUCqv3sYOsp5LPKRLhBP7yR_8pwfK3j1FKY-4eUc5hdG6FOLov1z/exec' });
+window.HIKARY_CONFIG = Object.freeze({ version: '2.8.0', apiUrl: 'https://script.google.com/macros/s/AKfycbzN9mw2OKRKHdEYjUCqv3sYOsp5LPKRLhBP7yR_8pwfK3j1FKY-4eUc5hdG6FOLov1z/exec' });
 
 window.HikaryApi = (() => {
   const endpoint = window.HIKARY_CONFIG.apiUrl;
@@ -21,7 +21,7 @@ window.HikaryApi = (() => {
       if (!result.ok) throw new Error(result.error || '처리에 실패했어요.');
       return result.data;
     } catch (error) {
-      if (error.name === 'TimeoutError') throw new Error(action === 'save' || action === 'delete' ? '응답이 늦어요. 새로고침해서 반영됐는지 확인한 뒤 다시 시도해주세요.' : '응답 시간이 초과됐어요. 잠시 후 다시 시도해주세요.');
+      if (error.name === 'TimeoutError') throw new Error(['save', 'delete', 'publish'].includes(action) ? '응답이 늦어요. 새로고침해서 반영됐는지 확인한 뒤 다시 시도해주세요.' : '응답 시간이 초과됐어요. 잠시 후 다시 시도해주세요.');
       throw error;
     } finally {
       pending.delete(requestId);
