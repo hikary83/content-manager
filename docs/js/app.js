@@ -257,8 +257,17 @@
     $('requestBox').hidden = !shown.length;
     $('requestList').replaceChildren(...shown.map(item => {
       const line = element('div', 'request-line');
-      line.append(element('span', `chip ${item.status === '완료' ? 'done' : item.status === '진행' ? 'doing' : ''}`, item.status),
-        element('strong', '', item.productName || item.sourceUrl.replace(/^https:\/\//, '')), element('small', '', item.requestedAt));
+      // v2.7.2: the name opens the plain Coupang page; the Partners link is shown as text to copy, never as a link we would click ourselves.
+      const main = element('div', 'request-main');
+      main.append(link(item.productName || item.sourceUrl.replace(/^https:\/\//, '').split('?')[0], item.sourceUrl, 'request-name'));
+      if (item.affiliateUrl) {
+        const url = element('div', 'request-url'); const copy = button('복사', async () => {
+          try { await navigator.clipboard.writeText(item.affiliateUrl); copy.textContent = '복사됨 ✓'; setTimeout(() => { copy.textContent = '복사'; }, 1500); }
+          catch { notice('복사하지 못했어요. 링크를 직접 골라 복사해주세요.', true); }
+        }, 'ghost tiny');
+        url.append(element('code', '', item.affiliateUrl), copy); main.append(url);
+      }
+      line.append(element('span', `chip ${item.status === '완료' ? 'done' : item.status === '진행' ? 'doing' : ''}`, item.status), main, element('small', '', item.requestedAt));
       if (item.status === '대기') line.append(button('지우기', () => void task(async () => { await HikaryApi.request('requestUpdate', { id: item.id, delete: true }); await loadRequests(); notice('요청을 지웠어요.'); })));
       return line;
     }));

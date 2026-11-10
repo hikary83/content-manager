@@ -137,7 +137,14 @@ h3.sec small{font-weight:400;color:var(--muted);margin-left:6px}
 .requests h2{font-size:15px;margin:0 0 6px}
 .requests h2 small{font-weight:400;color:var(--muted);font-size:12px;margin-left:6px}
 .request-line{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:8px 0;border-top:1px dashed var(--line)}
-.request-line strong{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.request-main{display:grid;gap:2px;min-width:0}
+.request-name{font-size:14px;font-weight:700;color:var(--ink);text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.request-name:hover{text-decoration:underline}
+.request-url{display:flex;align-items:center;gap:6px;min-width:0}
+.request-url code{flex:0 1 auto;min-width:0;font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;user-select:all}
+.request-url button{flex:none;white-space:nowrap}
+@media (max-width:640px){.request-line>small{display:none}} /* phone: the time gives way to the link */
+.tiny{padding:1px 9px;font-size:11px}
 .request-line small{color:var(--muted);font-size:12px;white-space:nowrap}
 .chip.doing{border-color:var(--accent);color:var(--accent-ink)}
 #finderMeta:empty{display:none}
