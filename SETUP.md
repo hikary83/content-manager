@@ -1,4 +1,4 @@
-# HIKARY 콘텐츠 기록 v2.8.0
+# HIKARY 콘텐츠 기록 v2.8.1
 
 2026-11-06 · GitHub Pages + Google Apps Script + Google Sheets. 콘텐츠는 Claude에서 만든다.
 
@@ -14,6 +14,10 @@
 - `app/`, `worker/`, `db/` 등은 이전 Sites/React 코드입니다. Pages 배포에는 포함하지 않습니다. 백업 태그: `legacy-chatgpt-sites-2026-08-11`.
 
 ## 최초 연결
+
+### v2.8.1 인포크링크 열기 (2026-11-10, 화면만)
+
+- 「보기·수정」의 인포크링크 탭, 「주소 복사」 옆에 「인포크링크 열기 ↗」(https://link.inpock.co.kr/inpockhome, 새 창)를 두었습니다.
 
 ### v2.8.0 게시 — Buffer 예약 (2026-11-10, 서버 2.6.0)
 

@@ -1,7 +1,7 @@
 <!doctype html>
-<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>HIKARY 콘텐츠 기록</title><link rel="icon" type="image/png" href="assets/favicon.png?v=2.8.0"><link rel="apple-touch-icon" href="assets/apple-touch-icon.png?v=2.8.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css"><link rel="stylesheet" href="css/app.css?v=2.8.0"></head>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>HIKARY 콘텐츠 기록</title><link rel="icon" type="image/png" href="assets/favicon.png?v=2.8.1"><link rel="apple-touch-icon" href="assets/apple-touch-icon.png?v=2.8.1"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css"><link rel="stylesheet" href="css/app.css?v=2.8.1"></head>
 <body>
-<header class="top"><a class="brand" href="./"><img class="brand-mascot" src="assets/logo-mascot.png?v=2.8.0" alt=""><img class="brand-word" src="assets/logo-word.png?v=2.8.0" alt="HIKARY"><span>콘텐츠 기록 · v2.8.0</span></a><div class="top-links"><span id="connectionState" class="conn">연결 확인 중…</span><a href="https://docs.google.com/spreadsheets/d/1ZSB7FBZTWdT_eLlo3kpom-u2yM5UwHitG059Zci6TUc/edit" target="_blank" rel="noreferrer">운영대장 ↗</a></div></header>
+<header class="top"><a class="brand" href="./"><img class="brand-mascot" src="assets/logo-mascot.png?v=2.8.1" alt=""><img class="brand-word" src="assets/logo-word.png?v=2.8.1" alt="HIKARY"><span>콘텐츠 기록 · v2.8.1</span></a><div class="top-links"><span id="connectionState" class="conn">연결 확인 중…</span><a href="https://docs.google.com/spreadsheets/d/1ZSB7FBZTWdT_eLlo3kpom-u2yM5UwHitG059Zci6TUc/edit" target="_blank" rel="noreferrer">운영대장 ↗</a></div></header>
 <main>
 <div id="notice" role="status" aria-live="polite" hidden></div>
 <div id="views" class="segments views" role="group" aria-label="화면"><button type="button" class="on" data-view="ledger">기록</button><button type="button" data-view="finder">상품 찾기</button></div>
@@ -41,7 +41,7 @@
 <div class="grid2 inpock"><div><div class="copy-head"><label for="d-inpockNo">No.</label><button type="button" class="ghost small" data-copy="d-inpockNo">복사</button></div><input id="d-inpockNo" inputmode="numeric" pattern="\d{1,6}" maxlength="6" placeholder="252"></div>
 <div><div class="copy-head"><label for="d-inpockTitle">타이틀</label><button type="button" class="ghost small" data-copy="d-inpockTitle">복사</button></div><input id="d-inpockTitle" maxlength="200" placeholder="No.252 상품 이름"></div></div>
 <div class="inpock-row"><figure id="d-inpockFigure"><img id="d-inpockImage" alt="인포크 썸네일"><figcaption><a id="d-inpockSave" class="ghost small" download="inpock.jpg">이미지 저장</a></figcaption></figure>
-<p class="hint">연결할 주소는 위 파트너스 링크예요 <button type="button" class="ghost small" data-copy="d-affiliateUrl">주소 복사</button><br><span id="d-inpockNone">썸네일이 아직 없어요. Claude가 등록할 때 넣어요.</span></p></div>
+<p class="hint">연결할 주소는 위 파트너스 링크예요 <button type="button" class="ghost small" data-copy="d-affiliateUrl">주소 복사</button><a class="ghost small" href="https://link.inpock.co.kr/inpockhome" target="_blank" rel="noopener noreferrer">인포크링크 열기 ↗</a><br><span id="d-inpockNone">썸네일이 아직 없어요. Claude가 등록할 때 넣어요.</span></p></div>
 </section>
 <section data-panel="sns" role="tabpanel" hidden>
 <h3 class="sec">YouTube</h3>
@@ -91,4 +91,4 @@
 <label>게시 비밀번호<input id="publishCode" type="password" autocomplete="off" required></label>
 <p class="hint">올리기 전에 인포크링크에 <b id="publishNo"></b>을 넣었는지 확인하세요. 게시글은 운영대장 글 그대로 올라가요. 결과는 10분마다 받아 와서 업로드 기록에 날짜·링크를 채워요.</p></div>
 <div class="dialog-foot"><button id="publishCancel" type="button" class="ghost">닫기</button><button id="publishSubmit" type="submit">예약하기</button></div></form></dialog>
-<script src="js/config.js?v=2.8.0"></script><script src="js/app.js?v=2.8.0"></script></body></html>
+<script src="js/config.js?v=2.8.1"></script><script src="js/app.js?v=2.8.1"></script></body></html>
