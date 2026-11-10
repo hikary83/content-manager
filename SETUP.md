@@ -1,4 +1,4 @@
-# HIKARY 콘텐츠 기록 v2.6.0
+# HIKARY 콘텐츠 기록 v2.6.1
 
 2026-11-06 · GitHub Pages + Google Apps Script + Google Sheets. 콘텐츠는 Claude에서 만든다.
 
@@ -14,6 +14,10 @@
 - `app/`, `worker/`, `db/` 등은 이전 Sites/React 코드입니다. Pages 배포에는 포함하지 않습니다. 백업 태그: `legacy-chatgpt-sites-2026-08-11`.
 
 ## 최초 연결
+
+### v2.6.1 로고 (2026-11-10, 화면만)
+
+- 사용자가 준 HIKARY 로고(파란 H와 전구 캐릭터 + 「HIKARY」 글자)를 상단에 캐릭터와 글자를 나란히 넣었습니다. 파비콘과 휴대폰 홈 화면 아이콘(180px, 종이색 바탕)은 캐릭터 둘을 씁니다. 파일은 `docs/assets/`.
 
 ### v2.6.0 첫 화면 정리 (2026-11-10, 화면만 — 서버는 2.4.0 그대로)
 

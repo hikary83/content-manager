@@ -14,8 +14,10 @@ a.ghost{display:inline-block;border-radius:999px;text-decoration:none;font-weigh
 .icon{width:40px;height:40px;padding:0;background:transparent;color:var(--muted);font-size:18px}
 
 .top{position:sticky;top:0;z-index:30;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px clamp(16px,4vw,48px);background:rgba(246,243,236,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
-.brand{display:flex;align-items:baseline;gap:10px;text-decoration:none}
-.brand b{font-size:22px;font-weight:900;letter-spacing:-.5px}
+.brand{display:flex;align-items:center;gap:8px;text-decoration:none} /* v2.6.1: the HIKARY logo — mascot + wordmark */
+.brand img{display:block}
+.brand-mascot{width:44px;height:44px;margin:-8px 0}
+.brand-word{height:22px;width:auto}
 .brand span{font-size:12px;color:var(--muted)}
 .top-links{display:flex;align-items:center;gap:14px;font-size:13px}
 .top-links a{font-weight:700;text-decoration:none}
