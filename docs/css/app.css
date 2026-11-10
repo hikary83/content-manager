@@ -124,6 +124,19 @@ h3.sec small{font-weight:400;color:var(--muted);margin-left:6px}
 .pick{display:flex;gap:8px;align-items:center}
 .pick select,.pick input{flex:1;min-width:0}
 .pick button{flex:none}
+/* v2.7.0: 쿠팡 주소 → 파트너스 링크, 보낸 요청 */
+.linker{margin-top:10px}
+.link-result{display:grid;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:4px 18px 16px;margin-top:10px}
+.link-result label small{font-weight:400;color:var(--muted);font-size:12px;margin-left:6px}
+.link-result .hint{margin:0}
+.link-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;margin-top:8px}
+.requests{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px 18px 8px;margin-top:14px}
+.requests h2{font-size:15px;margin:0 0 6px}
+.requests h2 small{font-weight:400;color:var(--muted);font-size:12px;margin-left:6px}
+.request-line{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:8px 0;border-top:1px dashed var(--line)}
+.request-line strong{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.request-line small{color:var(--muted);font-size:12px;white-space:nowrap}
+.chip.doing{border-color:var(--accent);color:var(--accent-ink)}
 #finderMeta:empty{display:none}
 .finder-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;margin-top:14px}
 .finder-grid .empty{grid-column:1/-1}

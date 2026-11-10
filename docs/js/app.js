@@ -208,7 +208,9 @@
       try { await navigator.clipboard.writeText(`이 상품으로 만들어줘\n상품명: ${product.productName}\n상품 페이지: ${page}\n파트너스 링크: ${product.productUrl}\n(HIKARY 상품 찾기 · ${label})`); copy.textContent = '복사됨 ✓'; setTimeout(() => { copy.textContent = 'Claude용 글 복사'; }, 1500); }
       catch { alert('복사하지 못했어요. 상품 페이지 주소를 직접 복사해주세요.'); }
     }, 'small');
-    actions.append(link('상품 페이지 ↗', page, 'ghost small'), copy);
+    copy.className = 'ghost small';
+    const asked = button('루미한테 요청하기', () => void ask({ productName: product.productName, sourceUrl: page, affiliateUrl: product.productUrl, from: `상품 찾기 · ${label}` }), 'small');
+    actions.append(link('상품 페이지 ↗', page, 'ghost small'), copy, asked);
     body.append(element('h3', '', product.productName), price, actions); card.append(image, body); return card;
   }
   async function findProducts(payload) {
@@ -222,6 +224,46 @@
     if (!result.products.length) { const empty = element('div', 'empty'); empty.append(element('strong', '', '상품이 없어요.'), element('span', '', '다른 카테고리나 검색어로 찾아보세요.')); $('finderResults').append(empty); }
     notice('');
   }
+  // v2.7.0: a pasted Coupang address → the owner's Partners link (server `link`: 1 API call, the same address is kept 6 hours).
+  let made = null;
+  $('linkForm').onsubmit = event => { event.preventDefault(); void task(async () => {
+    let result;
+    try { result = await HikaryApi.request('link', { url: $('linkUrl').value.trim() }); }
+    catch (error) { void HikaryApi.request('status').then(useStatus).catch(() => {}); throw error; } // a refused call may still have counted
+    coupang.usage = result.usage; showQuota(); made = result;
+    $('linkOut').value = result.shortenUrl; $('linkPage').href = result.url; $('linkName').value = '';
+    $('linkHint').textContent = result.fromCache ? '저장된 링크라 API 횟수를 쓰지 않았어요.' : 'API를 1번 썼어요. 같은 주소는 6시간 동안 다시 쓰지 않아요.';
+    $('linkResult').hidden = false; notice('');
+  }); };
+  $('linkClaude').onclick = async () => {
+    const name = $('linkName').value.trim();
+    try { await navigator.clipboard.writeText(`이 상품으로 만들어줘\n${name ? `상품명: ${name}\n` : ''}상품 페이지: ${made.url}\n파트너스 링크: ${made.shortenUrl}\n(HIKARY 상품 찾기 · 주소로 만들기)`); $('linkClaude').textContent = '복사됨 ✓'; setTimeout(() => { $('linkClaude').textContent = 'Claude용 글 복사'; }, 1500); }
+    catch { notice('복사하지 못했어요. 파트너스 링크 칸에서 직접 복사해주세요.', true); }
+  };
+  $('linkAsk').onclick = () => void ask({ productName: $('linkName').value.trim(), sourceUrl: made.url, affiliateUrl: made.shortenUrl, from: '주소로 만들기' });
+
+  // v2.7.0: 「루미한테 요청하기」 leaves the product in the sheet tab 「요청」 (server 2.5.0). The page cannot wake a Claude chat,
+  // so the owner tells Claude 「요청 확인해줘」 and it reads them with tools/register.mjs requests.
+  async function ask(payload) {
+    await task(async () => {
+      const result = await HikaryApi.request('request', { id: crypto.randomUUID(), ...payload });
+      await loadRequests();
+      notice(result.duplicate ? '이미 보낸 요청이에요. Claude에서 루미한테 「요청 확인해줘」라고 해 주세요.' : '루미한테 보냈어요. Claude에서 「요청 확인해줘」라고 하면 바로 시작해요.');
+    });
+  }
+  async function loadRequests() { renderRequests((await HikaryApi.request('requests')).requests); }
+  function renderRequests(list) {
+    const shown = [...list.filter(item => item.status !== '완료'), ...list.filter(item => item.status === '완료').slice(0, 3)];
+    $('requestBox').hidden = !shown.length;
+    $('requestList').replaceChildren(...shown.map(item => {
+      const line = element('div', 'request-line');
+      line.append(element('span', `chip ${item.status === '완료' ? 'done' : item.status === '진행' ? 'doing' : ''}`, item.status),
+        element('strong', '', item.productName || item.sourceUrl.replace(/^https:\/\//, '')), element('small', '', item.requestedAt));
+      if (item.status === '대기') line.append(button('지우기', () => void task(async () => { await HikaryApi.request('requestUpdate', { id: item.id, delete: true }); await loadRequests(); notice('요청을 지웠어요.'); })));
+      return line;
+    }));
+  }
+
   $('finderLoad').onclick = () => { const [source, categoryId] = $('finderSource').value.split(':'); void task(() => findProducts({ source, categoryId: Number(categoryId) || undefined })); };
   $('finderSearch').onsubmit = event => { event.preventDefault(); void task(() => findProducts({ source: 'search', keyword: $('finderKeyword').value.trim() })); };
 
@@ -232,9 +274,10 @@
   }
   for (const node of $('views').children) node.onclick = () => {
     showView(node.dataset.view);
-    if (node.dataset.view === 'finder' && !busy) HikaryApi.request('status').then(useStatus).catch(() => {}); // the hourly count frees up over time
+    if (node.dataset.view === 'finder' && !busy) { HikaryApi.request('status').then(useStatus).catch(() => {}); loadRequests().catch(() => {}); } // the hourly count frees up over time
   };
   showView(location.hash === '#finder' ? 'finder' : 'ledger');
+  if (location.hash === '#finder') loadRequests().catch(() => {});
 
   void task(async () => {
     try { const status = await HikaryApi.request('status'); $('connectionState').textContent = `연결됨 · 서버 ${status.version}`; $('connectionState').classList.add('ok'); useStatus(status); }

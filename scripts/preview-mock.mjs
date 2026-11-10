@@ -34,8 +34,33 @@ function products({ source, categoryId, keyword }) {
   const result = { label: name, fetchedAt: new Date().toISOString(), products: Array.from({ length: count }, (_, i) => ({ productId: String(9000000 + i), productName: `${name.replace(/ 베스트| \(골드박스\)/, '')} 예시 상품 ${i + 1}${i % 3 ? '' : ' — 상품명이 길면 두 줄까지만 보이고 나머지는 말줄임으로 잘립니다'}`, productPrice: (i + 1) * 7900, productImage: i === 4 ? '' : swatch(i * 37), productUrl: 'https://link.coupang.com/re/AFFSDP?example=' + i, categoryName: name, isRocket: i % 2 === 0, isFreeShipping: true })) };
   saved.set(key, result); return { ...result, fromCache: false, usage: usage() };
 }
+// v2.7.0 mock: the Partners link (counts like a product call, kept for reuse) and the sheet tab 「요청」.
+const requests = [];
+function makeLink({ url }) {
+  if (!/^https:\/\/((www|m|trip)\.)?coupang\.com\/\S*$/i.test(url || '')) throw new Error('쿠팡 상품 주소(https://www.coupang.com/… 또는 https://trip.coupang.com/…)를 넣어주세요.');
+  const key = 'link:' + url;
+  if (saved.has(key)) return { ...saved.get(key), fromCache: true, usage: usage() };
+  if (usage().remaining <= 0) throw new Error('한 시간 쿠팡 API 횟수(20회)를 다 썼어요. 저장된 결과는 계속 볼 수 있어요.');
+  calls.push(Date.now());
+  const result = { url, shortenUrl: 'https://link.coupang.com/a/mock' + saved.size, landingUrl: 'https://www.coupang.com/vp/products/1?lptag=AFFSDP', fetchedAt: new Date().toISOString() };
+  saved.set(key, result); return { ...result, fromCache: false, usage: usage() };
+}
 function act({ action, payload }) {
-  if (action === 'status') return { version: '2.6.1 (mock)', aiConfigured: false, coupang: { configured: true, usage: usage(), categories: CATEGORIES } };
+  if (action === 'link') return makeLink(payload);
+  if (action === 'requests') return { requests: [...requests].reverse() };
+  if (action === 'request') {
+    const same = requests.find(item => item.id === payload.id || (item.sourceUrl === payload.sourceUrl && item.status !== '완료'));
+    if (same) return { request: same, duplicate: true };
+    const entry = { id: payload.id, requestedAt: new Date().toISOString().slice(0, 16).replace('T', ' '), status: '대기', productName: payload.productName || '', sourceUrl: payload.sourceUrl, affiliateUrl: payload.affiliateUrl || '', note: '', from: payload.from || '' };
+    requests.push(entry); return { request: entry, duplicate: false };
+  }
+  if (action === 'requestUpdate') {
+    const at = requests.findIndex(item => item.id === payload.id);
+    if (at < 0) throw new Error('요청을 찾지 못했어요. 새로고침해주세요.');
+    if (payload.delete) { requests.splice(at, 1); return { id: payload.id, deleted: true }; }
+    requests[at].status = payload.status; return { request: requests[at] };
+  }
+  if (action === 'status') return { version: '2.7.0 (mock)', aiConfigured: false, coupang: { configured: true, usage: usage(), categories: CATEGORIES } };
   if (action === 'products') return products(payload);
   if (action === 'list') return { entries: rows };
   const index = rows.findIndex(item => item.id === payload.id);

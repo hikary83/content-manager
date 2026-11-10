@@ -1,5 +1,5 @@
 /* HIKARY only. No credentials or endpoints from kic-worktools. */
-var SERVICE_VERSION = '2.4.0';
+var SERVICE_VERSION = '2.5.0';
 // Columns 1-14 are the original ledger. 15-21 (v1.7.0), 22-27 (v2.2.0) and 28-30 (v2.3.0) are appended so existing rows never move.
 // v2.2.0: one row per product. Instagram columns are the reel; the card news (carousel) has its own upload columns.
 // v2.3.0: KittyChat keyword and DM text, and a small Inpock thumbnail as a data URL. 「카드뉴스 문구」 is no longer filled.
@@ -37,6 +37,9 @@ function doPost(event) {
     else if (action === 'delete') data = deleteEntry_(payload);
     else if (action === 'products') data = findProducts_(payload);
     else if (action === 'link') data = coupangLink_(payload);
+    else if (action === 'request') data = addRequest_(payload); // v2.5.0: 루미한테 요청하기 (Requests.js)
+    else if (action === 'requests') data = readRequests_();
+    else if (action === 'requestUpdate') data = updateRequest_(payload);
     else if (action === 'analyze') data = analyzeProduct_(payload.url);
     else if (action === 'image') data = readImage_(payload.url);
     else if (action === 'generate') data = generateContent_(payload);
@@ -48,7 +51,7 @@ function doPost(event) {
     // Do not log exception text: UrlFetch errors can contain credentials or URLs.
     result = { ok: false, requestId: requestId, error: safeError_(error) };
   }
-  console.info(JSON.stringify({ requestId: requestId, action: ['status','list','save','delete','products','link','analyze','image','generate','reference','carousel'].indexOf(action) >= 0 ? action : 'unknown', elapsedMs: Date.now() - started, ok: result.ok }));
+  console.info(JSON.stringify({ requestId: requestId, action: ['status','list','save','delete','products','link','request','requests','requestUpdate','analyze','image','generate','reference','carousel'].indexOf(action) >= 0 ? action : 'unknown', elapsedMs: Date.now() - started, ok: result.ok }));
   return jsonResponse_(result);
 }
 

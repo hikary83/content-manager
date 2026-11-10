@@ -2,6 +2,8 @@
 //   node tools/register.mjs list [out.json]          print (or save) every registered row
 //   node tools/register.mjs save <entry.json>        create or update one row, then write id/revision back into the file
 //   node tools/register.mjs link <coupang url>       make the Partners link for a plain Coupang address (spends 1 of 20 hourly API calls)
+//   node tools/register.mjs requests                 v2.5.0: requests left by 「루미한테 요청하기」 that are not done yet
+//   node tools/register.mjs request <id> <상태>       set a request to 대기 · 진행 · 완료
 // Run "save" only after the owner confirms the content (「컨펌」, CLAUDE.md §2). It writes to the real sheet.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -54,8 +56,14 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   } else if (command === 'link' && file) {
     const made = await request('link', { url: file });
     console.log(`${made.shortenUrl}\n(${made.fromCache ? 'saved answer, no call spent' : 'new call'} · ${made.usage.remaining}/${made.usage.limit} left this hour)`);
+  } else if (command === 'requests') {
+    const open = (await request('requests')).requests.filter(item => item.status !== '완료');
+    console.log(open.length ? JSON.stringify(open, null, 2) : '대기 중인 요청이 없어요.');
+  } else if (command === 'request' && file && process.argv[4]) {
+    const { request: updated } = await request('requestUpdate', { id: file, status: process.argv[4] });
+    console.log(`${updated.status}: ${updated.productName || updated.sourceUrl}`);
   } else {
-    console.log('usage: node tools/register.mjs list [out.json] | save <entry.json> | link <coupang url>');
+    console.log('usage: node tools/register.mjs list [out.json] | save <entry.json> | link <coupang url> | requests | request <id> <대기|진행|완료>');
     process.exitCode = 1;
   }
 }

@@ -11,27 +11,30 @@ function runtime({ legacy = false } = {}) {
   const rows = [legacy ? [...LEGACY_HEADERS] : [...LEGACY_HEADERS, ...ADDED_HEADERS]];
   const props = new Map([['SHEET_ID','test'],['SHEET_NAME','콘텐츠 관리']]);
   let writes = 0; let fetches = 0; const cache = new Map();
-  const sheet = { getLastRow: () => rows.length, getMaxRows: () => 1000, getMaxColumns: () => 26, insertColumnsAfter() {}, getFrozenRows: () => 1, insertRowsAfter() {}, deleteRow(row) { writes++; rows.splice(row - 1, 1); },
+  const makeSheet = rows => ({ getLastRow: () => rows.length, getMaxRows: () => 1000, getMaxColumns: () => 26, insertColumnsAfter() {}, getFrozenRows: () => 1, setFrozenRows() {}, insertRowsAfter() {}, deleteRow(row) { writes++; rows.splice(row - 1, 1); },
     getRange(row, col, height = 1, width = 1) { return {
       getValues: () => Array.from({length:height}, (_, y) => Array.from({length:width}, (_, x) => rows[row-1+y]?.[col-1+x] ?? '')),
       getDisplayValues() { return this.getValues(); },
-      setValues(values) { writes++; values.forEach((line,y) => { rows[row-1+y] ||= []; line.forEach((value,x) => { rows[row-1+y][col-1+x] = value.startsWith("'") ? value.slice(1) : value; }); }); },
+      setValues(values) { writes++; values.forEach((line,y) => { rows[row-1+y] ||= []; line.forEach((value,x) => { rows[row-1+y][col-1+x] = String(value).startsWith("'") ? value.slice(1) : value; }); }); },
       setDataValidation() {}
     }; }
-  };
+  });
+  const sheet = makeSheet(rows);
+  // v2.5.0: other tabs (「요청」) live beside the ledger; the ledger tab is the configured SHEET_NAME.
+  const tabs = new Map(); const book = { getSheetByName: name => name === '요청' ? tabs.get(name)?.sheet ?? null : sheet, insertSheet(name) { const tab = { rows: [], sheet: null }; tab.sheet = makeSheet(tab.rows); tabs.set(name, tab); return tab.sheet; } };
   const validation = { requireValueInList() { return this; }, setAllowInvalid() { return this; }, build() { return {}; } };
   const context = vm.createContext({
     console: { info() {} },
     PropertiesService: { getScriptProperties: () => ({ getProperty: key => props.get(key) || null, setProperty: (key,value) => props.set(key,value) }) },
     Utilities: { getUuid: randomUUID, DigestAlgorithm: { SHA_256:'sha256' }, Charset:{ UTF_8:'utf8' }, computeDigest: (_,value) => [...createHash('sha256').update(value).digest()], formatDate: (date, zone, format) => format.includes("'T'") ? '261108T012345Z' : '2026-10-28', computeHmacSha256Signature: (value, key) => [...createHmac('sha256', key).update(value).digest()].map(byte => byte > 127 ? byte - 256 : byte), base64Encode: value => Buffer.from(value).toString('base64'), base64Decode: value => [...Buffer.from(value,'base64')] },
     LockService: { getScriptLock: () => ({ tryLock: () => true, releaseLock() {} }) },
-    SpreadsheetApp: { openById: () => ({getSheetByName: () => sheet}), newDataValidation: () => validation, flush() {} },
+    SpreadsheetApp: { openById: () => book, newDataValidation: () => validation, flush() {} },
     ContentService: { MimeType:{JSON:'application/json'},createTextOutput: text => ({text,setMimeType() {return this;}}) },
     UrlFetchApp: { fetch() { fetches++; throw new Error('unexpected network'); } },
     CacheService: { getScriptCache: () => ({ get: key => cache.get(key) ?? null, put: (key, value) => cache.set(key, value) }) }
   });
-  for (const name of ['Code','Product','Gemini','Coupang']) vm.runInContext(readFileSync(new URL(`../backend/${name}.js`,import.meta.url),'utf8'),context);
-  return { context, rows, props, writes: () => writes, fetches: () => fetches };
+  for (const name of ['Code','Product','Gemini','Coupang','Requests']) vm.runInContext(readFileSync(new URL(`../backend/${name}.js`,import.meta.url),'utf8'),context);
+  return { context, rows, props, tabs, writes: () => writes, fetches: () => fetches };
 }
 const sample = () => ({id:randomUUID(),category:'여행',productName:'제주 숙소',sourceUrl:'https://trip.coupang.com/product',affiliateUrl:'',script:'실제 상품정보 기반 대본',youtube:'',instagram:'',tiktok:'',notes:''});
 
@@ -215,4 +218,30 @@ test('없는 카테고리·짧은 검색어·모르는 방법은 쿠팡을 부�
   assert.match(call({ source: 'best', categoryId: 9999 }).error, /카테고리/); assert.match(call({ source: 'search', keyword: 'a' }).error, /2~50자/);
   assert.match(call({ source: 'search', keyword: 'x'.repeat(51) }).error, /2~50자/); assert.match(call({ source: 'reco' }).error, /찾는 방법/);
   assert.equal(sent.length, 0);
+});
+
+// v2.5.0 「루미한테 요청하기」
+test('요청은 「요청」 탭을 처음 쓸 때 만들고, 같은 주소가 대기 중이면 두 번 쌓지 않으며 쿠팡 API를 부르지 않는다', () => {
+  const env=runtime();const call=(action,payload)=>JSON.parse(env.context.doPost({postData:{contents:JSON.stringify({action,payload})}}).text);
+  assert.deepEqual(call('requests',{}).data.requests,[]);
+  const first=call('request',{productName:'서울랜드',sourceUrl:'https://trip.coupang.com/tp/products/30000001063207',affiliateUrl:'https://link.coupang.com/a/abc',from:'주소로 만들기'});
+  assert.equal(first.ok,true);assert.equal(first.data.duplicate,false);assert.equal(first.data.request.status,'대기');
+  assert.deepEqual(env.tabs.get('요청').rows[0],['요청 ID','요청 시각','상태','상품명','쿠팡 주소','파트너스 링크','메모','어디서']);
+  const again=call('request',{sourceUrl:'https://trip.coupang.com/tp/products/30000001063207'});
+  assert.equal(again.data.duplicate,true);assert.equal(again.data.request.id,first.data.request.id);
+  assert.equal(call('requests',{}).data.requests.length,1);assert.equal(env.fetches(),0);
+  assert.equal(env.rows.length,1); // the ledger tab is untouched
+});
+test('요청은 쿠팡 주소·파트너스 링크 모양을 확인하고, 상태 바꾸기·지우기는 그 줄만 건드린다', () => {
+  const env=runtime();const call=(action,payload)=>JSON.parse(env.context.doPost({postData:{contents:JSON.stringify({action,payload})}}).text);
+  assert.match(call('request',{sourceUrl:'https://example.com/x'}).error,/쿠팡 상품 주소/);
+  assert.match(call('request',{sourceUrl:'https://www.coupang.com/vp/products/1',affiliateUrl:'https://example.com/a'}).error,/link\.coupang\.com/);
+  const a=call('request',{sourceUrl:'https://www.coupang.com/vp/products/1'}).data.request;const b=call('request',{sourceUrl:'https://www.coupang.com/vp/products/2',productName:'=SUM(1)'}).data.request;
+  assert.equal(env.tabs.get('요청').rows[2][3],'=SUM(1)'); // round trip only; addRequest_ writes it through sheetLiteral_ like the ledger
+  assert.match(call('requestUpdate',{id:a.id,status:'끝'}).error,/상태/);
+  assert.equal(call('requestUpdate',{id:a.id,status:'완료'}).data.request.status,'완료');
+  assert.equal(call('request',{sourceUrl:'https://www.coupang.com/vp/products/1'}).data.duplicate,false); // done → the same product may be asked again
+  assert.equal(call('requestUpdate',{id:b.id,delete:true}).data.deleted,true);
+  const left=call('requests',{}).data.requests;assert.deepEqual(left.map(r=>r.sourceUrl),['https://www.coupang.com/vp/products/1','https://www.coupang.com/vp/products/1']);
+  assert.deepEqual(left.map(r=>r.status),['대기','완료']);
 });

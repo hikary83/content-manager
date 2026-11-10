@@ -24,7 +24,7 @@ Claude의 이름은 **루미**다 (2026-11-09, 사용자가 지었다). 사용�
 | 등록 (운영대장 시트에 한 줄) | Claude — 컨펌을 받은 뒤 |
 | 업로드 | 사람이 직접 (반자동). Claude는 올리지 않는다 |
 | 업로드 기록 (플랫폼별 날짜·게시물 링크), 콘텐츠 보기·수정·삭제 | 웹 또는 Claude |
-| 만들 상품 찾기 (쿠팡 특가·카테고리 베스트·검색) | 웹 「상품 찾기」 탭 (2026-11-08) |
+| 만들 상품 찾기 (쿠팡 특가·카테고리 베스트·검색), 쿠팡 주소로 파트너스 링크 만들기, 「루미한테 요청하기」 | 웹 「상품 찾기」 탭 (2026-11-08, 링크·요청은 2026-11-10) |
 
 웹: https://hikary83.github.io/content-manager/ · 운영대장: 웹 오른쪽 위 링크
 
@@ -32,13 +32,14 @@ Claude의 이름은 **루미**다 (2026-11-09, 사용자가 지었다). 사용�
 
 (2026-11-06 결정)
 
-1. **링크 전달 (사람)** — 쿠팡 상품 링크와 직접 만든 쿠팡 파트너스 링크를 준다. 웹 「상품 찾기」에서 고른 상품은 「Claude용 글 복사」 글(상품명·상품 페이지·파트너스 링크)을 붙여 넣어도 된다. 쿠팡은 자동 접속을 자주 막으니 상품 페이지 캡처도 같이 받는 편이 확실하다.
+1. **요청 (사람)** — 웹 「상품 찾기」에서 상품 카드나 쿠팡 주소로 만든 링크의 **「루미한테 요청하기」**를 누르고, Claude에서 「요청 확인해줘」라고 한다 (2026-11-10). 웹은 Claude 대화를 깨우지 못해서 요청은 운영대장 시트의 「요청」 탭에 쌓인다. 쿠팡 주소를 채팅으로 줘도 되고, 「Claude용 글 복사」 글을 붙여 넣어도 된다. 쿠팡은 자동 접속을 자주 막으니 상품 페이지 캡처도 같이 받는 편이 확실하다.
+   - 「요청 확인해줘」를 들으면 `node tools/register.mjs requests`로 대기 중인 요청을 보고, 작업을 시작할 때 `node tools/register.mjs request <id> 진행`, 운영대장에 등록하면 `… 완료`로 바꾼다.
 2. **콘텐츠 만들기 (Claude)** — 확인된 사실만 정리하고 `contents/<No>_<YYYYMMDD>_<상품명>/` 폴더(예: `contents/253_20261107_서울랜드/`, 사진은 `photo-1.jpg`…)에 모션 영상과 썸네일(`cover.png`), 카드뉴스, 나레이션 대본(`narration.md`)을 만든다 (3·4장). 초안을 보여주고 대화로 고친다.
    - **폴더 이름 = 인포크 No. _ 만들기 시작한 날(여덟 자리) _ 상품명** (2026-11-09 결정). 그래서 No.는 링크를 받을 때 먼저 정한다(4번 규칙). 작업 폴더와 최종본 폴더는 같은 이름이다. 그 전에 만든 작업 폴더(`261106_코엑스아쿠아리움`·`261107_서울랜드`·`261108_롯데월드아쿠아리움서울스카이`)는 이름을 그대로 두고, 운영대장 메모에 두 이름을 같이 적는다.
 3. **컨펌 (사람)** — 「컨펌」이 게시글 작성과 웹 등록의 승인이다.
 4. **게시글 · 키티챗 문구 (Claude)** — `tools/posts/template.md`를 폴더에 `posts.md`로 복사해 세 플랫폼 게시글과 키티챗 키워드·DM 문구를 채운다.
    - 인포크 번호(No.)는 상품마다 하나다 (쇼츠·캐러셀이 같이 쓴다). 첫 번호는 252다 (코엑스, 2026-11-09). 그 뒤로는 `node tools/register.mjs list`로 운영대장 `inpockNo`의 가장 큰 값에 1을 더한다. 번호는 **링크를 받을 때(작업 시작 때) 정해** 폴더 이름에 쓰므로, 아직 등록 전인 `contents/` 폴더 이름의 번호도 피한다 (서울랜드는 253으로 잡아 두었다).
-   - 파트너스 링크는 **사람이 파트너스 사이트에서 직접 만든다** (2026-11-09 결정). 받으면 같은 상품으로 가는지 확인한다.
+   - 파트너스 링크는 **쿠팡 파트너스 Open API(딥링크)로 만든다** (2026-11-10 결정, 그 전에는 사람이 사이트에서 직접 만들었다). 웹 「상품 찾기」의 「링크 만들기」나 `node tools/register.mjs link <쿠팡 주소>` — 한 시간 20번 한도를 같이 쓰고, 같은 주소는 6시간 저장해 둔 걸 쓴다. 만들면 같은 상품으로 가는지 확인한다. API로 만든 링크가 파트너스 리포트에 똑같이 잡히는지, 채널 아이디(지금은 기본값)를 나눠야 하는지는 **확인 필요**.
    - 인포크링크에 넣을 것: 연결할 주소(파트너스 링크) · 타이틀(`No.252 코엑스 아쿠아리움 입장권`처럼 번호 먼저) · 이미지(`inpock.png`, 1080×1080 — 실제 상품 사진 + 포인트 색 No. 배지. 첫 사례 `contents/261106_코엑스아쿠아리움/inpock.html`을 복사해 `node tools/carousel/render.mjs contents/<폴더>/inpock.html`로 찍는다. `<body data-size="1080x1080">`이 있어야 한다).
    - 올리기 전에 상품 페이지가 아직 판매 중인지 본다. 롯데월드 상품이 만든 뒤 판매가 멈췄다 (2026-11-09).
 5. **웹 등록 (Claude)** — 상품 하나에 `entry.json` 하나, 운영대장 한 줄이다 (2026-11-09 결정). `node tools/register.mjs save contents/<폴더>/entry.json`. 나레이션 대본은 `script`, 게시글은 `youtube`(첫 줄 `제목: …`)·`instagram`(릴스·캐러셀 같이)·`tiktok`, 키티챗은 `kittyKeyword`·`kittyDm`, 인포크는 `inpockNo`·`inpockTitle`·`inpockImage`(`"inpock.png"` — 등록 도구가 400px JPEG로 줄여 운영대장에 넣는다), 메모(`notes`)는 맨 아래에 **작업 폴더와 최종본 폴더의 전체 경로**를 적는다 (2026-11-09). 카드뉴스 문구(`carouselScript`)는 채우지 않는다 (2026-11-09).
@@ -176,7 +177,7 @@ AI 영상은 보류 — 유료이고, AI가 상품 모양을 바꾸면 실제와
 
 - 웹: `docs/` (GitHub Pages, `main` / `docs`). 탭은 「기록」(업로드 관리)과 「상품 찾기」 두 개다.
 - 상품 찾기는 쿠팡 파트너스 Open API를 서버(`backend/Coupang.js`)로 부른다. 쿠팡은 한 시간에 30번 이상 부르면 키를 24시간 멈추고 세 번이면 계정을 정지한다고 해서, 서버가 지난 60분 기준 20회로 막고 같은 목록은 6시간 저장해 다시 쓴다. 상한을 올리지 않는다. 키는 스크립트 속성 `COUPANG_ACCESS_KEY`·`COUPANG_SECRET_KEY`에 사람이 넣는다. 카테고리는 `COUPANG_CATEGORIES` 한 줄로 늘린다.
-- 서버: `backend/` (Apps Script). 동작: `status` · `list` · `save` · `delete` · `products`. Gemini 동작(`analyze`·`generate`·`carousel` 등)은 웹에서 안 쓰지만 되돌리기 대비로 남겨 두었다 — 지울지는 나중에 정한다.
+- 서버: `backend/` (Apps Script). 동작: `status` · `list` · `save` · `delete` · `products` · `link`(파트너스 링크) · `request`·`requests`·`requestUpdate`(「요청」 탭, 2.5.0 — `backend/Requests.js`). Gemini 동작(`analyze`·`generate`·`carousel` 등)은 웹에서 안 쓰지만 되돌리기 대비로 남겨 두었다 — 지울지는 나중에 정한다.
 - 로컬 확인: `node scripts/preview-mock.mjs` → http://127.0.0.1:4175/ (가짜 데이터라 실제 시트를 건드리지 않는다)
 - 테스트: `node --test tests/content-backend.test.mjs tests/content-client.test.mjs tests/travel-extraction.test.mjs tests/production.test.mjs tests/reel.test.mjs tests/reference.test.mjs tests/carousel.test.mjs tests/motion.test.mjs`
 - 버전을 올릴 때: `docs/index.html`의 `?v=`·표시 버전, `docs/js/config.js`, `backend/Code.js`의 `SERVICE_VERSION`, README·SETUP.

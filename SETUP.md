@@ -1,4 +1,4 @@
-# HIKARY 콘텐츠 기록 v2.6.1
+# HIKARY 콘텐츠 기록 v2.7.0
 
 2026-11-06 · GitHub Pages + Google Apps Script + Google Sheets. 콘텐츠는 Claude에서 만든다.
 
@@ -6,7 +6,7 @@
 
 - 작업 기준은 저장소 맨 위 [CLAUDE.md](CLAUDE.md)(지시서)입니다. 어느 PC에서든 Claude가 이 파일을 먼저 읽습니다.
 - `docs/`: 「기록」(업로드 관리)·「상품 찾기」 두 탭. Pages 설정은 `main` / `/docs`.
-- `backend/`: Apps Script 서버. 웹이 쓰는 동작은 `status` · `list` · `save` · `delete` · `products`. Gemini 동작은 되돌리기 대비로 남아 있습니다.
+- `backend/`: Apps Script 서버. 웹이 쓰는 동작은 `status` · `list` · `save` · `delete` · `products` · `link` · `request` · `requests` · `requestUpdate`. Gemini 동작은 되돌리기 대비로 남아 있습니다.
 - `tools/register.mjs`: Claude가 만든 콘텐츠를 운영대장에 등록. `tools/carousel/`: 캐러셀 HTML → 1080×1350 PNG.
 - `scripts/preview-mock.mjs`: 가짜 데이터로 웹 확인 (http://127.0.0.1:4175/). `scripts/preview-content.mjs`: 실제 서버로 웹 확인 (http://127.0.0.1:4173/).
 - `scripts/reel/`: 사진 4장 + `video-job.json` → ffmpeg 무자막 MP4.
@@ -14,6 +14,14 @@
 - `app/`, `worker/`, `db/` 등은 이전 Sites/React 코드입니다. Pages 배포에는 포함하지 않습니다. 백업 태그: `legacy-chatgpt-sites-2026-08-11`.
 
 ## 최초 연결
+
+### v2.7.0 파트너스 링크 만들기 · 루미한테 요청하기 (2026-11-10, 서버 2.5.0)
+
+- 「상품 찾기」에 쿠팡 주소 칸과 「링크 만들기」를 두었습니다. 서버 `link`(딥링크 API)로 `link.coupang.com/a/…`를 만들고 복사 버튼과 함께 보여 줍니다. API 1번을 쓰고, 같은 주소는 6시간 저장해 둔 걸 씁니다. 딥링크는 상품 이름을 주지 않아 「상품 이름(선택)」 칸이 있습니다.
+- 「루미한테 요청하기」(주소로 만든 링크와 상품 카드마다): 운영대장 시트의 새 탭 「요청」(요청 ID·요청 시각·상태·상품명·쿠팡 주소·파트너스 링크·메모·어디서)에 한 줄을 쌓습니다. 탭은 처음 쓸 때 서버가 만듭니다. 같은 주소가 대기·진행 중이면 다시 쌓지 않습니다. API 횟수는 쓰지 않습니다.
+- 웹은 Claude 대화를 깨우지 못합니다. Claude에서 「요청 확인해줘」라고 하면 `node tools/register.mjs requests`로 꺼내 가고, `node tools/register.mjs request <id> 진행|완료`로 상태를 바꿉니다. 「보낸 요청」 목록에서 대기 중인 요청은 지울 수 있습니다.
+- 파트너스 링크는 이제 API로 만듭니다 (전에는 사람이 사이트에서 직접). API 링크가 파트너스 리포트에 똑같이 잡히는지는 확인 필요.
+- 서버 2.5.0: `backend/Requests.js` 추가, `request` · `requests` · `requestUpdate` 동작.
 
 ### v2.6.1 로고 (2026-11-10, 화면만)
 
