@@ -37,7 +37,7 @@ function products({ source, categoryId, keyword }) {
   saved.set(key, result); return { ...result, fromCache: false, usage: usage() };
 }
 // v2.7.0 mock: the Partners link (counts like a product call, kept for reuse) and the sheet tab 「요청」.
-const requests = [];
+const requests = [{ id: 'mock-request-1', requestedAt: '2026-11-11 10:20', status: '대기', productName: '예시 요청 상품 (목업)', sourceUrl: 'https://www.coupang.com/vp/products/123', affiliateUrl: 'https://link.coupang.com/a/mockreq', note: '', from: '소재 찾기 · 오늘의 특가' }];
 function makeLink({ url }) {
   if (!/^https:\/\/((www|m|trip)\.)?coupang\.com\/\S*$/i.test(url || '')) throw new Error('쿠팡 상품 주소(https://www.coupang.com/… 또는 https://trip.coupang.com/…)를 넣어주세요.');
   const key = 'link:' + url;

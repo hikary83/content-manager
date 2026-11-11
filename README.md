@@ -1,6 +1,6 @@
 # HIKARY 콘텐츠 기록
 
-서비스 버전 **v2.9.0** · 2026-11-11 (서버 2.7.0) — 로그인이 필요합니다
+서비스 버전 **v3.0.0** · 2026-11-11 (서버 2.7.0) — 로그인이 필요합니다 · 어두운 화면(대시보드 · 콘텐츠 · 소재 찾기)
 
 쿠팡 상품으로 쇼츠·캐러셀을 **Claude에서 직접 만들고**, 이 웹에는 등록 이력과 플랫폼별 업로드 기록만 남깁니다.
 작업 기준은 [CLAUDE.md](CLAUDE.md)(지시서), 설정·배포·변경 이력은 [SETUP.md](SETUP.md)를 참고하세요.
@@ -13,7 +13,7 @@ node tools/register.mjs video contents/<폴더>/entry.json  # 「게시」할 �
 node --test tests/content-backend.test.mjs tests/content-client.test.mjs tests/travel-extraction.test.mjs tests/production.test.mjs tests/reel.test.mjs tests/reference.test.mjs tests/carousel.test.mjs tests/motion.test.mjs
 ```
 
-- 웹(`docs/`, GitHub Pages `main /docs`): 「기록」 탭은 상품 하나에 한 줄(업로드 4곳: YouTube 쇼츠·인스타 릴스·인스타 캐러셀·TikTok), 플랫폼 버튼을 누르면 그 플랫폼의 게시글 복사와 업로드 기록을 한 창에서, 보기·수정(칸마다 복사, 인포크링크 No.·타이틀·썸네일, YouTube 제목·본문, 키티챗 키워드·DM 문구)·삭제, **「게시」**(날짜·시간·올릴 곳·비밀번호 → Buffer가 YouTube 쇼츠·인스타 릴스·TikTok에 예약, v2.8.0). 「상품 찾기」 탭은 쿠팡 파트너스 API로 특가·카테고리 베스트·검색을 보여 주고 남은 API 횟수를 표시합니다.
+- 웹(`docs/`, GitHub Pages `main /docs`, v3.0.0 어두운 화면): **대시보드**(요약·최신 게시물·할 일·다가오는 예약) · **콘텐츠**(상품 하나에 한 줄, 업로드 4곳: YouTube 쇼츠·인스타 릴스·인스타 캐러셀·TikTok의 상태 아이콘, 맨 위에 보낸 요청, ✎ 창에서 칸마다 복사·수정·삭제와 플랫폼별 업로드 기록) · **「게시」**(날짜·시간·올릴 곳·비밀번호 → Buffer가 YouTube 쇼츠·인스타 릴스·TikTok에 예약, v2.8.0) · **소재 찾기**(쿠팡 파트너스 API로 특가·카테고리 베스트·검색, 주소로 파트너스 링크, 루미한테 요청, 남은 API 횟수). 왼쪽 아래 바로가기 아이콘 7개.
 - 서버(`backend/`, Apps Script): `status` · `list` · `save` · `delete` · `products`(쿠팡 상품 찾기, 한 시간 20회·6시간 저장) · `link`(쿠팡 주소 → 파트너스 링크, 같은 상한) · `publish`(Buffer 예약, 비밀번호 필요) + 10분 트리거 `syncPublishing`(결과 기록, 다 올라가면 Cloudinary 영상 삭제). v2.9.0부터 `login`을 뺀 모든 동작에 로그인 세션(웹)이나 도구 키(등록 도구, `.env`의 `HIKARY_TOOL_KEY`)가 필요합니다. 그 전에는 접속 코드 없이 공개되어 있어 서버 주소를 아는 누구나 호출할 수 있었습니다. Gemini 동작은 웹에서 쓰지 않지만 남아 있습니다(일일 한도로 제한).
 - 운영대장(Google Sheets)에는 상품마다 한 줄로 콘텐츠 ID·등록일·카테고리·상품명·원본/파트너스 링크·나레이션 대본·카드뉴스 문구·플랫폼별 게시글·업로드 상태/날짜/링크(인스타 캐러셀 따로)·인포크 No./타이틀·비고를 저장합니다. v2.8.0부터 게시할 영상의 주소(Cloudinary)·플랫폼별 Buffer 예약 ID·게시 오류도 남깁니다. 사진·영상 파일 자체는 저장하지 않습니다.
 - 만든 파일은 각 PC의 `contents/`에 둡니다(git 제외).

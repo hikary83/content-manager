@@ -1,10 +1,11 @@
 (() => {
   'use strict';
-  // v2.0.0: content is made in Claude and registered to the ledger. This page lists it, edits or deletes it, and records uploads.
-  // v2.1.0: a second tab finds Coupang products to make next (Partners API through the server).
-  // v2.2.0: one row per product. Four uploads (YouTube shorts, Instagram reel and carousel, TikTok) and the Inpock link fields.
+  // v3.0.0 (2026-11-11): dark YouTube-Studio layout — 대시보드 · 콘텐츠 · 소재 찾기, 바로가기 icons, profile menu.
+  // The 「올리기」 dialog is merged into the ✎ detail window (right panel: thumbnail, links, places with an inline record).
+  // Before: v2.0.0 ledger web · v2.1.0 product finder · v2.2.0 one row per product · v2.8.0 「게시」 through Buffer · v2.9.0 login.
   const $ = id => document.getElementById(id);
   const PLATFORMS = [['youtube', 'YouTube 쇼츠'], ['instagram', '인스타 릴스'], ['carousel', '인스타 캐러셀'], ['tiktok', 'TikTok']];
+  const MARK = { youtube: 'YT', instagram: 'IG', carousel: 'CR', tiktok: 'TT' };
   // v2.8.0 「게시」 (server 2.6.0): the video places go through Buffer; the carousel stays manual.
   // ERROR_LABELS are the line prefixes the server writes into 「게시 오류」 (backend/Publish.js PUBLISH_LABELS).
   const PUBLISH = PLATFORMS.filter(([key]) => key !== 'carousel');
@@ -13,26 +14,27 @@
   const errorFor = (row, key) => ERROR_LABELS[key] && (row.publishError || '').split('\n').find(line => line.startsWith(ERROR_LABELS[key] + ': '))?.slice(ERROR_LABELS[key].length + 2) || '';
   const settledPlace = status => ['업로드완료', '예약됨', '보류'].includes(status);
   const openToPublish = row => PUBLISH.some(([key]) => !settledPlace(row[key + 'Status']));
-  // v2.5.0: a platform chip opens one dialog with that place's post text (copy) above its upload record.
-  // v2.3.0: KittyChat keyword/DM and the Inpock thumbnail. Card news text is no longer shown (old cells are kept as they are).
   const TEXT_KEYS = ['productName', 'category', 'sourceUrl', 'affiliateUrl', 'inpockNo', 'inpockTitle', 'script', 'instagram', 'kittyKeyword', 'kittyDm', 'tiktok', 'notes'];
   const imageUrl = value => /^data:image\/(jpeg|png);base64,[A-Za-z0-9+/]+=*$/.test(value || '') ? value : '';
   // The ledger keeps one YouTube cell: first line 「제목: …」, a blank line, then the description.
   const splitYoutube = text => { const match = /^제목:[ \t]*(.*)(?:\r?\n([\s\S]*))?$/.exec(text || ''); return match ? [match[1].trim(), (match[2] || '').trim()] : ['', (text || '').trim()]; };
   const joinYoutube = (title, body) => title ? `제목: ${title}${body ? '\n\n' + body : ''}` : body;
+  const https = value => /^https:\/\//i.test(value || '');
+  const shortDate = value => (value || '').slice(5).replace('-', '.'); // 2026-11-11 08:45 → 11.11 08:45
+  const posted = row => PLATFORMS.filter(([key]) => row[key + 'Status'] === '업로드완료').length;
+  // 「보류」 is a place the owner chose to skip, so it counts as done for 「다 올림」.
+  const settled = row => PLATFORMS.every(([key]) => ['업로드완료', '보류'].includes(row[key + 'Status']));
+  const recent = row => PLATFORMS.filter(([key]) => row[key + 'Status'] === '업로드완료' && row[key + 'Date'] && Date.now() - new Date(row[key + 'Date'].replace(' ', 'T')) < 7 * 864e5).length;
+  const lastPosted = row => PLATFORMS.filter(([key]) => row[key + 'Status'] === '업로드완료').map(([key]) => row[key + 'Date']).filter(Boolean).sort().at(-1) || '';
   let rows = [];
+  let requests = [];
   let busy = false;
   let filter = '전체';
+  let view = 'dashboard';
   let current = null;
   let dirty = false;
 
   function notice(text, error = false) { $('notice').hidden = !text; $('notice').className = error ? 'error' : ''; $('notice').textContent = text; }
-  const https = value => /^https:\/\//i.test(value || '');
-  const posted = row => PLATFORMS.filter(([key]) => row[key + 'Status'] === '업로드완료').length;
-  // v2.6.0: 「보류」 is a platform the owner chose to skip, so it counts as done for 「다 올림」.
-  const settled = row => PLATFORMS.every(([key]) => ['업로드완료', '보류'].includes(row[key + 'Status']));
-  // Uploads dated (「2026-11-10」 or 「2026-11-10 08:45」) within the last 7 days — the summary shows growth, not what is left.
-  const recent = row => PLATFORMS.filter(([key]) => row[key + 'Status'] === '업로드완료' && row[key + 'Date'] && Date.now() - new Date(row[key + 'Date'].replace(' ', 'T')) < 7 * 864e5).length;
   async function task(work) {
     if (busy) return;
     busy = true; notice('처리 중입니다…');
@@ -48,54 +50,147 @@
   }
   window.addEventListener('beforeunload', event => { if (busy || dirty) { event.preventDefault(); event.returnValue = ''; } });
 
-  async function load() { rows = (await HikaryApi.request('list')).entries; render(); }
   function element(tag, className, text) { const node = document.createElement(tag); if (className) node.className = className; if (text !== undefined) node.textContent = text; return node; }
-  function button(text, onclick, className = 'ghost small') { const node = element('button', className, text); node.type = 'button'; node.onclick = onclick; return node; }
+  function button(text, onclick, className = 'btn sm') { const node = element('button', className, text); node.type = 'button'; node.onclick = onclick; return node; }
   function link(text, href, className) { const node = element('a', className, text); node.href = href; node.target = '_blank'; node.rel = 'noopener noreferrer'; return node; }
+  function emptyBox(title, sub) { const box = element('div', 'empty'); box.append(element('strong', '', title)); if (sub) box.append(element('span', '', sub)); return box; }
+  const label = (row, prefix = true) => `${prefix && row.inpockNo ? 'No.' + row.inpockNo + ' ' : ''}${row.productName}`;
+  // One platform mark; the dot shows the state (green up, orange scheduled, red error, grey on hold, dim not yet).
+  function placeIcon(row, key, name, onclick) {
+    const status = row[key + 'Status'] || '미업로드'; const state = STATE[status];
+    const node = onclick ? button(MARK[key], onclick, `pf ${key}`) : element('span', `pf ${key}`, MARK[key]);
+    if (state) node.dataset.state = state; else node.classList.add('none');
+    node.title = `${name} · ${status}${row[key + 'Date'] ? ' ' + row[key + 'Date'] : ''}`; return node;
+  }
+  function thumb(row) {
+    const src = imageUrl(row.inpockImage);
+    if (!src) return element('span', 'thumb', '—');
+    const img = element('img', 'thumb'); img.src = src; img.alt = ''; img.loading = 'lazy'; return img;
+  }
 
-  // One card per product (same original link). Rows made before v2.2.0 (one per format) still show as extra lines.
+  async function load() { rows = (await HikaryApi.request('list')).entries; render(); }
+  async function loadRequests() { requests = (await HikaryApi.request('requests')).requests; render(); }
+  const openRequests = () => requests.filter(item => item.status !== '완료');
   function render() {
-    const all = settled;
+    renderList(); renderDashboard();
+    const waiting = requests.filter(item => item.status === '대기').length;
+    $('requestCount').hidden = !waiting; $('requestCount').textContent = waiting;
+  }
+
+  // ── 콘텐츠: one row per product (Studio content table). Requests not done yet sit on top as dashed rows.
+  const FILTERS = {
+    전체: () => true, 요청: () => false,
+    예약됨: row => PLATFORMS.some(([key]) => row[key + 'Status'] === '예약됨'),
+    '남은 것': row => !settled(row),
+    오류: row => PLATFORMS.some(([key]) => row[key + 'Status'] === '오류'),
+    '다 올림': settled
+  };
+  function renderList() {
+    const query = $('search').value.trim().toLowerCase();
+    for (const node of $('filters').children) node.querySelector('b').textContent = node.dataset.filter === '요청' ? openRequests().length : rows.filter(FILTERS[node.dataset.filter]).length;
+    const reqs = ['전체', '요청'].includes(filter) ? openRequests().filter(item => `${item.productName} ${item.sourceUrl}`.toLowerCase().includes(query)) : [];
+    const shown = rows.filter(row => FILTERS[filter](row) && `${row.productName} ${row.category} No.${row.inpockNo}`.toLowerCase().includes(query));
+    $('entries').replaceChildren(...reqs.map(requestRow), ...shown.map(entryRow));
+    if (!reqs.length && !shown.length) $('entries').append(emptyBox(rows.length ? '조건에 맞는 콘텐츠가 없어요.' : '아직 등록된 콘텐츠가 없어요.', rows.length ? '검색어나 보기를 바꿔 보세요.' : '「소재 찾기」에서 루미한테 요청하면 여기에 쌓여요.'));
+  }
+  function whenCell(row) {
+    const box = element('div', 'when');
+    const scheduled = PLATFORMS.filter(([key]) => row[key + 'Status'] === '예약됨').map(([key]) => row[key + 'Date']).filter(Boolean).sort()[0];
+    const done = posted(row); const last = lastPosted(row);
+    const left = PLATFORMS.filter(([key]) => !['업로드완료', '보류'].includes(row[key + 'Status'])).map(([, name]) => name);
+    const errors = PLATFORMS.filter(([key]) => row[key + 'Status'] === '오류').length;
+    if (scheduled) box.append(element('span', 'chip sched', `예약 ${shortDate(scheduled)}`)); else box.append(document.createTextNode(last ? shortDate(last) : '—'));
+    box.append(element('small', '', errors ? `오류 ${errors}곳` : done ? (left.length ? `${done}곳 올라감 · ${left.length === 1 ? left[0] + ' 남음' : left.length + '곳 남음'}` : '다 올라감') : `등록 ${shortDate(row.createdAt)}`));
+    return box;
+  }
+  function entryRow(row) {
+    const tr = element('div', 'tr row'); tr.onclick = event => { if (!event.target.closest('button,a')) openDetail(row); };
+    const item = element('div', 'item'); const text = element('div'); const name = element('b', '', label(row));
+    if (row.format) name.prepend(element('span', 'pill', row.format)); // rows made before v2.2.0
+    text.append(name, element('small', '', `${row.category} · 등록 ${shortDate(row.createdAt)}`)); item.append(thumb(row), text);
+    const marks = element('div', 'pfs'); for (const [key, name] of PLATFORMS) marks.append(placeIcon(row, key, name, () => openDetail(row, key)));
+    const actions = element('div', 'acts');
+    if (openToPublish(row)) actions.append(button('게시', () => openPublish(row), 'btn sm primary'));
+    actions.append(Object.assign(button('✎', () => openDetail(row), 'ibtn'), { title: '보기·수정', ariaLabel: '보기·수정' }));
+    tr.append(item, marks, whenCell(row), actions); return tr;
+  }
+  // v2.7.2: the Partners link is shown as text to copy, never as a link we would click ourselves (self-referral).
+  function requestRow(item) {
+    const tr = element('div', 'tr req'); const box = element('div', 'item'); const text = element('div');
+    text.append(element('b', '', item.productName || item.sourceUrl.replace(/^https:\/\//, '').split('?')[0]), element('small', '', `${shortDate(item.requestedAt)} 요청 · ${item.from || '루미한테 요청'}`));
+    box.append(element('span', 'thumb', '⋯'), text);
+    const state = element('div', 'pfs'); state.append(element('span', `chip req${item.status === '진행' ? ' doing' : ''}`, item.status === '진행' ? '루미가 만드는 중' : '루미 대기 중'));
+    const hint = element('div', 'when'); hint.append(element('small', '', 'Claude에서 「요청 확인해줘」'));
+    const actions = element('div', 'acts');
+    if (item.affiliateUrl) {
+      const copy = button('링크 복사', async () => {
+        try { await navigator.clipboard.writeText(item.affiliateUrl); copy.textContent = '복사됨 ✓'; setTimeout(() => { copy.textContent = '링크 복사'; }, 1500); }
+        catch { notice('복사하지 못했어요. 운영대장 「요청」 탭에서 복사해주세요.', true); }
+      });
+      actions.append(copy);
+    }
+    if (https(item.sourceUrl)) actions.append(link('상품 ↗', item.sourceUrl, 'btn sm'));
+    if (item.status === '대기') actions.append(button('지우기', () => void task(async () => { await HikaryApi.request('requestUpdate', { id: item.id, delete: true }); await loadRequests(); notice('요청을 지웠어요.'); })));
+    tr.append(box, state, hint, actions); return tr;
+  }
+  function setFilter(next) { filter = next; for (const node of $('filters').children) node.classList.toggle('on', node.dataset.filter === next); renderList(); }
+  for (const node of $('filters').children) node.onclick = () => setFilter(node.dataset.filter);
+  $('search').oninput = () => { if (view !== 'content') go('content'); renderList(); };
+  $('refresh').onclick = () => void task(async () => { await load(); await loadRequests(); notice(`${rows.length}건을 불러왔어요.`); });
+
+  // ── 대시보드: what the ledger already knows. Coupang numbers and views come in a later step.
+  function renderDashboard() {
     $('statContents').textContent = new Set(rows.map(row => row.sourceUrl || row.productName)).size;
     $('statPosted').textContent = rows.reduce((sum, row) => sum + posted(row), 0);
-    const week = rows.reduce((sum, row) => sum + recent(row), 0);
-    $('statWeek').textContent = week ? `+${week}` : '0';
-    const query = $('search').value.trim().toLowerCase();
-    const shown = rows.filter(row => `${row.productName} ${row.category} No.${row.inpockNo}`.toLowerCase().includes(query)
-      && (filter === '전체' || (filter === '다 올림' ? all(row) : !all(row))));
-    const groups = new Map();
-    for (const row of shown) { const key = row.sourceUrl || row.productName; if (!groups.has(key)) groups.set(key, []); groups.get(key).push(row); }
-    $('entries').replaceChildren();
-    if (!shown.length) {
-      const empty = element('div', 'empty');
-      empty.append(element('strong', '', rows.length ? '조건에 맞는 콘텐츠가 없어요.' : '아직 등록된 콘텐츠가 없어요.'), element('span', '', rows.length ? '검색어나 보기 조건을 바꿔보세요.' : 'Claude에서 만든 뒤 「등록해줘」라고 하면 여기에 쌓여요.'));
-      $('entries').append(empty);
-    }
-    for (const items of groups.values()) {
-      const card = element('article', 'product'); const head = element('div', 'product-head'); const title = element('div');
-      const no = items.map(row => row.inpockNo).find(Boolean);
-      title.append(element('h3', '', items[0].productName), element('small', '', `${items[0].category}${no ? ` · 인포크 No.${no}` : ''}`));
-      head.append(title); if (https(items[0].sourceUrl)) head.append(link('상품 페이지 ↗', items[0].sourceUrl, 'ghost small'));
-      card.append(head);
-      for (const row of items) {
-        const line = element('div', 'content-line'); const info = element('div', 'info'); const chips = element('div', 'chips'); const actions = element('div', 'line-actions');
-        if (row.format) info.append(element('span', row.format === '캐러셀' ? 'pill carousel' : 'pill', row.format)); // pre-v2.2.0 rows only
-        info.append(element('span', 'date', row.createdAt));
-        for (const [key, label] of PLATFORMS) {
-          const state = STATE[row[key + 'Status']] || ''; const when = row[key + 'Date'] ? row[key + 'Date'].slice(5).replace('-', '.') : '';
-          const text = `${label} ${{ done: when || '완료', hold: '보류', sched: `예약 ${when}`, err: '오류' }[state] || '—'}`;
-          chips.append(button(text, () => openUpload(row, key), `chip ${state}`)); // v2.5.0: post text + upload record in one dialog
-        }
-        if (openToPublish(row)) actions.append(button('게시', () => openPublish(row), 'small accent'));
-        actions.append(button('보기·수정', () => openDetail(row)));
-        line.append(info, chips, actions); card.append(line);
+    const week = rows.reduce((sum, row) => sum + recent(row), 0); $('statWeek').textContent = week ? `+${week}` : '0';
+    const latest = rows.filter(lastPosted).sort((a, b) => lastPosted(b).localeCompare(lastPosted(a)))[0];
+    if (!latest) $('latest').replaceChildren(emptyBox('아직 올린 게시물이 없어요.'));
+    else {
+      const nodes = []; const src = imageUrl(latest.inpockImage);
+      if (src) { const img = element('img', 'latest-img'); img.src = src; img.alt = ''; nodes.push(img); }
+      nodes.push(element('p', 'latest-title', label(latest)), element('p', 'latest-meta', `${shortDate(lastPosted(latest))} 게시 · ${latest.category}`));
+      for (const [key, name] of PLATFORMS) {
+        const line = element('div', 'prow'); const status = latest[key + 'Status'] || '미업로드';
+        line.append(placeIcon(latest, key, name), element('span', '', name), element('span', 'st', status === '업로드완료' ? shortDate(latest[key + 'Date']) || '올라감' : status === '미업로드' ? '아직' : status));
+        if (https(latest[key + 'Link'])) line.append(Object.assign(link('↗', latest[key + 'Link'], 'ibtn'), { title: '게시물 열기' }));
+        nodes.push(line);
       }
-      $('entries').append(card);
+      const more = button('보기·수정', () => openDetail(latest)); more.style.marginTop = '12px'; nodes.push(more);
+      $('latest').replaceChildren(...nodes);
     }
+    $('todo').replaceChildren(...todoItems());
+    // Scheduled places in the next 7 days, one line per product and time.
+    const soon = new Map();
+    for (const row of rows) for (const [key] of PUBLISH) {
+      const at = row[key + 'Date']; if (row[key + 'Status'] !== '예약됨' || !at) continue;
+      const due = new Date(at.replace(' ', 'T')); if (due - Date.now() > 7 * 864e5) continue;
+      const id = row.id + at; if (!soon.has(id)) soon.set(id, { row, at, keys: [] }); soon.get(id).keys.push(key);
+    }
+    const lines = [...soon.values()].sort((a, b) => a.at.localeCompare(b.at)).map(({ row, at, keys }) => {
+      const line = element('div', 'trow'); line.append(element('b', '', shortDate(at)), element('span', '', label(row)));
+      const marks = element('span', 'pfs'); marks.style.marginLeft = 'auto';
+      for (const key of keys) marks.append(placeIcon(row, key, PLATFORMS.find(([name]) => name === key)[1]));
+      line.append(marks); line.style.cursor = 'pointer'; line.onclick = () => openDetail(row); return line;
+    });
+    $('upcoming').replaceChildren(...(lines.length ? lines : [emptyBox('이번 주 예약이 없어요', '「콘텐츠」에서 「게시」로 예약을 걸어요')]));
   }
-  $('search').oninput = render;
-  for (const node of $('filters').children) node.onclick = () => { filter = node.dataset.filter; for (const other of $('filters').children) other.classList.toggle('on', other === node); render(); };
-  $('refresh').onclick = () => void task(async () => { await load(); notice(`${rows.length}건을 불러왔어요.`); });
+  function todoItems() {
+    const items = [];
+    const add = (text, action) => { const line = element('div', 'trow'); line.append(element('span', '', text)); if (action) line.append(action); items.push(line); };
+    for (const row of rows) {
+      const no = row.inpockNo ? `No.${row.inpockNo}` : row.productName;
+      for (const [key, name] of PUBLISH) if (row[key + 'Status'] === '오류') add(`${no} ${name} 게시 오류`, button('보기', () => openDetail(row, key)));
+      const videoUp = PUBLISH.some(([key]) => row[key + 'Status'] === '업로드완료');
+      if (videoUp && (row.carouselStatus || '미업로드') === '미업로드') add(`${no} 인스타 캐러셀 올리기`, button('기록', () => openDetail(row, 'carousel')));
+      const reel = row.instagramStatus === '업로드완료' && row.instagramDate && Date.now() - new Date(row.instagramDate.replace(' ', 'T')) < 2 * 864e5;
+      if (reel && row.kittyKeyword) add(`${no} 키티챗 연결 · ${row.kittyKeyword}`, link('키티챗 ↗', 'https://kittychat.ai', 'btn sm'));
+      if (openToPublish(row) && !row.videoUrl && !PUBLISH.some(([key]) => ['업로드완료', '예약됨'].includes(row[key + 'Status']))) add(`${no} 게시할 영상 없음 — 루미에게 「영상 올려줘」`);
+    }
+    const waiting = openRequests().length;
+    if (waiting) add(`보낸 요청 ${waiting}개 — Claude에서 「요청 확인해줘」`, button('보기', () => { go('content'); setFilter('요청'); }));
+    if (!items.length) items.push(element('div', 'trow ok-line', '할 일이 없어요'));
+    return items;
+  }
 
   // Save sends the whole row back with its revision, so upload records are kept and a newer sheet edit is not overwritten.
   async function save(changes, done) {
@@ -103,8 +198,10 @@
     await HikaryApi.request('save', payload); await load(); notice(done);
   }
 
-  // v2.3.1: the detail dialog is split into tabs. The last tab stays open for the next product.
+  // ── ✎ 세부정보 (v3.0.0): tabs on the left, Studio-style panel on the right with the per-place upload record.
   let detailTab = 'product';
+  let focusPlace = '';
+  let openRecord = '';
   function showTab(tab) {
     detailTab = tab;
     for (const node of $('detailTabs').children) { const on = node.dataset.tab === tab; node.classList.toggle('on', on); node.setAttribute('aria-selected', on); }
@@ -113,21 +210,75 @@
   for (const node of $('detailTabs').children) node.onclick = () => { showTab(node.dataset.tab); $('detailDialog').querySelector('.dialog-body').scrollTop = 0; };
   // A required field on a hidden tab cannot show its message, so open that tab first.
   $('detailForm').addEventListener('invalid', event => { const panel = event.target.closest('[data-panel]'); if (panel?.hidden) showTab(panel.dataset.panel); }, true);
-
-  function openDetail(row) {
-    current = row; dirty = false; showTab(detailTab);
+  const titleCount = () => { $('d-youtubeCount').textContent = `${$('d-youtubeTitle').value.length} / 100`; };
+  function openDetail(row, place = '') {
+    current = row; dirty = false; focusPlace = place; openRecord = place === 'carousel' && (row.carouselStatus || '미업로드') === '미업로드' ? 'carousel' : '';
+    showTab(place && place !== 'carousel' ? 'sns' : detailTab);
     for (const key of TEXT_KEYS) $('d-' + key).value = row[key] || '';
-    [$('d-youtubeTitle').value, $('d-youtubeBody').value] = splitYoutube(row.youtube);
-    const image = imageUrl(row.inpockImage);
+    [$('d-youtubeTitle').value, $('d-youtubeBody').value] = splitYoutube(row.youtube); titleCount();
+    $('detailTitle').textContent = label(row);
+    $('detailMeta').textContent = `콘텐츠 세부정보 · ${row.createdAt} 등록 · ${row.category}${row.format ? ' · ' + row.format : ''}`;
+    renderSide();
+    $('detailDialog').showModal(); $('detailDialog').querySelector('.dialog-body').scrollTop = 0;
+  }
+  function renderSide() {
+    const row = current; const image = imageUrl(row.inpockImage);
     $('d-inpockFigure').hidden = !image; $('d-inpockNone').hidden = !!image;
     $('d-inpockImage').src = image; $('d-inpockSave').href = image || '#';
     $('d-inpockSave').download = `inpock-${row.inpockNo || 'image'}.${image.startsWith('data:image/png') ? 'png' : 'jpg'}`;
-    $('detailMeta').textContent = `${row.format ? row.format + ' · ' : ''}${row.createdAt} 등록`;
-    $('detailDialog').showModal(); $('detailDialog').querySelector('.dialog-body').scrollTop = 0;
+    $('sideNo').textContent = row.inpockNo ? `No.${row.inpockNo}` : '—'; $('sideTitle').textContent = row.inpockTitle || '';
+    $('sidePage').textContent = https(row.sourceUrl) ? row.sourceUrl.replace(/^https:\/\//, '') : '—'; $('sidePage').href = https(row.sourceUrl) ? row.sourceUrl : '#';
+    $('sideAffiliate').textContent = row.affiliateUrl || '—';
+    $('sidePublish').hidden = !openToPublish(row);
+    $('places').replaceChildren(...PLATFORMS.flatMap(([key, name]) => placeRow(row, key, name)));
+    const allUp = PUBLISH.every(([key]) => settledPlace(row[key + 'Status']));
+    $('detailVideo').textContent = row.videoUrl ? `게시할 영상 있음 · ${row.videoDate} 올림` : allUp ? '영상은 다 올라가서 지웠어요' : '게시할 영상 없음 — 루미에게 「영상 올려줘」';
+  }
+  function placeRow(row, key, name) {
+    const status = row[key + 'Status'] || '미업로드'; const date = row[key + 'Date'] || '';
+    const line = element('div', `place-row${focusPlace === key ? ' focus' : ''}`);
+    line.append(placeIcon(row, key, name), element('span', '', name));
+    const tone = { 업로드완료: 'ok', 예약됨: 'sched', 오류: 'err' }[status] || '';
+    line.append(element('span', `st ${tone}`, status === '업로드완료' ? `● ${shortDate(date) || '올라감'}` : status === '예약됨' ? `예약 ${shortDate(date)}` : status === '미업로드' ? '아직' : status));
+    if (https(row[key + 'Link'])) line.append(Object.assign(link('↗', row[key + 'Link'], 'ibtn'), { title: '게시물 열기' }));
+    // 「예약됨」 belongs to Buffer and the 10-minute result check; editing it by hand would stop that check.
+    if (status !== '예약됨') line.append(button(openRecord === key ? '닫기' : status === '업로드완료' ? '수정' : '기록', () => { openRecord = openRecord === key ? '' : key; renderSide(); }));
+    const nodes = [line];
+    const error = errorFor(row, key); if (status === '오류' && error) nodes.push(element('div', 'place-err', error));
+    if (openRecord === key) nodes.push(recordBox(row, key));
+    return nodes;
+  }
+  // v2.4.0: the date cell may carry a time — 「2026-11-10」 or 「2026-11-10 19:30」.
+  function recordBox(row, key) {
+    const box = element('div', 'record'); box.dataset.record = key;
+    const [day = '', hour = ''] = (row[key + 'Date'] || '').split(' ');
+    const date = Object.assign(document.createElement('input'), { type: 'date', value: day }); date.setAttribute('aria-label', '올린 날');
+    const time = Object.assign(document.createElement('input'), { type: 'time', value: hour }); time.setAttribute('aria-label', '올린 시간');
+    const url = Object.assign(document.createElement('input'), { type: 'url', value: row[key + 'Link'] || '', placeholder: '게시물 링크 https://', maxLength: 2000 });
+    for (const input of [date, time, url]) input.onkeydown = event => { if (event.key === 'Enter') event.preventDefault(); };
+    const two = element('div', 'two'); two.append(date, time);
+    const left = element('span'); left.style.cssText = 'display:flex;gap:6px';
+    left.append(button('보류', () => saveRecord(key, '보류', '', '')));
+    if ((row[key + 'Status'] || '미업로드') !== '미업로드') left.append(button('지우기', () => { if (confirm('이 기록의 업로드 여부·날짜·링크를 지울까요?')) saveRecord(key, '미업로드', '', ''); }));
+    const actions = element('div', 'acts'); actions.append(left, button('올림으로 기록', () => {
+      const post = url.value.trim(); if (post && !https(post)) { alert('게시물 링크는 https 주소로 넣어주세요.'); return; }
+      // Both boxes empty → now. A date without a time stays a date.
+      const now = new Date(); let when = date.value; let at = time.value;
+      if (!when) { when = now.toLocaleDateString('sv-SE'); if (!at) at = now.toTimeString().slice(0, 5); }
+      saveRecord(key, '업로드완료', when + (at ? ' ' + at : ''), post);
+    }, 'btn sm white'));
+    box.append(two, url, actions); return box;
+  }
+  function saveRecord(key, status, when, post) {
+    if (dirty) { alert('고친 글을 먼저 「저장」해 주세요. 그다음 기록을 남길 수 있어요.'); return; }
+    void task(async () => {
+      await save({ [key + 'Status']: status, [key + 'Date']: when, [key + 'Link']: post }, '업로드 기록을 저장했어요.');
+      current = rows.find(row => row.id === current.id) || current; openRecord = ''; renderSide();
+    });
   }
   function closeDetail() { if (!dirty || confirm('고친 내용을 저장하지 않고 닫을까요?')) { dirty = false; $('detailDialog').close(); } }
-  $('detailForm').oninput = () => { dirty = true; };
-  $('detailClose').onclick = closeDetail;
+  $('detailForm').oninput = event => { if (event.target.closest('[data-record]')) return; dirty = true; if (event.target.id === 'd-youtubeTitle') titleCount(); };
+  $('detailClose').onclick = $('detailCancel').onclick = closeDetail;
   $('detailDialog').addEventListener('cancel', event => { event.preventDefault(); closeDetail(); });
   $('detailForm').onsubmit = event => {
     event.preventDefault();
@@ -136,56 +287,17 @@
     void task(async () => { await save(changes, '저장했어요.'); dirty = false; $('detailDialog').close(); });
   };
   $('detailDelete').onclick = () => {
-    if (!confirm(`「${current.productName}」${current.format ? ' ' + current.format : ''}을(를) 지울까요?\n운영대장에서 이 줄이 삭제됩니다. 실수로 지웠다면 시트의 버전 기록에서 되살릴 수 있어요.`)) return;
+    if (!confirm(`「${current.productName}」을(를) 지울까요?\n운영대장에서 이 줄이 삭제됩니다. 실수로 지웠다면 시트의 버전 기록에서 되살릴 수 있어요.`)) return;
     void task(async () => { await HikaryApi.request('delete', { id: current.id, revision: current.revision }); dirty = false; $('detailDialog').close(); await load(); notice('지웠어요.'); });
   };
+  $('sidePublish').onclick = () => { if (dirty) { alert('고친 글을 먼저 「저장」해 주세요. 게시는 운영대장 글 그대로 올라가요.'); return; } openPublish(current); };
   for (const node of document.querySelectorAll('[data-copy]')) node.onclick = async () => {
-    const label = node.dataset.label ||= node.textContent;
-    try { await navigator.clipboard.writeText($(node.dataset.copy).value); node.textContent = '복사됨 ✓'; setTimeout(() => { node.textContent = label; }, 1500); }
+    const text = node.dataset.label ||= node.textContent;
+    try { await navigator.clipboard.writeText($(node.dataset.copy).value); node.textContent = node.classList.contains('ibtn') ? '✓' : '복사됨 ✓'; setTimeout(() => { node.textContent = text; }, 1500); }
     catch { alert('복사하지 못했어요. 글을 직접 선택해 복사해주세요.'); }
   };
 
-  const platform = () => document.querySelector('[name=platform]:checked').value;
-  // v2.4.0: the date cell may carry a time — 「2026-11-10」 or 「2026-11-10 19:30」.
-  function fillUpload() {
-    const key = platform(); const [date = '', time = ''] = (current[key + 'Date'] || '').split(' ');
-    $('uploadStatus').value = current[key + 'Status'] || '미업로드'; $('uploadDate').value = date; $('uploadTime').value = time; $('uploadLink').value = current[key + 'Link'] || '';
-    // v2.5.0: the post text for this place sits above its record. Reels and carousel share the Instagram text.
-    for (const node of $('uploadDialog').querySelectorAll('[data-show]')) node.hidden = !node.dataset.show.split(' ').includes(key);
-    $('uploadNoPost').hidden = !!current[{ youtube: 'youtube', tiktok: 'tiktok' }[key] || 'instagram'];
-    const error = errorFor(current, key); $('uploadError').hidden = !error; $('uploadError').textContent = error && `게시 오류: ${error}`;
-    const post = current[key + 'Link']; $('uploadOpen').hidden = !https(post); $('uploadOpen').href = https(post) ? post : '#';
-  }
-  function openUpload(row, key) {
-    current = row; $('uploadTarget').textContent = `${row.productName}${row.inpockNo ? ' · No.' + row.inpockNo : ''}`;
-    [$('u-youtubeTitle').value, $('u-youtubeBody').value] = splitYoutube(row.youtube);
-    for (const name of ['instagram', 'kittyKeyword', 'kittyDm', 'tiktok']) $('u-' + name).value = row[name] || '';
-    // Open on the chip that was clicked, else on the first place not uploaded yet.
-    const first = key || (PLATFORMS.find(([name]) => row[name + 'Status'] !== '업로드완료') || PLATFORMS[0])[0];
-    for (const radio of document.getElementsByName('platform')) {
-      radio.checked = radio.value === first;
-      radio.nextElementSibling.className = STATE[row[radio.value + 'Status']] || '';
-    }
-    fillUpload(); $('uploadDialog').showModal(); $('uploadDialog').querySelector('.dialog-body').scrollTop = 0;
-  }
-  for (const radio of document.getElementsByName('platform')) radio.onchange = fillUpload;
-  $('uploadClose').onclick = () => $('uploadDialog').close();
-  $('uploadForm').onsubmit = event => {
-    event.preventDefault();
-    const key = platform(); const link = $('uploadLink').value.trim(); const status = link ? '업로드완료' : $('uploadStatus').value;
-    // Uploaded with both boxes empty → now. A time without a date → today. A date without a time stays a date.
-    const now = new Date(); let date = $('uploadDate').value, time = $('uploadTime').value;
-    if (!date && (time || status === '업로드완료')) { date = now.toLocaleDateString('sv-SE'); if (!time && status === '업로드완료') time = now.toTimeString().slice(0, 5); }
-    const when = date ? date + (time ? ' ' + time : '') : '';
-    void task(async () => { await save({ [key + 'Status']: status, [key + 'Date']: when, [key + 'Link']: link }, '업로드 기록을 저장했어요.'); $('uploadDialog').close(); });
-  };
-  $('uploadClear').onclick = () => {
-    const key = platform();
-    if (!confirm('이 기록의 업로드 여부·날짜·링크를 지울까요?')) return;
-    void task(async () => { await save({ [key + 'Status']: '미업로드', [key + 'Date']: '', [key + 'Link']: '' }, '업로드 기록을 지웠어요.'); $('uploadDialog').close(); });
-  };
-
-  // v2.8.0 「게시」: pick a time and the places, type the publish code (never kept), and the server schedules each place in Buffer.
+  // ── v2.8.0 「게시」: pick a time and the places, type the publish code (never kept), and the server schedules each place in Buffer.
   const PLACE_NOTES = { youtube: '제목·설명은 운영대장 글 그대로', instagram: '피드에도 공유 · 커버는 3초 장면', tiktok: '커버는 3초 장면' };
   const monthDay = date => `${date.getMonth() + 1}월 ${date.getDate()}일`;
   function countPlaces() {
@@ -194,7 +306,7 @@
     $('publishSubmit').disabled = !count || !current.videoUrl;
   }
   function openPublish(row) {
-    current = row; $('publishTarget').textContent = `${row.productName}${row.inpockNo ? ' · No.' + row.inpockNo : ''}`;
+    current = row; $('publishTarget').textContent = label(row);
     $('publishNo').textContent = row.inpockNo ? `No.${row.inpockNo}` : '이 상품 번호';
     const video = $('publishVideo');
     if (row.videoUrl) {
@@ -204,12 +316,12 @@
     // Default: the next full hour at least 30 minutes away.
     const at = new Date(Date.now() + 90 * 60000); at.setMinutes(0, 0, 0);
     $('publishDate').value = at.toLocaleDateString('sv-SE'); $('publishTime').value = at.toTimeString().slice(0, 5); $('publishCode').value = '';
-    $('publishPlaces').replaceChildren(...PUBLISH.map(([key, label]) => {
+    $('publishPlaces').replaceChildren(...PUBLISH.map(([key, name]) => {
       const status = row[key + 'Status'] || '미업로드'; const when = row[key + 'Date'] || '';
       const place = element('label', 'place'); const box = document.createElement('input'); box.type = 'checkbox'; box.value = key;
       box.checked = ['미업로드', '오류'].includes(status); box.disabled = ['업로드완료', '예약됨'].includes(status); box.onchange = countPlaces;
-      const note = { 업로드완료: `올라감 ${when}`, 예약됨: `예약됨 ${when}`, 오류: `지난번 오류 — 다시 걸기`, 보류: '보류해 둔 곳' }[status] || PLACE_NOTES[key];
-      place.classList.toggle('off', box.disabled); place.append(box, element('span', '', label), element('small', '', note)); return place;
+      const note = { 업로드완료: `올라감 ${when}`, 예약됨: `예약됨 ${when}`, 오류: '지난번 오류 — 다시 걸기', 보류: '보류해 둔 곳' }[status] || PLACE_NOTES[key];
+      place.classList.toggle('off', box.disabled); place.append(box, element('span', '', name), element('small', '', note)); return place;
     }), Object.assign(element('div', 'place off'), { textContent: '인스타 캐러셀' }));
     $('publishPlaces').lastChild.append(element('small', '', '아직 직접 올려요'));
     countPlaces(); $('publishDialog').showModal(); $('publishDialog').querySelector('.dialog-body').scrollTop = 0;
@@ -224,9 +336,11 @@
     void task(async () => {
       const result = await HikaryApi.request('publish', { id: current.id, revision: current.revision, dueAt: due.toISOString(), platforms, code });
       $('publishCode').value = ''; $('publishDialog').close(); await load();
-      const label = key => PUBLISH.find(([name]) => name === key)[1];
-      const ok = platforms.filter(key => result.results[key]?.ok).map(label); const failed = platforms.filter(key => !result.results[key]?.ok);
-      notice([ok.length ? `${ok.join('·')} 예약했어요 (${$('publishDate').value} ${$('publishTime').value}).` : '', ...failed.map(key => `${label(key)}: ${result.results[key]?.error || '예약하지 못했어요.'}`)].filter(Boolean).join('\n'), failed.length > 0);
+      if ($('detailDialog').open) { current = rows.find(row => row.id === current.id) || current; renderSide(); }
+      const name = key => PUBLISH.find(([place]) => place === key)[1];
+      const ok = platforms.filter(key => result.results[key]?.ok).map(name); const failed = platforms.filter(key => !result.results[key]?.ok);
+      const text = [ok.length ? `${ok.join('·')} 예약했어요 (${$('publishDate').value} ${$('publishTime').value}).` : '', ...failed.map(key => `${name(key)}: ${result.results[key]?.error || '예약하지 못했어요.'}`)].filter(Boolean).join('\n');
+      if ($('detailDialog').open) alert(text); else notice(text, failed.length > 0);
     }).then(() => { // task() re-enables every control; places already up or scheduled stay locked
       if (!$('publishDialog').open) return;
       for (const box of $('publishPlaces').querySelectorAll('input')) box.disabled = box.closest('.place').classList.contains('off');
@@ -234,7 +348,7 @@
     });
   };
 
-  // v2.1.0 product finder. Lists load only on a click: every real Coupang call spends from one hourly budget shared by all visitors.
+  // ── 소재 찾기 (v2.1.0 finder). Lists load only on a click: every real Coupang call spends from one hourly budget.
   let coupang = { configured: false, usage: null, categories: [] };
   const hhmm = iso => new Date(iso).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
   function showQuota() {
@@ -245,7 +359,7 @@
     }
     $('quotaLeft').textContent = `${usage.remaining} / ${usage.limit}`;
     $('quotaBar').style.width = `${usage.remaining / usage.limit * 100}%`; $('quotaBar').classList.toggle('low', usage.remaining <= 5);
-    $('quotaHint').textContent = `쿠팡은 한 시간에 30번 이상 부르면 키가 24시간 멈춰서 ${usage.limit}번까지만 불러요. 불러온 목록은 6시간 동안 저장해 두고, 다시 볼 때는 횟수를 쓰지 않아요.`
+    $('quotaHint').textContent = `쿠팡은 한 시간에 30번 넘게 부르면 키가 멈춰서 ${usage.limit}번까지만 불러요. 불러온 목록은 6시간 저장해 두고 다시 써요.`
       + (usage.nextAt ? ` 다음 1회는 ${hhmm(usage.nextAt)}에 돌아와요.` : '');
   }
   function useStatus(status) {
@@ -256,7 +370,7 @@
     for (const [id, name] of coupang.categories) group.append(new Option(name, 'best:' + id));
     $('finderSource').append(group); $('finderSource').value = 'best:1025';
   }
-  function productCard(product, label) {
+  function productCard(product, from) {
     const card = element('article', 'pick-card'); const image = element('div', 'pick-image'); const body = element('div', 'pick-body'); const actions = element('div', 'pick-actions');
     if (/^(https:|data:image\/)/.test(product.productImage)) { const img = document.createElement('img'); img.src = product.productImage; img.alt = ''; img.loading = 'lazy'; image.append(img); }
     const price = element('p', 'price', product.productPrice ? `${product.productPrice.toLocaleString('ko-KR')}원` : '');
@@ -264,12 +378,12 @@
     // Open the plain product page, not the partners link: our own click on it would count as self-referral traffic.
     const page = `https://www.coupang.com/vp/products/${product.productId}`;
     const copy = button('Claude용 글 복사', async () => {
-      try { await navigator.clipboard.writeText(`이 상품으로 만들어줘\n상품명: ${product.productName}\n상품 페이지: ${page}\n파트너스 링크: ${product.productUrl}\n(HIKARY 상품 찾기 · ${label})`); copy.textContent = '복사됨 ✓'; setTimeout(() => { copy.textContent = 'Claude용 글 복사'; }, 1500); }
+      try { await navigator.clipboard.writeText(`이 상품으로 만들어줘\n상품명: ${product.productName}\n상품 페이지: ${page}\n파트너스 링크: ${product.productUrl}\n(HIKARY 소재 찾기 · ${from})`); copy.textContent = '복사됨 ✓'; setTimeout(() => { copy.textContent = 'Claude용 글 복사'; }, 1500); }
       catch { alert('복사하지 못했어요. 상품 페이지 주소를 직접 복사해주세요.'); }
-    }, 'small');
-    copy.className = 'ghost small';
-    const asked = button('루미한테 요청하기', () => void ask({ productName: product.productName, sourceUrl: page, affiliateUrl: product.productUrl, from: `상품 찾기 · ${label}` }), 'small');
-    actions.append(link('상품 페이지 ↗', page, 'ghost small'), copy, asked);
+    });
+    const asked = button('루미한테 요청하기', async () => { if (await ask({ productName: product.productName, sourceUrl: page, affiliateUrl: product.productUrl, from: `소재 찾기 · ${from}` })) { asked.textContent = '요청함 ✓'; asked.disabled = true; } }, 'btn sm primary');
+    if (requests.some(item => item.sourceUrl === page && item.status !== '완료')) { asked.textContent = '요청함 ✓'; asked.disabled = true; }
+    actions.append(link('상품 페이지 ↗', page, 'btn sm'), copy, asked);
     body.append(element('h3', '', product.productName), price, actions); card.append(image, body); return card;
   }
   async function findProducts(payload) {
@@ -280,7 +394,7 @@
     coupang.usage = result.usage; showQuota();
     $('finderMeta').textContent = `${result.label} · ${result.products.length}개 · ${hhmm(result.fetchedAt)}에 받아 온 목록${result.fromCache ? ' (저장된 목록이라 횟수를 쓰지 않았어요)' : ''} · 가격은 바뀔 수 있어요`;
     $('finderResults').replaceChildren(...result.products.map(product => productCard(product, result.label)));
-    if (!result.products.length) { const empty = element('div', 'empty'); empty.append(element('strong', '', '상품이 없어요.'), element('span', '', '다른 카테고리나 검색어로 찾아보세요.')); $('finderResults').append(empty); }
+    if (!result.products.length) $('finderResults').append(emptyBox('상품이 없어요.', '다른 카테고리나 검색어로 찾아보세요.'));
     notice('');
   }
   // v2.7.0: a pasted Coupang address → the owner's Partners link (server `link`: 1 API call, the same address is kept 6 hours).
@@ -288,79 +402,68 @@
   $('linkForm').onsubmit = event => { event.preventDefault(); void task(async () => {
     let result;
     try { result = await HikaryApi.request('link', { url: $('linkUrl').value.trim() }); }
-    catch (error) { void HikaryApi.request('status').then(useStatus).catch(() => {}); throw error; } // a refused call may still have counted
+    catch (error) { void HikaryApi.request('status').then(useStatus).catch(() => {}); throw error; }
     coupang.usage = result.usage; showQuota(); made = result;
     $('linkOut').value = result.shortenUrl; $('linkPage').href = result.url; $('linkName').value = '';
     $('linkHint').textContent = result.fromCache ? '저장된 링크라 API 횟수를 쓰지 않았어요.' : 'API를 1번 썼어요. 같은 주소는 6시간 동안 다시 쓰지 않아요.';
-    $('linkResult').hidden = false; notice('');
+    $('linkResult').hidden = false; $('linkAsk').textContent = '루미한테 요청하기'; notice('');
   }); };
   $('linkClaude').onclick = async () => {
     const name = $('linkName').value.trim();
-    try { await navigator.clipboard.writeText(`이 상품으로 만들어줘\n${name ? `상품명: ${name}\n` : ''}상품 페이지: ${made.url}\n파트너스 링크: ${made.shortenUrl}\n(HIKARY 상품 찾기 · 주소로 만들기)`); $('linkClaude').textContent = '복사됨 ✓'; setTimeout(() => { $('linkClaude').textContent = 'Claude용 글 복사'; }, 1500); }
+    try { await navigator.clipboard.writeText(`이 상품으로 만들어줘\n${name ? `상품명: ${name}\n` : ''}상품 페이지: ${made.url}\n파트너스 링크: ${made.shortenUrl}\n(HIKARY 소재 찾기 · 주소로 만들기)`); $('linkClaude').textContent = '복사됨 ✓'; setTimeout(() => { $('linkClaude').textContent = 'Claude용 글 복사'; }, 1500); }
     catch { notice('복사하지 못했어요. 파트너스 링크 칸에서 직접 복사해주세요.', true); }
   };
-  $('linkAsk').onclick = () => void ask({ productName: $('linkName').value.trim(), sourceUrl: made.url, affiliateUrl: made.shortenUrl, from: '주소로 만들기' });
-
+  $('linkAsk').onclick = async () => { if (await ask({ productName: $('linkName').value.trim(), sourceUrl: made.url, affiliateUrl: made.shortenUrl, from: '주소로 만들기' })) $('linkAsk').textContent = '요청함 ✓'; };
   // v2.7.0: 「루미한테 요청하기」 leaves the product in the sheet tab 「요청」 (server 2.5.0). The page cannot wake a Claude chat,
-  // so the owner tells Claude 「요청 확인해줘」 and it reads them with tools/register.mjs requests.
+  // so the owner tells Claude 「요청 확인해줘」 and it reads them with tools/register.mjs requests. They show on top of 「콘텐츠」.
   async function ask(payload) {
+    let sent = false;
     await task(async () => {
       const result = await HikaryApi.request('request', { id: crypto.randomUUID(), ...payload });
-      await loadRequests();
-      notice(result.duplicate ? '이미 보낸 요청이에요. Claude에서 루미한테 「요청 확인해줘」라고 해 주세요.' : '루미한테 보냈어요. Claude에서 「요청 확인해줘」라고 하면 바로 시작해요.');
+      await loadRequests(); sent = true;
+      notice(result.duplicate ? '이미 보낸 요청이에요. Claude에서 루미한테 「요청 확인해줘」라고 해 주세요.' : '루미한테 보냈어요. 「콘텐츠」 맨 위에 보이고, Claude에서 「요청 확인해줘」라고 하면 시작해요.');
     });
+    return sent;
   }
-  async function loadRequests() { renderRequests((await HikaryApi.request('requests')).requests); }
-  function renderRequests(list) {
-    const shown = [...list.filter(item => item.status !== '완료'), ...list.filter(item => item.status === '완료').slice(0, 3)];
-    $('requestBox').hidden = !shown.length;
-    $('requestList').replaceChildren(...shown.map(item => {
-      const line = element('div', 'request-line');
-      // v2.7.2: the name opens the plain Coupang page; the Partners link is shown as text to copy, never as a link we would click ourselves.
-      const main = element('div', 'request-main');
-      main.append(link(item.productName || item.sourceUrl.replace(/^https:\/\//, '').split('?')[0], item.sourceUrl, 'request-name'));
-      if (item.affiliateUrl) {
-        const url = element('div', 'request-url'); const copy = button('복사', async () => {
-          try { await navigator.clipboard.writeText(item.affiliateUrl); copy.textContent = '복사됨 ✓'; setTimeout(() => { copy.textContent = '복사'; }, 1500); }
-          catch { notice('복사하지 못했어요. 링크를 직접 골라 복사해주세요.', true); }
-        }, 'ghost tiny');
-        url.append(element('code', '', item.affiliateUrl), copy); main.append(url);
-      }
-      line.append(element('span', `chip ${item.status === '완료' ? 'done' : item.status === '진행' ? 'doing' : ''}`, item.status), main, element('small', '', item.requestedAt));
-      if (item.status === '대기') line.append(button('지우기', () => void task(async () => { await HikaryApi.request('requestUpdate', { id: item.id, delete: true }); await loadRequests(); notice('요청을 지웠어요.'); })));
-      return line;
-    }));
-  }
-
   $('finderLoad').onclick = () => { const [source, categoryId] = $('finderSource').value.split(':'); void task(() => findProducts({ source, categoryId: Number(categoryId) || undefined })); };
   $('finderSearch').onsubmit = event => { event.preventDefault(); void task(() => findProducts({ source: 'search', keyword: $('finderKeyword').value.trim() })); };
 
-  function showView(view) {
-    $('ledgerView').hidden = view !== 'ledger'; $('finderView').hidden = view !== 'finder';
-    for (const node of $('views').children) node.classList.toggle('on', node.dataset.view === view);
-    history.replaceState(null, '', view === 'finder' ? '#finder' : location.pathname + location.search);
+  // ── frame: views by hash, ☰ (drawer on a phone, hide the menu on a wide screen), profile menu.
+  const VIEWS = ['dashboard', 'content', 'find'];
+  function go(next) {
+    view = VIEWS.includes(next) ? next : next === 'finder' ? 'find' : 'dashboard'; // #finder from v2 bookmarks
+    for (const name of VIEWS) $(name + 'View').hidden = name !== view;
+    for (const node of document.querySelectorAll('[data-view]')) node.classList.toggle('on', node.dataset.view === view);
+    if (location.hash !== '#' + view) history.replaceState(null, '', '#' + view);
+    closeDrawer();
+    if (view === 'find' && !busy && HikaryApi.hasSession()) HikaryApi.request('status').then(useStatus).catch(() => {}); // the hourly count frees up over time
   }
-  for (const node of $('views').children) node.onclick = () => {
-    showView(node.dataset.view);
-    if (node.dataset.view === 'finder' && !busy) { HikaryApi.request('status').then(useStatus).catch(() => {}); loadRequests().catch(() => {}); } // the hourly count frees up over time
+  window.addEventListener('hashchange', () => go(location.hash.slice(1)));
+  const narrow = () => matchMedia('(max-width:860px)').matches;
+  function closeDrawer() { document.body.classList.remove('drawer'); $('scrim').hidden = true; }
+  $('menuButton').onclick = () => {
+    if (!narrow()) { document.body.classList.toggle('noside'); return; }
+    const open = !document.body.classList.contains('drawer'); document.body.classList.toggle('drawer', open); $('scrim').hidden = !open;
   };
-  showView(location.hash === '#finder' ? 'finder' : 'ledger');
+  $('scrim').onclick = closeDrawer;
+  $('accountButton').onclick = () => { const open = $('accountMenu').hidden; $('accountMenu').hidden = !open; $('accountButton').setAttribute('aria-expanded', open); };
+  document.addEventListener('click', event => { if (!event.target.closest('.account')) { $('accountMenu').hidden = true; $('accountButton').setAttribute('aria-expanded', false); } });
+  document.addEventListener('keydown', event => { if (event.key === 'Escape') { $('accountMenu').hidden = true; closeDrawer(); } });
 
-  // v2.9.0 login (server 2.7.0). Every call needs the session, so without one the page shows only the login screen.
+  // ── v2.9.0 login (server 2.7.0). Every call needs the session, so without one the page shows only the login screen.
   function showLogin(message = '', error = true) {
     for (const dialog of document.querySelectorAll('dialog[open]')) dialog.close();
     $('accountMenu').hidden = true; notice('');
     $('loginMessage').hidden = !message; $('loginMessage').textContent = message; $('loginMessage').classList.toggle('info', !error);
     $('loginView').hidden = false; document.body.classList.add('locked');
-    setTimeout(() => $(($('loginId').value ? 'loginPassword' : 'loginId')).focus(), 0);
+    setTimeout(() => $($('loginId').value ? 'loginPassword' : 'loginId').focus(), 0);
   }
   // A request refused for the session (logged out elsewhere, 90 days unused) lands here from HikaryApi.
   window.addEventListener('hikary-login', () => { if ($('loginView').hidden) showLogin('로그인이 끝났어요. 다시 로그인해주세요.'); });
   async function start() {
     try { const status = await HikaryApi.request('status'); $('connectionState').textContent = `연결됨 · 서버 ${status.version}`; $('connectionState').classList.add('ok'); useStatus(status); }
     catch (error) { if (error.auth) return; $('connectionState').textContent = '서버 연결 실패'; throw error; }
-    await load(); notice('');
-    if (location.hash === '#finder') await loadRequests().catch(() => {});
+    await load(); await loadRequests().catch(() => {}); notice('');
   }
   $('loginForm').onsubmit = event => {
     event.preventDefault();
@@ -371,18 +474,17 @@
       await start();
     });
   };
-  $('accountButton').onclick = () => { const open = $('accountMenu').hidden; $('accountMenu').hidden = !open; $('accountButton').setAttribute('aria-expanded', open); };
-  document.addEventListener('click', event => { if (!event.target.closest('.account')) $('accountMenu').hidden = true; });
   function signOut(all) {
     $('accountMenu').hidden = true;
     if (all && !confirm('휴대폰·다른 PC에 남은 로그인도 모두 끝낼까요?')) return;
     void task(async () => {
       try { await HikaryApi.logout(all); }
-      finally { rows = []; render(); showLogin(all ? '모든 기기에서 로그아웃했어요.' : '로그아웃했어요.', false); }
+      finally { rows = []; requests = []; render(); showLogin(all ? '모든 기기에서 로그아웃했어요.' : '로그아웃했어요.', false); }
     });
   }
   $('logoutHere').onclick = () => signOut(false);
   $('logoutAll').onclick = () => signOut(true);
 
+  go(location.hash.slice(1));
   if (HikaryApi.hasSession()) void task(start); else showLogin();
 })();
