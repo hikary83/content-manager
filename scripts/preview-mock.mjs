@@ -83,6 +83,14 @@ function act({ action, payload, token }) {
     rows[at] = next; return { id: next.id, revision: next.revision, results: Object.fromEntries(payload.platforms.map(p => [p, { ok: true }])) };
   }
   if (action === 'products') return products(payload);
+  if (action === 'report') { // v3.2.0 mock: the same shape as the real Partners report (ctag = product number of the link)
+    const day = n => new Date(Date.now() - n * 864e5).toLocaleDateString('sv-SE').replaceAll('-', '');
+    return { startDate: day(29), endDate: day(0), fetchedAt: new Date().toISOString(), fromCache: true, usage: usage(), errors: {}, reports: {
+      clicks: [{ date: day(2), ctag: '30000011240405', click: 2 }, { date: day(1), ctag: '30000011240405', click: 1 }, { date: day(1), ctag: '1', click: 3 }, { date: day(12), ctag: '9267215146', click: 2 }],
+      orders: [{ date: day(1), ctag: '30000011240405', productId: 30000011240405, productName: '씨라이프 코엑스 아쿠아리움 입장권 (목업)', quantity: 2, gmv: 39800, commission: 1194 }, { date: day(12), ctag: '9267215146', productId: 9289426304, productName: '예전 링크로 산 다른 상품 (목업)', quantity: 1, gmv: 23000, commission: 690 }],
+      commission: [{ date: day(12), click: 2, order: 1, commission: 690, gmv: 23000 }, { date: day(2), click: 2, commission: 0 }, { date: day(1), click: 4, order: 1, commission: 1194, gmv: 39800 }]
+    } };
+  }
   if (action === 'list') return { entries: rows };
   const index = rows.findIndex(item => item.id === payload.id);
   if (action === 'save') {

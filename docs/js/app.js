@@ -28,6 +28,7 @@
   const lastPosted = row => PLATFORMS.filter(([key]) => row[key + 'Status'] === '업로드완료').map(([key]) => row[key + 'Date']).filter(Boolean).sort().at(-1) || '';
   let rows = [];
   let requests = [];
+  let report = null; // v3.2.0: Coupang Partners report (server `report`, kept 6 hours there)
   let busy = false;
   let filter = '전체';
   let view = 'dashboard';
@@ -112,7 +113,9 @@
     const actions = element('div', 'acts');
     if (openToPublish(row)) actions.append(button('게시', () => openPublish(row), 'btn sm primary'));
     actions.append(Object.assign(button('✎', () => openDetail(row), 'ibtn'), { title: '보기·수정', ariaLabel: '보기·수정' }));
-    tr.append(item, marks, whenCell(row), actions); return tr;
+    const stats = productStats(row);
+    const clicks = element('div', 'clicks', stats ? String(stats.clicks) : '—'); if (stats?.orders) clicks.append(element('small', '', `주문 ${stats.orders}`));
+    tr.append(item, marks, whenCell(row), clicks, actions); return tr;
   }
   // v2.7.2: the Partners link is shown as text to copy, never as a link we would click ourselves (self-referral).
   function requestRow(item) {
@@ -131,12 +134,12 @@
     }
     if (https(item.sourceUrl)) actions.append(link('상품 ↗', item.sourceUrl, 'btn sm'));
     if (item.status === '대기') actions.append(button('지우기', () => void task(async () => { await HikaryApi.request('requestUpdate', { id: item.id, delete: true }); await loadRequests(); notice('요청을 지웠어요.'); })));
-    tr.append(box, state, hint, actions); return tr;
+    tr.append(box, state, hint, element('div', 'clicks'), actions); return tr;
   }
   function setFilter(next) { filter = next; for (const node of $('filters').children) node.classList.toggle('on', node.dataset.filter === next); renderList(); }
   for (const node of $('filters').children) node.onclick = () => setFilter(node.dataset.filter);
   $('search').oninput = () => { if (view !== 'content') go('content'); if (mode !== 'list') setMode('list'); renderList(); };
-  $('refresh').onclick = () => void task(async () => { await load(); await loadRequests(); notice(`${rows.length}건을 불러왔어요.`); });
+  $('refresh').onclick = () => void task(async () => { await load(); await loadRequests(); await loadReport(); notice(`${rows.length}건을 불러왔어요.`); });
 
   // ── v3.1.0 캘린더 (주간 · 월간): posted and scheduled places by day. An empty day's 「＋」 opens 「게시」 for that day at 08:45.
   const DOW = ['월', '화', '수', '목', '금', '토', '일'];
@@ -258,8 +261,63 @@
   $('pickClose').onclick = () => $('pickDialog').close();
   $('pickForm').onsubmit = event => event.preventDefault();
 
-  // ── 대시보드: what the ledger already knows. Coupang numbers and views come in a later step.
+  // ── v3.2.0 쿠팡 실적: the Partners report covers the whole account (links made before HIKARY too).
+  // Clicks and orders carry `ctag` = the product number of the link, so a ledger row is matched by the number in its address.
+  const productId = row => (/\/products\/(\d+)/.exec(row.sourceUrl || '') || [])[1] || '';
+  const won = value => `${Math.round(value).toLocaleString('ko-KR')}원`;
+  const reportDay = value => new Date(`${value.slice(0, 4)}-${value.slice(4, 6)}-${value.slice(6, 8)}T00:00`);
+  function productStats(row) {
+    const id = productId(row); if (!id || !report?.reports) return null;
+    const clicks = (report.reports.clicks || []).filter(item => String(item.ctag) === id).reduce((sum, item) => sum + (Number(item.click) || 0), 0);
+    const orders = (report.reports.orders || []).filter(item => String(item.ctag) === id);
+    return { clicks, orders: orders.length, commission: orders.reduce((sum, item) => sum + (Number(item.commission) || 0), 0) };
+  }
+  async function loadReport() {
+    try { report = await HikaryApi.request('report', { days: 30 }); if (report.usage) { coupang.usage = report.usage; showQuota(); } }
+    catch (error) { if (error.auth) return; report = { error: error.message }; }
+    renderDashboard(); renderList();
+  }
+  function renderCoupang() {
+    const note = $('coupangNote');
+    if (!report || report.error) {
+      for (const id of ['coupangTotals', 'coupangBars', 'coupangAxis']) $(id).replaceChildren();
+      note.textContent = report ? report.error : '불러오는 중…';
+      $('productClicks').replaceChildren(); $('recentOrders').replaceChildren(); return;
+    }
+    // Daily totals come from the commission report (click · order · commission per day); days without a row are zero.
+    const byDay = new Map((report.reports.commission || []).map(item => [String(item.date), item]));
+    const days = []; for (let day = reportDay(report.startDate); dayKey(day).replaceAll('-', '') <= report.endDate; day = addDays(day, 1)) days.push(dayKey(day).replaceAll('-', ''));
+    const total = key => [...byDay.values()].reduce((sum, item) => sum + (Number(item[key]) || 0), 0);
+    const box = (value, name, accent) => { const node = element('div', accent ? 'accent' : ''); node.append(element('b', '', value), element('span', '', name)); return node; };
+    $('coupangTotals').replaceChildren(box(String(total('click')), '클릭'), box(String(total('order')), '주문'), box(Math.round(total('commission')).toLocaleString('ko-KR'), '수익 (원)', true));
+    const most = Math.max(1, ...days.map(day => Number(byDay.get(day)?.click) || 0));
+    $('coupangBars').replaceChildren(...days.map(day => {
+      const item = byDay.get(day) || {}; const click = Number(item.click) || 0; const order = Number(item.order) || 0;
+      const bar = element('i', order ? 'hi' : ''); bar.style.height = `${Math.max(2, click / most * 100)}%`;
+      bar.title = `${day.slice(4, 6)}.${day.slice(6, 8)} 클릭 ${click}${order ? ` · 주문 ${order} · ${won(Number(item.commission) || 0)}` : ''}`; return bar;
+    }));
+    const tick = day => `${day.slice(4, 6)}.${day.slice(6, 8)}`;
+    $('coupangAxis').replaceChildren(element('span', '', tick(days[0])), element('span', '', tick(days[Math.floor(days.length / 2)])), element('span', '', tick(days.at(-1))));
+    const failed = Object.keys(report.errors || {});
+    note.textContent = `${hhmm(report.fetchedAt)}에 받아 온 숫자예요 · 주황 막대는 주문이 있던 날 · 쿠팡 숫자는 하루쯤 늦게 들어와요${failed.length ? ` · ${failed.join('·')} 리포트를 받지 못했어요` : ''}`;
+    // HIKARY products by clicks, then the latest orders of the whole account.
+    const products = rows.map(row => ({ row, stats: productStats(row) })).filter(item => item.stats).sort((a, b) => b.stats.clicks - a.stats.clicks || b.row.createdAt.localeCompare(a.row.createdAt));
+    $('productClicks').replaceChildren(...(products.length ? products.map(({ row, stats }) => {
+      const line = element('div', 'trow'); line.style.cursor = 'pointer'; line.onclick = () => openDetail(row);
+      line.append(thumb(row), element('span', '', label(row)), element('b', 'num', `클릭 ${stats.clicks}${stats.orders ? ` · 주문 ${stats.orders} · ${won(stats.commission)}` : ''}`)); return line;
+    }) : [emptyBox('상품 주소에서 번호를 찾지 못했어요')]));
+    const ids = new Set(rows.map(productId).filter(Boolean));
+    const orders = [...(report.reports.orders || [])].sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, 5);
+    $('recentOrders').replaceChildren(...(orders.length ? orders.map(item => {
+      const line = element('div', 'trow'); const text = element('span', 'order-name', String(item.productName || '상품'));
+      if (ids.has(String(item.ctag))) text.prepend(element('span', 'chip done', 'HIKARY'));
+      line.append(element('b', '', tick(String(item.date))), text, element('b', 'num', won(Number(item.commission) || 0))); return line;
+    }) : [emptyBox('최근 30일 주문이 없어요')]));
+  }
+
+  // ── 대시보드: the ledger plus the Coupang report. Post views come later (Buffer metrics were still 0 on 2026-11-11).
   function renderDashboard() {
+    renderCoupang();
     $('statContents').textContent = new Set(rows.map(row => row.sourceUrl || row.productName)).size;
     $('statPosted').textContent = rows.reduce((sum, row) => sum + posted(row), 0);
     const week = rows.reduce((sum, row) => sum + recent(row), 0); $('statWeek').textContent = week ? `+${week}` : '0';
@@ -586,6 +644,7 @@
     try { const status = await HikaryApi.request('status'); $('connectionState').textContent = `연결됨 · 서버 ${status.version}`; $('connectionState').classList.add('ok'); useStatus(status); }
     catch (error) { if (error.auth) return; $('connectionState').textContent = '서버 연결 실패'; throw error; }
     await load(); await loadRequests().catch(() => {}); notice('');
+    void loadReport(); // fills the Coupang cards when it comes back; the page does not wait for it
   }
   $('loginForm').onsubmit = event => {
     event.preventDefault();

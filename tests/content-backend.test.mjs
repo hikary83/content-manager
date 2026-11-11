@@ -404,3 +404,23 @@ test('v2.7.0 로그아웃은 그 세션만, 모든 기기 로그아웃은 전부
   env.props.set('SESSIONS', JSON.stringify(sessions)); assert.equal(call('list', {}, d).auth, true);
   assert.match(call('logout', {}, TOOL).error, /브라우저/, '도구 키로는 로그아웃할 수 없다');
 });
+
+// v2.8.0 Partners reports for the dashboard (Coupang.js)
+test('v2.8.0 쿠팡 리포트는 클릭·주문·수익을 서명해 부르고, 하나가 실패해도 나머지를 주며, 6시간 저장해 다시 쓴다', () => {
+  const env = runtime(); env.props.set('COUPANG_ACCESS_KEY', 'access-example'); env.props.set('COUPANG_SECRET_KEY', 'secret-example');
+  const sent = [];
+  env.context.UrlFetchApp.fetch = (url, options) => {
+    sent.push({ url, options });
+    if (url.includes('/reports/orders')) return { getResponseCode: () => 200, getContentText: () => JSON.stringify({ rCode: '1', rMessage: 'no permission' }) };
+    return { getResponseCode: () => 200, getContentText: () => JSON.stringify({ rCode: '0', data: [{ date: '20261111', click: 3 }] }) };
+  };
+  const call = payload => JSON.parse(env.context.doPost({ postData: { contents: JSON.stringify({ action: 'report', payload }) } }).text);
+  const first = call({ days: 30 });
+  assert.equal(first.ok, true); assert.equal(sent.length, 3);
+  assert.deepEqual(sent.map(item => item.url.split('?')[0].split('/').pop()), ['clicks', 'orders', 'commission']);
+  for (const item of sent) { assert.match(item.url, /\/reports\/\w+\?startDate=[\d-]+&endDate=[\d-]+$/); assert.match(item.options.headers.Authorization, /^CEA algorithm=HmacSHA256, access-key=access-example/); assert.equal(item.options.method, 'get'); }
+  assert.deepEqual(first.data.reports.clicks, [{ date: '20261111', click: 3 }]); assert.equal(first.data.reports.orders, undefined);
+  assert.match(first.data.errors.orders, /요청을 받지 않았어요/); assert.equal(first.data.usage.remaining, 17);
+  const again = call({ days: 30 }); assert.equal(again.data.fromCache, true); assert.equal(sent.length, 3, '6시간 안에는 다시 부르지 않는다');
+  assert.equal(JSON.parse(runtime().context.doPost({ postData: { contents: JSON.stringify({ action: 'report', payload: {} }) } }).text).ok, false, '키가 없으면 거절');
+});

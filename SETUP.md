@@ -1,4 +1,4 @@
-# HIKARY 콘텐츠 관리 v3.1.0
+# HIKARY 콘텐츠 관리 v3.2.0
 
 2026-11-06 · GitHub Pages + Google Apps Script + Google Sheets. 콘텐츠는 Claude에서 만든다.
 
@@ -14,6 +14,13 @@
 - `app/`, `worker/`, `db/` 등은 이전 Sites/React 코드입니다. Pages 배포에는 포함하지 않습니다. 백업 태그: `legacy-chatgpt-sites-2026-08-11`.
 
 ## 최초 연결
+
+### v3.2.0 쿠팡 실적 (2026-11-11, 서버 2.8.0)
+
+- 서버 `report`(`backend/Coupang.js`): 쿠팡 파트너스 리포트 `reports/clicks` · `reports/orders` · `reports/commission`을 최근 30일(`startDate`·`endDate` = yyyyMMdd, 서울 날짜)로 부릅니다. 한 시간 20번 한도에서 3번을 쓰고 6시간 저장해 다시 씁니다. 하나가 실패해도 나머지는 돌려주고(`errors`), 줄은 쿠팡이 준 그대로 300줄까지.
+- 실제로 받은 칸 (2026-11-11): 클릭 `date · trackingCode · subId · addtag · ctag · click`, 주문 `date · orderId · productId · productName · quantity · gmv · commissionRate · commission · categoryName · ctag …`, 수익 `date · click · order · commission · gmv`(날짜별 합계). **`ctag`가 링크의 상품 번호**라서 운영대장 상품(원본 링크의 `/products/번호`)과 맞춥니다. `addtag`(460·411·400) 뜻은 확인 필요. 리포트는 파트너스 계정 전체(HIKARY 전에 만든 링크 포함)이고, 그날 숫자는 하루쯤 늦게 들어옵니다.
+- 대시보드: **쿠팡 실적**(클릭 · 주문 · 수익(원), 30일 날짜별 클릭 막대 — 주문 있는 날은 주황) · **상품별 클릭**(HIKARY 상품마다 클릭 · 주문 · 수익) · **최근 주문**(계정 전체 5건, HIKARY 상품이면 꼬리표). 콘텐츠 목록에 「쿠팡 클릭」 칸.
+- 게시물 조회수(Buffer 성과)는 아직 0이나 빈 값만 와서 넣지 않았습니다 — 다시 확인한 뒤 넣습니다.
 
 ### v3.1.0 캘린더 (2026-11-11, 화면만)
 

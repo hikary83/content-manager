@@ -87,6 +87,32 @@ function findProducts_(payload) {
   return result;
 }
 
+// v2.8.0 (2026-11-11): Partners reports for the dashboard — clicks, orders and commission over the last days (30 at most).
+// Three calls from the hourly budget; the answer is kept 6 hours. One report failing does not stop the others.
+// The rows go back as Coupang sends them (first 300) until the dashboard is shaped on the real fields.
+var COUPANG_REPORTS = ['clicks', 'orders', 'commission'];
+function coupangReport_(payload) {
+  if (!coupangConfigured_()) throw userError_('쿠팡 파트너스 API 키가 없어요. 스크립트 속성에 COUPANG_ACCESS_KEY·COUPANG_SECRET_KEY를 넣어주세요.');
+  var days = Math.min(30, Math.max(1, Math.floor(Number(payload.days) || 30)));
+  var day = function(date) { return Utilities.formatDate(date, 'Asia/Seoul', 'yyyyMMdd'); };
+  var endDate = day(new Date()); var startDate = day(new Date(Date.now() - (days - 1) * 864e5));
+  var query = 'startDate=' + startDate + '&endDate=' + endDate;
+  var cache = CacheService.getScriptCache(); var key = 'coupang:' + hash_('reports?' + query);
+  var saved = cache.get(key);
+  if (saved) { var hit = JSON.parse(saved); hit.fromCache = true; hit.usage = coupangUsage_(); return hit; }
+  var result = { startDate: startDate, endDate: endDate, fetchedAt: new Date().toISOString(), reports: {}, errors: {} };
+  COUPANG_REPORTS.forEach(function(name) {
+    try {
+      var data = coupangCall_(COUPANG_ROOT + '/reports/' + name, query);
+      var rows = Array.isArray(data) ? data : data && Array.isArray(data.data) ? data.data : data ? [data] : [];
+      result.reports[name] = rows.slice(0, 300);
+    } catch (error) { result.errors[name] = error && error.userSafe ? error.message : '이 리포트를 받지 못했어요.'; }
+  });
+  if (Object.keys(result.reports).length) { try { cache.put(key, JSON.stringify(result), COUPANG_CACHE_SECONDS); } catch (error) { /* too big to keep: show it anyway */ } }
+  result.fromCache = false; result.usage = coupangUsage_();
+  return result;
+}
+
 // v2.2.0: turn a plain Coupang page address into the owner's Partners link (deeplink API). Same address → saved answer for 6 hours.
 function coupangLink_(payload) {
   var url = typeof payload.url === 'string' ? payload.url.trim() : '';

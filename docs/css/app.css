@@ -126,7 +126,7 @@ h1 .right{margin-left:auto;display:flex;gap:8px}
 .prow a.ibtn{width:26px;height:26px;font-size:12px;text-decoration:none}
 .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .stats div{background:var(--raise);border-radius:10px;padding:10px 12px}
-.stats b{display:block;font-size:24px;font-weight:800;letter-spacing:-.5px}
+.stats b{display:block;font-size:24px;font-weight:800;letter-spacing:-.5px;white-space:nowrap}
 .stats span{font-size:12px;color:var(--muted)}
 .stats .accent b{color:var(--accent)}
 .soon{opacity:.7}
@@ -148,7 +148,7 @@ h1 .right{margin-left:auto;display:flex;gap:8px}
 .legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;background:#555}
 .legend i.ok{background:var(--ok)}.legend i.sched{background:var(--accent)}.legend i.err{background:var(--err)}
 .table{border-top:1px solid var(--line)}
-.tr{display:grid;grid-template-columns:minmax(0,2.4fr) 140px minmax(0,1.2fr) 150px;align-items:center;gap:14px;padding:11px 8px;border-bottom:1px solid var(--line)}
+.tr{display:grid;grid-template-columns:minmax(0,2.4fr) 140px minmax(0,1.1fr) 76px 150px;align-items:center;gap:14px;padding:11px 8px;border-bottom:1px solid var(--line)}
 .tr.th{font-size:12px;color:var(--muted);font-weight:600;padding:9px 8px}
 .tr.row{cursor:pointer;border-radius:8px}
 .tr.row:hover{background:var(--hover)}
@@ -267,6 +267,19 @@ body.locked{overflow:hidden}
 .login-message{margin:0;font-size:13px;color:#ff5c4d;text-align:center}
 .login-message.info{color:#aaa}
 .login-foot{margin:0;font-size:12px;color:#717171}
+
+/* v3.2.0 쿠팡 실적 */
+.bars{display:flex;align-items:flex-end;gap:3px;height:72px;margin-top:14px;padding:0 2px;border-bottom:1px solid var(--line2)}
+.bars i{flex:1;min-width:0;background:#3a3a3a;border-radius:3px 3px 0 0}
+.bars i.hi{background:var(--accent)}
+.axis{display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-top:4px}
+.axis:empty{display:none}
+.trow .num{margin-left:auto;font-size:12.5px;white-space:nowrap}
+.trow .thumb{width:48px;height:27px;font-size:10px}
+.order-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
+.order-name .chip{margin-right:6px;padding:0 6px;font-size:10px}
+.clicks{font-size:14px;font-weight:700;text-align:right}
+.clicks small{display:block;font-size:11px;color:var(--accent);font-weight:600}
 
 /* v3.1.0 캘린더 (주간 · 월간) */
 .seg{display:inline-flex;background:#222;border-radius:999px;padding:3px}
@@ -390,6 +403,7 @@ body.locked{overflow:hidden}
   .tr>.item{grid-area:item}.tr>.pfs{grid-area:pfs;padding-left:84px}.tr>.when{grid-area:when;text-align:right}.tr>.acts{grid-area:acts}
   .thumb{width:72px;height:40px}
   .tr .acts .btn.primary{display:none} /* 휴대폰: 「게시」는 ✎ 창 오른쪽 칸에서 */
+  .tr>.clicks{display:none}
   .tr.req{grid-template-areas:"item item" "pfs acts"}
   .tr.req>.when{display:none}
   .tr.req>.pfs{padding-left:0}
