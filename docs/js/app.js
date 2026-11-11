@@ -2,6 +2,7 @@
   'use strict';
   // v3.0.0 (2026-11-11): dark YouTube-Studio layout — 대시보드 · 콘텐츠 · 소재 찾기, 바로가기 icons, profile menu.
   // The 「올리기」 dialog is merged into the ✎ detail window (right panel: thumbnail, links, places with an inline record).
+  // v3.4.2: 「링크 만들기」 fills 「상품 이름」 from the product page when it can (travel pages; www pages block servers).
   // v3.4.1: a toast after a request, a waiting request reopens the window to change it, thumbnails are covers.
   // v3.4.0: 「루미한테 요청하기」 opens a window (template from templates.js, Instagram format, a word to Lumi). A product goes to
   //   Instagram once — as a reel or as a carousel (server 2.10.0 「인스타 형식」) — so lists show three places, not four.
@@ -703,7 +704,18 @@
     $('linkOut').value = result.shortenUrl; $('linkPage').href = result.url; $('linkName').value = '';
     $('linkHint').textContent = result.fromCache ? '저장된 링크라 API 횟수를 쓰지 않았어요.' : 'API를 1번 썼어요. 같은 주소는 6시간 동안 다시 쓰지 않아요.';
     $('linkResult').hidden = false; $('linkAsk').textContent = '루미한테 요청하기'; notice('');
+    fillName(result);
   }); };
+  // v3.4.2: the name from the page itself (server `analyze`: no Partners API call, a few seconds). The link shows at once and this
+  // fills in behind it; a blocked page (www.coupang.com) just leaves the field for typing. Never over what the owner typed.
+  function fillName(result) {
+    const field = $('linkName'); const placeholder = field.placeholder; field.placeholder = '상품 이름 읽는 중…';
+    HikaryApi.request('analyze', { url: result.url }).then(data => {
+      if (made !== result || !data.name) return;
+      if (!field.value.trim()) field.value = data.name;
+      if ($('askDialog').open && asking && !asking.item && asking.payload.sourceUrl === result.url && !$('askName').value.trim()) $('askName').value = data.name;
+    }).catch(() => {}).finally(() => { field.placeholder = placeholder; });
+  }
   $('linkClaude').onclick = async () => {
     const name = $('linkName').value.trim();
     try { await navigator.clipboard.writeText(`이 상품으로 만들어줘\n${name ? `상품명: ${name}\n` : ''}상품 페이지: ${made.url}\n파트너스 링크: ${made.shortenUrl}\n(HIKARY 소재 찾기 · 주소로 만들기)`); $('linkClaude').textContent = '복사됨 ✓'; setTimeout(() => { $('linkClaude').textContent = 'Claude용 글 복사'; }, 1500); }

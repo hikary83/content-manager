@@ -57,6 +57,10 @@ function act({ action, payload, token }) {
   if (token !== MOCK_SESSION) throw Object.assign(new Error('로그인이 필요해요.'), { auth: true });
   if (action === 'logout') return { loggedOut: true, all: !!payload.all };
   if (action === 'link') return makeLink(payload);
+  if (action === 'analyze') { // v3.4.2 mock: travel pages give their name after a moment, www pages are blocked like the real site
+    if (!/^https:\/\/trip\.coupang\.com\//.test(payload.url || '')) throw new Error('상품 사이트에서 자동 수집을 차단했거나 페이지를 읽을 수 없어요. 설명과 캡처를 직접 추가해주세요.');
+    return new Promise(resolve => setTimeout(() => resolve({ name: '[와우 회원 10% 할인] 가평 남이섬 비바펜션 (목업)', description: '', images: [], sourceUrl: payload.url, extraction: 'coupang-travel-data' }), 1500));
+  }
   if (action === 'requests') return { requests: [...requests].reverse() };
   if (action === 'request') {
     const same = requests.find(item => item.id === payload.id || (item.sourceUrl === payload.sourceUrl && item.status !== '완료'));
@@ -118,7 +122,7 @@ createServer(async (request, response) => {
   try {
     if (request.url === '/mock-api') {
       let text = ''; for await (const part of request) text += part;
-      let result; try { result = { ok: true, data: act(JSON.parse(text)) }; } catch (error) { result = { ok: false, error: error.message, auth: !!error.auth }; }
+      let result; try { result = { ok: true, data: await act(JSON.parse(text)) }; } catch (error) { result = { ok: false, error: error.message, auth: !!error.auth }; }
       await new Promise(r => setTimeout(r, 250));
       response.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify(result)); return;
     }
