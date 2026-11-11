@@ -33,7 +33,7 @@ label>input,label>select,label>textarea{margin-top:6px;font-weight:400;color:var
 
 /* frame */
 .app{display:grid;grid-template-columns:232px minmax(0,1fr);grid-template-rows:56px 1fr;min-height:100vh}
-body.noside .app{grid-template-columns:0 minmax(0,1fr)}
+body.noside .app{grid-template-columns:minmax(0,1fr)}
 body.noside .side{display:none}
 .top{grid-column:1/-1;position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:16px;padding:0 18px;background:var(--bg);border-bottom:1px solid var(--line)}
 .burger{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;flex:none}
@@ -117,15 +117,19 @@ h1 .right{margin-left:auto;display:flex;gap:8px}
 .chip.doing{border-color:var(--accent);color:var(--accent)}
 
 /* dashboard */
-.dash{display:grid;grid-template-columns:1.05fr 1fr 1fr;gap:18px;align-items:start}
-.dash .col{display:grid;gap:18px}
+/* minmax(0,…): a long order name or the hero must not widen its column — the three keep 1.05 : 1 : 1 with the menu open or closed */
+.dash{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:start}
+.dash .col{display:grid;grid-template-columns:minmax(0,1fr);gap:18px}
 .latest-img{width:100%;aspect-ratio:16/9;object-fit:cover;object-position:center 40%;border-radius:10px;display:block;background:#2a2a2a}
-.latest-hero{position:relative;height:300px;border-radius:10px;overflow:hidden;background:#000;cursor:pointer}
+.latest-hero{position:relative;aspect-ratio:16/9;border-radius:10px;overflow:hidden;background:#000;cursor:pointer}
 .latest-hero .bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:blur(22px) brightness(.55);transform:scale(1.25)}
 .latest-hero .fg{position:relative;display:block;height:100%;aspect-ratio:9/16;object-fit:cover;margin:0 auto;box-shadow:0 0 24px rgba(0,0,0,.5)}
 .latest-hero .over{position:absolute;left:0;right:0;bottom:0;margin:0;padding:36px 14px 12px;font-weight:700;font-size:14px;background:linear-gradient(transparent,rgba(0,0,0,.85));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .latest-hero+.latest-meta{margin-top:10px}
-.latest-acts{display:flex;gap:8px;margin-top:12px}
+.cover-dl{position:absolute;top:10px;right:10px;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:rgba(0,0,0,.55);color:#fff;border:1px solid rgba(255,255,255,.25)}
+.cover-dl:hover{background:rgba(0,0,0,.8)}
+.cover-dl svg{width:18px;height:18px}
+.latest-img{cursor:pointer}
 .latest-title{font-weight:700;margin:12px 0 0}
 .latest-meta{color:var(--muted);font-size:12.5px;margin:2px 0 8px}
 .prow{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line);font-size:13.5px}
@@ -389,7 +393,7 @@ body.locked{overflow:hidden}
 .tabsbar{display:none}
 .scrim{position:fixed;inset:0;z-index:35;background:rgba(0,0,0,.55)}
 @media(max-width:1100px){
-  .dash{grid-template-columns:1fr 1fr}
+  .dash{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
   .dash .col:first-child{grid-row:span 2}
   .detail-body{grid-template-columns:minmax(0,1fr) 280px}
 }
@@ -404,7 +408,7 @@ body.locked{overflow:hidden}
   .tabsbar a i{font-style:normal;font-size:18px}
   .tabsbar a.on{color:var(--ink);font-weight:700}
   .tabsbar a.on i{color:var(--accent)}
-  .dash{grid-template-columns:1fr}
+  .dash{grid-template-columns:minmax(0,1fr)}
   .dash .col:first-child{grid-row:auto}
   .tools,.src{grid-template-columns:1fr}
   .detail-body{display:block;overflow:auto} /* one column: the text, then the side panel */
@@ -416,6 +420,7 @@ body.locked{overflow:hidden}
   .ver,.conn{display:none}
   .search{height:36px;padding:0 12px}
   h1{font-size:22px}
+  .latest-hero{aspect-ratio:4/3}
   .legend{display:none}
   .tr.th{display:none}
   .tr{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"item acts" "pfs when";gap:6px 10px}

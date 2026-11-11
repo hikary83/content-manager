@@ -2,6 +2,7 @@
   'use strict';
   // v3.0.0 (2026-11-11): dark YouTube-Studio layout — 대시보드 · 콘텐츠 · 소재 찾기, 바로가기 icons, profile menu.
   // The 「올리기」 dialog is merged into the ✎ detail window (right panel: thumbnail, links, places with an inline record).
+  // v3.3.1: clicking the latest post opens ✎ (no 보기·수정 button); the cover downloads from the icon on its top right.
   // v3.3.0: the latest post shows its cover (server 2.9.0 「커버 이미지」), real platform marks, dashboard lists turn pages.
   // Before: v2.0.0 ledger web · v2.1.0 product finder · v2.2.0 one row per product · v2.8.0 「게시」 through Buffer · v2.9.0 login.
   const $ = id => document.getElementById(id);
@@ -372,12 +373,14 @@
       // Studio card: the vertical cover on a blurred copy of itself, the title over it. Rows from before covers show the inpock image.
       const nodes = []; const cover = coverUrl(latest.coverUrl); const src = imageUrl(latest.inpockImage);
       if (cover) {
-        const hero = element('div', 'latest-hero'); hero.onclick = () => openDetail(latest);
+        const hero = element('div', 'latest-hero'); hero.onclick = event => { if (!event.target.closest('a')) openDetail(latest); };
         const back = element('img', 'bg'); back.src = coverSmall(cover); back.alt = '';
         const front = element('img', 'fg'); front.src = coverSmall(cover); front.alt = '커버';
-        hero.append(back, front, element('p', 'over', label(latest))); nodes.push(hero);
+        const file = element('a', 'cover-dl'); file.href = coverFile(cover, latest); file.download = ''; file.title = '커버 저장'; file.setAttribute('aria-label', '커버 저장');
+        file.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m-5-5 5 5 5-5M5 20h14"/></svg>';
+        hero.append(back, front, element('p', 'over', label(latest)), file); nodes.push(hero);
       } else {
-        if (src) { const img = element('img', 'latest-img'); img.src = src; img.alt = ''; nodes.push(img); }
+        if (src) { const img = element('img', 'latest-img'); img.src = src; img.alt = ''; img.onclick = () => openDetail(latest); nodes.push(img); }
         nodes.push(element('p', 'latest-title', label(latest)));
       }
       nodes.push(element('p', 'latest-meta', `${shortDate(lastPosted(latest))} 게시 · ${latest.category}`));
@@ -387,9 +390,6 @@
         if (https(latest[key + 'Link'])) line.append(Object.assign(link('↗', latest[key + 'Link'], 'ibtn'), { title: '게시물 열기' }));
         nodes.push(line);
       }
-      const acts = element('div', 'latest-acts'); acts.append(button('보기·수정', () => openDetail(latest)));
-      if (cover) { const file = element('a', 'btn sm', '커버 저장'); file.href = coverFile(cover, latest); file.download = ''; acts.append(file); }
-      nodes.push(acts);
       $('latest').replaceChildren(...nodes);
     }
     paged('todo', todoItems());
