@@ -72,7 +72,7 @@
   async function loadRequests() { requests = (await HikaryApi.request('requests')).requests; render(); }
   const openRequests = () => requests.filter(item => item.status !== '완료');
   function render() {
-    renderList(); renderDashboard();
+    renderList(); renderDashboard(); renderCalendar();
     const waiting = requests.filter(item => item.status === '대기').length;
     $('requestCount').hidden = !waiting; $('requestCount').textContent = waiting;
   }
@@ -135,8 +135,128 @@
   }
   function setFilter(next) { filter = next; for (const node of $('filters').children) node.classList.toggle('on', node.dataset.filter === next); renderList(); }
   for (const node of $('filters').children) node.onclick = () => setFilter(node.dataset.filter);
-  $('search').oninput = () => { if (view !== 'content') go('content'); renderList(); };
+  $('search').oninput = () => { if (view !== 'content') go('content'); if (mode !== 'list') setMode('list'); renderList(); };
   $('refresh').onclick = () => void task(async () => { await load(); await loadRequests(); notice(`${rows.length}건을 불러왔어요.`); });
+
+  // ── v3.1.0 캘린더 (주간 · 월간): posted and scheduled places by day. An empty day's 「＋」 opens 「게시」 for that day at 08:45.
+  const DOW = ['월', '화', '수', '목', '금', '토', '일'];
+  const STATE_WORD = { done: '올라감', sched: '예약됨', err: '오류' };
+  const dayKey = date => date.toLocaleDateString('sv-SE');
+  const today = () => dayKey(new Date());
+  const addDays = (date, n) => { const day = new Date(date); day.setDate(day.getDate() + n); return day; };
+  const startOfWeek = date => { const day = new Date(date); day.setHours(0, 0, 0, 0); return addDays(day, -((day.getDay() + 6) % 7)); };
+  let mode = 'list';
+  try { if (localStorage.getItem('hikary-content-mode') === 'calendar') mode = 'calendar'; } catch {} // remembered per browser
+  let calView = 'week';
+  let anchor = new Date();
+  let selectedDay = today();
+  // One event per product per day: the places with a date there (up, scheduled or failed), the earliest time and the strongest state.
+  function events() {
+    const byDay = new Map();
+    for (const row of rows) for (const [key] of PLATFORMS) {
+      const status = row[key + 'Status']; const at = row[key + 'Date'];
+      if (!at || !['업로드완료', '예약됨', '오류'].includes(status)) continue;
+      const day = at.slice(0, 10); const time = at.slice(11, 16); const id = row.id + day;
+      if (!byDay.has(id)) byDay.set(id, { row, day, time, keys: [] });
+      const event = byDay.get(id); event.keys.push(key); if (time && (!event.time || time < event.time)) event.time = time;
+    }
+    return [...byDay.values()].map(event => ({ ...event, state: event.keys.some(key => event.row[key + 'Status'] === '예약됨') ? 'sched' : event.keys.some(key => event.row[key + 'Status'] === '오류') ? 'err' : 'done' }))
+      .sort((a, b) => (a.time || '99').localeCompare(b.time || '99'));
+  }
+  const eventsOn = (list, day) => list.filter(event => event.day === day);
+  function eventCard(event) {
+    const card = button('', () => openDetail(event.row), `ev ${event.state}`);
+    const top = element('span', 'ev-top'); top.append(thumb(event.row), element('b', '', label(event.row)));
+    const marks = element('span', 'pfs'); for (const key of event.keys) marks.append(placeIcon(event.row, key, PLATFORMS.find(([name]) => name === key)[1]));
+    card.append(element('span', 't', `${event.time || '—'} · ${STATE_WORD[event.state]}`), top, marks); return card;
+  }
+  function renderSlots() { // Buffer free plan: 10 waiting posts per channel — show the fullest one
+    const used = Math.max(0, ...PUBLISH.map(([key]) => rows.filter(row => row[key + 'Status'] === '예약됨').length));
+    const meter = element('span', 'meter'); const fill = element('i'); fill.style.width = `${Math.min(used, 10) * 10}%`; fill.classList.toggle('low', used >= 8); meter.append(fill);
+    $('calSlots').replaceChildren(element('span', '', 'Buffer 예약 칸'), meter, element('b', '', `${used} / 10`));
+  }
+  function renderWeek(list) {
+    const start = startOfWeek(anchor); const end = addDays(start, 6);
+    $('calRange').textContent = `${start.getMonth() + 1}월 ${start.getDate()}일 – ${end.getMonth() !== start.getMonth() ? `${end.getMonth() + 1}월 ` : ''}${end.getDate()}일`;
+    $('weekGrid').replaceChildren(...DOW.map((name, i) => {
+      const date = addDays(start, i); const day = dayKey(date); const items = eventsOn(list, day);
+      const column = element('div', `day${day < today() ? ' past' : ''}${day === today() ? ' today' : ''}`);
+      const head = element('header'); head.append(element('span', '', name), element('b', '', String(date.getDate())));
+      const body = element('div', 'day-body'); body.append(...items.map(eventCard));
+      if (!items.length && day >= today()) body.append(button('＋ 비어 있음', () => openPick(day), 'add'));
+      column.append(head, body); return column;
+    }));
+  }
+  function renderMonth(list) {
+    const first = new Date(anchor.getFullYear(), anchor.getMonth(), 1); const start = startOfWeek(first);
+    $('calRange').textContent = `${first.getFullYear()}년 ${first.getMonth() + 1}월`;
+    const cells = [];
+    for (let i = 0; i < 42; i++) {
+      const date = addDays(start, i); const day = dayKey(date); const inMonth = date.getMonth() === first.getMonth();
+      if (i % 7 === 0 && i >= 28 && !inMonth) break; // no row that is all next month
+      const cell = button('', () => { selectedDay = day; renderCalendar(); }, `cell${inMonth ? '' : ' out'}${day < today() ? ' past' : ''}${day === today() ? ' today' : ''}${day === selectedDay ? ' sel' : ''}`);
+      cell.append(element('span', 'd', date.getDate() === 1 ? `${date.getMonth() + 1}.1` : String(date.getDate())));
+      const items = eventsOn(list, day);
+      for (const event of items.slice(0, 3)) { const mini = element('span', `mini ${event.state}`); mini.append(thumb(event.row), element('span', '', event.row.inpockNo ? `No.${event.row.inpockNo}` : event.row.productName), element('i')); cell.append(mini); }
+      if (items.length > 3) cell.append(element('span', 'more', `+${items.length - 3}`));
+      if (!items.length && inMonth && day >= today()) cell.append(element('span', 'plus', '＋'));
+      cells.push(cell);
+    }
+    $('monthGrid').replaceChildren(...cells);
+    // The chosen day, then this month in numbers.
+    const date = new Date(selectedDay + 'T00:00'); const items = eventsOn(list, selectedDay);
+    const dayCard = element('section', 'card'); const title = element('h2', '', `${date.getMonth() + 1}월 ${date.getDate()}일 (${DOW[(date.getDay() + 6) % 7]})`);
+    if (selectedDay === today()) title.append(element('small', '', '오늘'));
+    dayCard.append(title, ...items.map(eventCard));
+    if (!items.length) {
+      dayCard.append(emptyBox('이날은 비어 있어요'));
+      if (selectedDay >= today()) { const add = button('＋ 이날 게시하기', () => openPick(selectedDay), 'btn sm primary'); add.style.width = '100%'; dayCard.append(add); }
+    }
+    const month = dayKey(first).slice(0, 7); const inMonth = list.filter(event => event.day.startsWith(month));
+    const count = status => inMonth.reduce((sum, event) => sum + event.keys.filter(key => event.row[key + 'Status'] === status).length, 0);
+    const summary = element('section', 'card'); summary.append(element('h2', '', `${first.getMonth() + 1}월`));
+    const stats = element('div', 'stats four');
+    for (const [value, name] of [[new Set(inMonth.filter(event => event.keys.some(key => event.row[key + 'Status'] === '업로드완료')).map(event => event.row.id)).size, '올린 상품'], [count('업로드완료'), '올린 게시물'], [count('예약됨'), '예약'], [count('오류'), '오류']]) {
+      const box = element('div'); box.append(element('b', '', String(value)), element('span', '', name)); stats.append(box);
+    }
+    summary.append(stats); $('dayPanel').replaceChildren(dayCard, summary);
+  }
+  function renderCalendar() {
+    if (mode !== 'calendar') return;
+    const list = events(); renderSlots();
+    $('weekGrid').hidden = calView !== 'week'; $('monthWrap').hidden = calView !== 'month';
+    $('calWeek').classList.toggle('on', calView === 'week'); $('calMonth').classList.toggle('on', calView === 'month');
+    $('calToday').textContent = calView === 'week' ? '이번 주' : '이번 달';
+    if (calView === 'week') renderWeek(list); else renderMonth(list);
+  }
+  function setMode(next) {
+    mode = next; try { localStorage.setItem('hikary-content-mode', next); } catch {}
+    $('listBox').hidden = mode !== 'list'; $('calendarBox').hidden = mode !== 'calendar';
+    $('modeList').classList.toggle('on', mode === 'list'); $('modeCal').classList.toggle('on', mode === 'calendar');
+    renderCalendar();
+  }
+  $('modeList').onclick = () => setMode('list');
+  $('modeCal').onclick = () => setMode('calendar');
+  $('calWeek').onclick = () => { calView = 'week'; renderCalendar(); };
+  $('calMonth').onclick = () => { calView = 'month'; renderCalendar(); };
+  const shift = step => { anchor = calView === 'week' ? addDays(anchor, 7 * step) : new Date(anchor.getFullYear(), anchor.getMonth() + step, 1); renderCalendar(); };
+  $('calPrev').onclick = () => shift(-1);
+  $('calNext').onclick = () => shift(1);
+  $('calToday').onclick = () => { anchor = new Date(); selectedDay = today(); renderCalendar(); };
+  // 「＋」 on an empty day: pick something not yet published, then 「게시」 opens with that day at 08:45.
+  function openPick(day) {
+    const date = new Date(day + 'T00:00');
+    $('pickTitle').textContent = `${date.getMonth() + 1}월 ${date.getDate()}일에 올릴 콘텐츠`;
+    const choices = rows.filter(openToPublish);
+    $('pickList').replaceChildren(...(choices.length ? choices.map(row => {
+      const item = button('', () => { $('pickDialog').close(); openPublish(row, { date: day, time: '08:45' }); }, 'pick-item');
+      const text = element('span', 'pick-text'); text.append(element('b', '', label(row)), element('small', row.videoUrl ? 'ok' : 'none', row.videoUrl ? '영상 준비됨' : '영상 없음 — 루미에게 「영상 올려줘」'));
+      item.append(thumb(row), text); return item;
+    }) : [emptyBox('올릴 콘텐츠가 없어요', '모두 올렸거나 예약해 뒀어요.')]));
+    $('pickDialog').showModal();
+  }
+  $('pickClose').onclick = () => $('pickDialog').close();
+  $('pickForm').onsubmit = event => event.preventDefault();
 
   // ── 대시보드: what the ledger already knows. Coupang numbers and views come in a later step.
   function renderDashboard() {
@@ -305,7 +425,7 @@
     $('publishSubmit').textContent = count ? `${count}곳 예약하기` : '예약하기';
     $('publishSubmit').disabled = !count || !current.videoUrl;
   }
-  function openPublish(row) {
+  function openPublish(row, preset) {
     current = row; $('publishTarget').textContent = label(row);
     $('publishNo').textContent = row.inpockNo ? `No.${row.inpockNo}` : '이 상품 번호';
     const video = $('publishVideo');
@@ -313,9 +433,11 @@
       const until = new Date(new Date(row.videoDate.replace(' ', 'T')).getTime() + 30 * 864e5);
       video.className = 'video-box ok'; video.textContent = `영상 준비됨 · ${row.videoDate} 올림 · ${isNaN(until) ? '30일' : monthDay(until)}까지 보관 (그 전에 게시돼야 해요)`;
     } else { video.className = 'video-box none'; video.textContent = `게시할 영상이 아직 없어요. 루미에게 「No.${row.inpockNo || '○○○'} 영상 올려줘」라고 해 주세요.`; }
-    // Default: the next full hour at least 30 minutes away.
+    // Default: the next full hour at least 30 minutes away. From the calendar: that day at 08:45, unless that time has passed.
     const at = new Date(Date.now() + 90 * 60000); at.setMinutes(0, 0, 0);
-    $('publishDate').value = at.toLocaleDateString('sv-SE'); $('publishTime').value = at.toTimeString().slice(0, 5); $('publishCode').value = '';
+    const chosen = preset && new Date(`${preset.date}T${preset.time}`);
+    const usePreset = chosen && chosen > Date.now() + 2 * 60000;
+    $('publishDate').value = usePreset ? preset.date : at.toLocaleDateString('sv-SE'); $('publishTime').value = usePreset ? preset.time : at.toTimeString().slice(0, 5); $('publishCode').value = '';
     $('publishPlaces').replaceChildren(...PUBLISH.map(([key, name]) => {
       const status = row[key + 'Status'] || '미업로드'; const when = row[key + 'Date'] || '';
       const place = element('label', 'place'); const box = document.createElement('input'); box.type = 'checkbox'; box.value = key;
@@ -486,5 +608,6 @@
   $('logoutAll').onclick = () => signOut(true);
 
   go(location.hash.slice(1));
+  setMode(mode);
   if (HikaryApi.hasSession()) void task(start); else showLogin();
 })();
