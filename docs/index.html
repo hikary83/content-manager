@@ -1,20 +1,20 @@
 <!doctype html>
-<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0f0f0f"><title>HIKARY 콘텐츠 관리</title><link rel="icon" type="image/png" href="assets/favicon.png?v=3.3.1"><link rel="apple-touch-icon" href="assets/apple-touch-icon.png?v=3.3.1"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css"><link rel="stylesheet" href="css/app.css?v=3.3.1"></head>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0f0f0f"><title>HIKARY 콘텐츠 관리</title><link rel="icon" type="image/png" href="assets/favicon.png?v=3.3.2"><link rel="apple-touch-icon" href="assets/apple-touch-icon.png?v=3.3.2"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css"><link rel="stylesheet" href="css/app.css?v=3.3.2"></head>
 <body>
 <div class="app">
 <header class="top">
  <button id="menuButton" type="button" class="burger" aria-label="메뉴 열기·닫기"><i></i></button>
- <a class="brand" href="#dashboard"><img class="brand-word" src="assets/logo-word.png?v=3.3.1" alt="HIKARY"><span class="ver">v3.3.1</span></a>
+ <a class="brand" href="#dashboard"><img class="brand-word" src="assets/logo-word.png?v=3.3.2" alt="HIKARY"><span class="ver">v3.3.2</span></a>
  <label class="search"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="콘텐츠 검색 (상품명·카테고리·No.)" aria-label="콘텐츠 검색"></label>
  <div class="top-right"><span id="connectionState" class="conn">연결 확인 중…</span>
-  <div class="account"><button id="accountButton" type="button" class="avatar" aria-haspopup="true" aria-expanded="false" aria-label="계정 메뉴"><img src="assets/logo-mascot.png?v=3.3.1" alt=""></button>
-   <div id="accountMenu" class="account-menu" hidden><div class="who"><img src="assets/logo-mascot.png?v=3.3.1" alt=""><div><b>HIKARY</b><small>이 기기에서 로그인 중</small></div></div>
+  <div class="account"><button id="accountButton" type="button" class="avatar" aria-haspopup="true" aria-expanded="false" aria-label="계정 메뉴"><img src="assets/logo-mascot.png?v=3.3.2" alt=""></button>
+   <div id="accountMenu" class="account-menu" hidden><div class="who"><img src="assets/logo-mascot.png?v=3.3.2" alt=""><div><b>HIKARY</b><small>이 기기에서 로그인 중</small></div></div>
     <button id="logoutHere" type="button"><i>⎋</i>로그아웃</button><button id="logoutAll" type="button"><i>⊘</i>모든 기기에서 로그아웃</button><small class="sub">휴대폰·다른 PC에 남은 로그인도 끝내요</small></div></div>
  </div>
 </header>
 <aside id="side" class="side">
- <div class="me"><img src="assets/logo-mascot.png?v=3.3.1" alt=""><b>내 채널</b><small>HikaryVibe</small></div>
- <nav class="nav" aria-label="메뉴"><a href="#dashboard" data-view="dashboard"><i>▦</i>대시보드</a><a href="#content" data-view="content"><i>▶</i>콘텐츠</a><a href="#find" data-view="find"><i>◎</i>소재 찾기<span id="requestCount" class="count" hidden></span></a></nav>
+ <div class="me" title="내 채널 · HikaryVibe"><img src="assets/logo-mascot.png?v=3.3.2" alt=""><b>내 채널</b><small>HikaryVibe</small></div>
+ <nav class="nav" aria-label="메뉴"><a href="#dashboard" data-view="dashboard" title="대시보드"><i>▦</i><span class="lbl">대시보드</span></a><a href="#content" data-view="content" title="콘텐츠"><i>▶</i><span class="lbl">콘텐츠</span></a><a href="#find" data-view="find" title="소재 찾기"><i>◎</i><span class="lbl">소재 찾기</span><span id="requestCount" class="count" hidden></span></a></nav>
  <div class="shortcuts"><small>바로가기</small><div class="sc">
   <a class="s" href="https://docs.google.com/spreadsheets/d/1ZSB7FBZTWdT_eLlo3kpom-u2yM5UwHitG059Zci6TUc/edit" target="_blank" rel="noopener noreferrer" aria-label="운영대장 (새 창)"><span aria-hidden="true">▦</span><em>운영대장</em></a>
   <a class="s" href="https://www.coupang.com/" target="_blank" rel="noopener noreferrer" aria-label="쿠팡 (새 창)"><span aria-hidden="true">c</span><em>쿠팡</em></a>
@@ -34,7 +34,7 @@
   <div class="col"><section class="card"><h2>최신 게시물</h2><div id="latest"></div></section>
    <section class="card"><h2>최근 주문 <small>최근 30일 · 파트너스 계정 전체</small></h2><div id="recentOrders"></div></section></div>
   <div class="col">
-   <section class="card"><h2>쿠팡 실적 <small id="coupangRange">최근 30일 · 파트너스 계정 전체</small></h2><div id="coupangTotals" class="stats"></div><div id="coupangBars" class="bars" aria-label="날짜별 클릭"></div><div id="coupangAxis" class="axis"></div><p id="coupangNote" class="hint"></p></section>
+   <section class="card"><h2>쿠팡 실적 <small id="coupangRange">최근 30일 · 파트너스 계정 전체</small><small id="coupangUpdated" class="updated" title="쿠팡에서 받아 온 시각 · 쿠팡 숫자는 하루쯤 늦게 들어와요"></small></h2><div id="coupangTotals" class="stats"></div><div id="coupangBars" class="bars" aria-label="날짜별 클릭"></div><div id="coupangAxis" class="axis"></div><p id="coupangNote" class="hint"></p></section>
    <section class="card"><h2>상품별 클릭 <small>HIKARY 콘텐츠 · 최근 30일</small></h2><div id="productClicks"></div></section>
    <section class="card"><h2>요약</h2><div class="stats"><div><b id="statContents">–</b><span>만든 상품</span></div><div><b id="statPosted">–</b><span>올린 게시물</span></div><div class="accent"><b id="statWeek">–</b><span>최근 7일에 올림</span></div></div></section>
   </div>
@@ -146,11 +146,11 @@
 <div class="dialog-body"><p class="hint">아직 다 올리지 않은 콘텐츠예요. 고르면 그날 08:45로 「게시」 창이 열려요.</p><div id="pickList" class="pick-list"></div></div></form></dialog>
 
 <section id="loginView" class="login-view" hidden><form id="loginForm" class="login-card">
-<img class="login-mascot" src="assets/logo-mascot.png?v=3.3.1" alt=""><img class="login-word" src="assets/logo-word.png?v=3.3.1" alt="HIKARY"><p class="login-sub">콘텐츠 관리</p>
+<img class="login-mascot" src="assets/logo-mascot.png?v=3.3.2" alt=""><img class="login-word" src="assets/logo-word.png?v=3.3.2" alt="HIKARY"><p class="login-sub">콘텐츠 관리</p>
 <label class="login-field">아이디<input id="loginId" autocomplete="username" autocapitalize="off" spellcheck="false" required maxlength="100"></label>
 <label class="login-field">비밀번호<input id="loginPassword" type="password" autocomplete="current-password" required maxlength="200"></label>
 <label class="login-keep"><input id="loginKeep" type="checkbox" checked>이 기기에서 로그인 유지</label>
 <button id="loginSubmit" type="submit">로그인</button>
 <p id="loginMessage" class="login-message" role="alert" hidden></p>
 <p class="login-foot">5번 틀리면 1시간 동안 로그인을 막아요</p></form></section>
-<script src="js/config.js?v=3.3.1"></script><script src="js/app.js?v=3.3.1"></script></body></html>
+<script src="js/config.js?v=3.3.2"></script><script src="js/app.js?v=3.3.2"></script></body></html>

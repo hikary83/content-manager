@@ -327,7 +327,7 @@
     const note = $('coupangNote');
     if (!report || report.error) {
       for (const id of ['coupangTotals', 'coupangBars', 'coupangAxis']) $(id).replaceChildren();
-      note.textContent = report ? report.error : '불러오는 중…';
+      note.textContent = report ? report.error : '불러오는 중…'; note.hidden = false; $('coupangUpdated').textContent = '';
       paged('productClicks', []); paged('recentOrders', []); return;
     }
     // Daily totals come from the commission report (click · order · commission per day); days without a row are zero.
@@ -345,7 +345,8 @@
     const tick = day => `${day.slice(4, 6)}.${day.slice(6, 8)}`;
     $('coupangAxis').replaceChildren(element('span', '', tick(days[0])), element('span', '', tick(days[Math.floor(days.length / 2)])), element('span', '', tick(days.at(-1))));
     const failed = Object.keys(report.errors || {});
-    note.textContent = `${hhmm(report.fetchedAt)}에 받아 온 숫자예요 · 주황 막대는 주문이 있던 날 · 쿠팡 숫자는 하루쯤 늦게 들어와요${failed.length ? ` · ${failed.join('·')} 리포트를 받지 못했어요` : ''}`;
+    $('coupangUpdated').textContent = `${shortDate(new Date(report.fetchedAt).toLocaleString('sv-SE').slice(0, 16))} 기준`; // v3.3.2: only the time; the rest is in its tooltip
+    note.textContent = failed.length ? `${failed.join('·')} 리포트를 받지 못했어요` : ''; note.hidden = !failed.length;
     // HIKARY products by clicks, then the latest orders of the whole account.
     const products = rows.map(row => ({ row, stats: productStats(row) })).filter(item => item.stats).sort((a, b) => b.stats.clicks - a.stats.clicks || b.row.createdAt.localeCompare(a.row.createdAt));
     paged('productClicks', products.length ? products.map(({ row, stats }) => {

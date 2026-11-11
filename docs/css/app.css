@@ -33,8 +33,6 @@ label>input,label>select,label>textarea{margin-top:6px;font-weight:400;color:var
 
 /* frame */
 .app{display:grid;grid-template-columns:232px minmax(0,1fr);grid-template-rows:56px 1fr;min-height:100vh}
-body.noside .app{grid-template-columns:minmax(0,1fr)}
-body.noside .side{display:none}
 .top{grid-column:1/-1;position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:16px;padding:0 18px;background:var(--bg);border-bottom:1px solid var(--line)}
 .burger{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;flex:none}
 .burger:hover{background:var(--hover)}
@@ -75,6 +73,20 @@ body.noside .side{display:none}
 .nav a.on{background:var(--hover);font-weight:700}
 .nav a.on i{color:var(--accent)}
 .count{margin-left:auto;font-size:11px;font-weight:700;color:#fff;background:var(--accent);border-radius:999px;padding:0 7px}
+/* v3.3.2 메뉴 접기 (넓은 화면): YouTube Studio처럼 아이콘만 남는 72px 줄. 이름은 title·바로가기 말풍선으로 */
+@media(min-width:861px){
+  body.noside .app{grid-template-columns:72px minmax(0,1fr)}
+  body.noside .side{padding:12px 8px;overflow:visible;z-index:25}
+  body.noside .me{padding:2px 0 12px}
+  body.noside .me img{width:36px;height:36px;padding:3px;margin:0}
+  body.noside .me b,body.noside .me small,body.noside .shortcuts small{display:none}
+  body.noside .nav a{position:relative;justify-content:center;padding:12px 0}
+  body.noside .nav .lbl{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+  body.noside .count{position:absolute;top:4px;right:6px;padding:0 5px;font-size:10px}
+  body.noside .shortcuts{padding:12px 0 0;justify-items:center}
+  body.noside .sc{grid-template-columns:24px}
+  body.noside .sc .s em{left:34px;bottom:auto;top:50%;transform:translateY(-50%)}
+}
 /* 바로가기: tone C — dark box, thin line, white glyph, label on hover, all open in a new tab */
 .shortcuts{margin-top:auto;border-top:1px solid var(--line);display:grid;gap:8px;padding:12px 8px 0}
 .shortcuts small{font-size:11px;color:var(--dim);font-weight:700}
@@ -93,6 +105,7 @@ h1 .right{margin-left:auto;display:flex;gap:8px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px}
 .card h2{display:flex;align-items:center;gap:8px;font-size:16px;margin:0 0 12px}
 .card h2 small{font-weight:400;color:var(--muted);font-size:12px}
+.card h2 .updated{margin-left:auto;color:var(--dim);white-space:nowrap}
 .empty{display:grid;gap:4px;text-align:center;padding:36px 16px;color:var(--muted);font-size:14px}
 .empty strong{color:var(--ink);font-size:15px}
 
@@ -401,7 +414,6 @@ body.locked{overflow:hidden}
   .app{grid-template-columns:minmax(0,1fr)}
   .side{position:fixed;top:56px;left:0;bottom:0;width:260px;height:auto;z-index:36;transform:translateX(-100%);transition:transform .2s}
   body.drawer .side{transform:none}
-  body.noside .side{display:flex}
   .main{padding-bottom:96px}
   .tabsbar{display:grid;grid-template-columns:repeat(3,1fr);position:fixed;left:0;right:0;bottom:0;z-index:30;border-top:1px solid var(--line);background:#121212;padding:6px 0 calc(10px + env(safe-area-inset-bottom))}
   .tabsbar a{display:grid;justify-items:center;gap:1px;font-size:11px;color:var(--muted);text-decoration:none}
