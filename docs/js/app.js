@@ -2,10 +2,19 @@
   'use strict';
   // v3.0.0 (2026-11-11): dark YouTube-Studio layout — 대시보드 · 콘텐츠 · 소재 찾기, 바로가기 icons, profile menu.
   // The 「올리기」 dialog is merged into the ✎ detail window (right panel: thumbnail, links, places with an inline record).
+  // v3.3.0: the latest post shows its cover (server 2.9.0 「커버 이미지」), real platform marks, dashboard lists turn pages.
   // Before: v2.0.0 ledger web · v2.1.0 product finder · v2.2.0 one row per product · v2.8.0 「게시」 through Buffer · v2.9.0 login.
   const $ = id => document.getElementById(id);
   const PLATFORMS = [['youtube', 'YouTube 쇼츠'], ['instagram', '인스타 릴스'], ['carousel', '인스타 캐러셀'], ['tiktok', 'TikTok']];
-  const MARK = { youtube: 'YT', instagram: 'IG', carousel: 'CR', tiktok: 'TT' };
+  // v3.3.0: real platform marks — a white glyph on the platform's own colour box (css .pf.<key>). The carousel is a stack on Instagram's box.
+  // TikTok: Simple Icons path (CC0), scaled into the box.
+  const GLYPH = {
+    youtube: '<path d="M9.4 7.2v9.6l8-4.8z"/>',
+    instagram: '<rect x="5" y="5" width="14" height="14" rx="4.2" fill="none" stroke="currentColor" stroke-width="2.1"/><circle cx="12" cy="12" r="3.3" fill="none" stroke="currentColor" stroke-width="2.1"/><circle cx="16.4" cy="7.6" r="1.1"/>',
+    carousel: '<rect x="4.5" y="7.5" width="11" height="12" rx="2.6" fill="none" stroke="currentColor" stroke-width="2.1"/><path d="M8.5 4.5h8.4a2.6 2.6 0 0 1 2.6 2.6v9.4" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/>',
+    tiktok: '<path transform="translate(4.6 4.5) scale(.62)" d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/>'
+  };
+  const svgMark = key => `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">${GLYPH[key]}</svg>`;
   // v2.8.0 「게시」 (server 2.6.0): the video places go through Buffer; the carousel stays manual.
   // ERROR_LABELS are the line prefixes the server writes into 「게시 오류」 (backend/Publish.js PUBLISH_LABELS).
   const PUBLISH = PLATFORMS.filter(([key]) => key !== 'carousel');
@@ -20,6 +29,11 @@
   const splitYoutube = text => { const match = /^제목:[ \t]*(.*)(?:\r?\n([\s\S]*))?$/.exec(text || ''); return match ? [match[1].trim(), (match[2] || '').trim()] : ['', (text || '').trim()]; };
   const joinYoutube = (title, body) => title ? `제목: ${title}${body ? '\n\n' + body : ''}` : body;
   const https = value => /^https:\/\//i.test(value || '');
+  // v3.3.0 (server 2.9.0): 「커버 이미지」 is the full-size cover on Cloudinary. The page asks Cloudinary for a small copy, or for the original as a download.
+  const coverUrl = value => /^https:\/\/res\.cloudinary\.com\/[a-z0-9_-]+\/image\/upload\/[A-Za-z0-9_/.,-]+$/.test(value || '') ? value : '';
+  const coverAt = (url, how) => url.replace('/image/upload/', `/image/upload/${how}/`);
+  const coverSmall = url => coverAt(url, 'w_360,q_auto,f_auto');
+  const coverFile = (url, row) => coverAt(url, `fl_attachment:${/^\d+$/.test(row.inpockNo || '') ? `No${row.inpockNo}_` : ''}cover`);
   const shortDate = value => (value || '').slice(5).replace('-', '.'); // 2026-11-11 08:45 → 11.11 08:45
   const posted = row => PLATFORMS.filter(([key]) => row[key + 'Status'] === '업로드완료').length;
   // 「보류」 is a place the owner chose to skip, so it counts as done for 「다 올림」.
@@ -59,15 +73,46 @@
   // One platform mark; the dot shows the state (green up, orange scheduled, red error, grey on hold, dim not yet).
   function placeIcon(row, key, name, onclick) {
     const status = row[key + 'Status'] || '미업로드'; const state = STATE[status];
-    const node = onclick ? button(MARK[key], onclick, `pf ${key}`) : element('span', `pf ${key}`, MARK[key]);
+    const node = onclick ? button('', onclick, `pf ${key}`) : element('span', `pf ${key}`); node.innerHTML = svgMark(key);
     if (state) node.dataset.state = state; else node.classList.add('none');
-    node.title = `${name} · ${status}${row[key + 'Date'] ? ' ' + row[key + 'Date'] : ''}`; return node;
+    node.title = `${name} · ${status}${row[key + 'Date'] ? ' ' + row[key + 'Date'] : ''}`; if (onclick) node.setAttribute('aria-label', node.title); return node;
   }
   function thumb(row) {
     const src = imageUrl(row.inpockImage);
     if (!src) return element('span', 'thumb', '—');
     const img = element('img', 'thumb'); img.src = src; img.alt = ''; img.loading = 'lazy'; return img;
   }
+
+  // v3.3.0: long dashboard lists turn pages (●○○, ‹ ›, swipe on a phone) instead of scrolling. Rows per page follow the screen.
+  const pages = {};
+  const perPage = () => matchMedia('(max-width:640px)').matches ? 3 : innerHeight >= 1000 ? 6 : innerHeight >= 820 ? 5 : 4;
+  function paged(id, nodes) { pages[id] = { nodes, page: pages[id]?.page || 0 }; $(id).style.minHeight = ''; showPage(id); }
+  function showPage(id, page = pages[id].page) {
+    const { nodes } = pages[id]; const size = perPage(); const count = Math.max(1, Math.ceil(nodes.length / size));
+    page = pages[id].page = Math.min(Math.max(0, page), count - 1);
+    const shown = nodes.slice(page * size, page * size + size);
+    if (count > 1) {
+      const nav = element('div', 'pager'); const dots = element('span', 'dots');
+      if (count <= 8) for (let index = 0; index < count; index++) dots.append(Object.assign(button('', () => flip(id, index - page), index === page ? 'dot on' : 'dot'), { ariaLabel: `${index + 1}쪽` }));
+      else dots.textContent = `${page + 1} / ${count}`;
+      nav.append(Object.assign(button('‹', () => flip(id, -1), 'ibtn'), { disabled: page === 0, ariaLabel: '앞 쪽' }), dots, Object.assign(button('›', () => flip(id, 1), 'ibtn'), { disabled: page === count - 1, ariaLabel: '다음 쪽' }));
+      shown.push(nav);
+    }
+    $(id).replaceChildren(...shown);
+  }
+  // Keep the tallest page's height so the cards below do not jump while turning.
+  function flip(id, step) { const box = $(id); box.style.minHeight = `${Math.max(box.offsetHeight, parseFloat(box.style.minHeight) || 0)}px`; showPage(id, pages[id].page + step); }
+  for (const id of ['recentOrders', 'productClicks', 'todo', 'upcoming']) {
+    const box = $(id); let start = null; box.classList.add('paged');
+    box.addEventListener('touchstart', event => { start = event.touches[0]; }, { passive: true });
+    box.addEventListener('touchend', event => {
+      const end = event.changedTouches[0]; const dx = start ? end.clientX - start.clientX : 0;
+      if (start && Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(end.clientY - start.clientY) && pages[id]) flip(id, dx < 0 ? 1 : -1);
+      start = null;
+    });
+  }
+  let pageSize = perPage();
+  addEventListener('resize', () => { if (perPage() === pageSize) return; pageSize = perPage(); for (const id in pages) { $(id).style.minHeight = ''; showPage(id); } });
 
   async function load() { rows = (await HikaryApi.request('list')).entries; render(); }
   async function loadRequests() { requests = (await HikaryApi.request('requests')).requests; render(); }
@@ -282,7 +327,7 @@
     if (!report || report.error) {
       for (const id of ['coupangTotals', 'coupangBars', 'coupangAxis']) $(id).replaceChildren();
       note.textContent = report ? report.error : '불러오는 중…';
-      $('productClicks').replaceChildren(); $('recentOrders').replaceChildren(); return;
+      paged('productClicks', []); paged('recentOrders', []); return;
     }
     // Daily totals come from the commission report (click · order · commission per day); days without a row are zero.
     const byDay = new Map((report.reports.commission || []).map(item => [String(item.date), item]));
@@ -302,17 +347,17 @@
     note.textContent = `${hhmm(report.fetchedAt)}에 받아 온 숫자예요 · 주황 막대는 주문이 있던 날 · 쿠팡 숫자는 하루쯤 늦게 들어와요${failed.length ? ` · ${failed.join('·')} 리포트를 받지 못했어요` : ''}`;
     // HIKARY products by clicks, then the latest orders of the whole account.
     const products = rows.map(row => ({ row, stats: productStats(row) })).filter(item => item.stats).sort((a, b) => b.stats.clicks - a.stats.clicks || b.row.createdAt.localeCompare(a.row.createdAt));
-    $('productClicks').replaceChildren(...(products.length ? products.map(({ row, stats }) => {
+    paged('productClicks', products.length ? products.map(({ row, stats }) => {
       const line = element('div', 'trow'); line.style.cursor = 'pointer'; line.onclick = () => openDetail(row);
       line.append(thumb(row), element('span', '', label(row)), element('b', 'num', `클릭 ${stats.clicks}${stats.orders ? ` · 주문 ${stats.orders} · ${won(stats.commission)}` : ''}`)); return line;
-    }) : [emptyBox('상품 주소에서 번호를 찾지 못했어요')]));
+    }) : [emptyBox('상품 주소에서 번호를 찾지 못했어요')]);
     const ids = new Set(rows.map(productId).filter(Boolean));
-    const orders = [...(report.reports.orders || [])].sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, 5);
-    $('recentOrders').replaceChildren(...(orders.length ? orders.map(item => {
+    const orders = [...(report.reports.orders || [])].sort((a, b) => String(b.date).localeCompare(String(a.date)));
+    paged('recentOrders', orders.length ? orders.map(item => {
       const line = element('div', 'trow'); const text = element('span', 'order-name', String(item.productName || '상품'));
       if (ids.has(String(item.ctag))) text.prepend(element('span', 'chip done', 'HIKARY'));
       line.append(element('b', '', tick(String(item.date))), text, element('b', 'num', won(Number(item.commission) || 0))); return line;
-    }) : [emptyBox('최근 30일 주문이 없어요')]));
+    }) : [emptyBox('최근 30일 주문이 없어요')]);
   }
 
   // ── 대시보드: the ledger plus the Coupang report. Post views come later (Buffer metrics were still 0 on 2026-11-11).
@@ -324,19 +369,30 @@
     const latest = rows.filter(lastPosted).sort((a, b) => lastPosted(b).localeCompare(lastPosted(a)))[0];
     if (!latest) $('latest').replaceChildren(emptyBox('아직 올린 게시물이 없어요.'));
     else {
-      const nodes = []; const src = imageUrl(latest.inpockImage);
-      if (src) { const img = element('img', 'latest-img'); img.src = src; img.alt = ''; nodes.push(img); }
-      nodes.push(element('p', 'latest-title', label(latest)), element('p', 'latest-meta', `${shortDate(lastPosted(latest))} 게시 · ${latest.category}`));
+      // Studio card: the vertical cover on a blurred copy of itself, the title over it. Rows from before covers show the inpock image.
+      const nodes = []; const cover = coverUrl(latest.coverUrl); const src = imageUrl(latest.inpockImage);
+      if (cover) {
+        const hero = element('div', 'latest-hero'); hero.onclick = () => openDetail(latest);
+        const back = element('img', 'bg'); back.src = coverSmall(cover); back.alt = '';
+        const front = element('img', 'fg'); front.src = coverSmall(cover); front.alt = '커버';
+        hero.append(back, front, element('p', 'over', label(latest))); nodes.push(hero);
+      } else {
+        if (src) { const img = element('img', 'latest-img'); img.src = src; img.alt = ''; nodes.push(img); }
+        nodes.push(element('p', 'latest-title', label(latest)));
+      }
+      nodes.push(element('p', 'latest-meta', `${shortDate(lastPosted(latest))} 게시 · ${latest.category}`));
       for (const [key, name] of PLATFORMS) {
         const line = element('div', 'prow'); const status = latest[key + 'Status'] || '미업로드';
         line.append(placeIcon(latest, key, name), element('span', '', name), element('span', 'st', status === '업로드완료' ? shortDate(latest[key + 'Date']) || '올라감' : status === '미업로드' ? '아직' : status));
         if (https(latest[key + 'Link'])) line.append(Object.assign(link('↗', latest[key + 'Link'], 'ibtn'), { title: '게시물 열기' }));
         nodes.push(line);
       }
-      const more = button('보기·수정', () => openDetail(latest)); more.style.marginTop = '12px'; nodes.push(more);
+      const acts = element('div', 'latest-acts'); acts.append(button('보기·수정', () => openDetail(latest)));
+      if (cover) { const file = element('a', 'btn sm', '커버 저장'); file.href = coverFile(cover, latest); file.download = ''; acts.append(file); }
+      nodes.push(acts);
       $('latest').replaceChildren(...nodes);
     }
-    $('todo').replaceChildren(...todoItems());
+    paged('todo', todoItems());
     // Scheduled places in the next 7 days, one line per product and time.
     const soon = new Map();
     for (const row of rows) for (const [key] of PUBLISH) {
@@ -350,7 +406,7 @@
       for (const key of keys) marks.append(placeIcon(row, key, PLATFORMS.find(([name]) => name === key)[1]));
       line.append(marks); line.style.cursor = 'pointer'; line.onclick = () => openDetail(row); return line;
     });
-    $('upcoming').replaceChildren(...(lines.length ? lines : [emptyBox('이번 주 예약이 없어요', '「콘텐츠」에서 「게시」로 예약을 걸어요')]));
+    paged('upcoming', lines.length ? lines : [emptyBox('이번 주 예약이 없어요', '「콘텐츠」에서 「게시」로 예약을 걸어요')]);
   }
   function todoItems() {
     const items = [];
@@ -385,6 +441,7 @@
     for (const node of $('detailTabs').children) { const on = node.dataset.tab === tab; node.classList.toggle('on', on); node.setAttribute('aria-selected', on); }
     for (const panel of document.querySelectorAll('[data-panel]')) panel.hidden = panel.dataset.panel !== tab;
   }
+  for (const node of document.querySelectorAll('h3.sec .pf')) node.innerHTML = svgMark(node.classList[1]);
   for (const node of $('detailTabs').children) node.onclick = () => { showTab(node.dataset.tab); $('detailDialog').querySelector('.dialog-body').scrollTop = 0; };
   // A required field on a hidden tab cannot show its message, so open that tab first.
   $('detailForm').addEventListener('invalid', event => { const panel = event.target.closest('[data-panel]'); if (panel?.hidden) showTab(panel.dataset.panel); }, true);
@@ -400,7 +457,10 @@
     $('detailDialog').showModal(); $('detailDialog').querySelector('.dialog-body').scrollTop = 0;
   }
   function renderSide() {
-    const row = current; const image = imageUrl(row.inpockImage);
+    const row = current; const image = imageUrl(row.inpockImage); const cover = coverUrl(row.coverUrl);
+    $('d-coverImage').hidden = $('d-coverSave').hidden = !cover;
+    if (cover) { $('d-coverImage').src = coverSmall(cover); $('d-coverSave').href = coverFile(cover, row); } else $('d-coverImage').removeAttribute('src');
+    $('d-coverNote').textContent = cover ? '원본 그대로 내려받아요. 앱에서 커버로 넣을 때 써요.' : '아직 없어요 · 루미에게 「커버 올려줘」';
     $('d-inpockFigure').hidden = !image; $('d-inpockNone').hidden = !!image;
     $('d-inpockImage').src = image; $('d-inpockSave').href = image || '#';
     $('d-inpockSave').download = `inpock-${row.inpockNo || 'image'}.${image.startsWith('data:image/png') ? 'png' : 'jpg'}`;

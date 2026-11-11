@@ -1,4 +1,4 @@
-# HIKARY 콘텐츠 관리 v3.2.0
+# HIKARY 콘텐츠 관리 v3.3.0
 
 2026-11-06 · GitHub Pages + Google Apps Script + Google Sheets. 콘텐츠는 Claude에서 만든다.
 
@@ -7,13 +7,21 @@
 - 작업 기준은 저장소 맨 위 [CLAUDE.md](CLAUDE.md)(지시서)입니다. 어느 PC에서든 Claude가 이 파일을 먼저 읽습니다.
 - `docs/`: 「기록」(업로드 관리)·「상품 찾기」 두 탭. Pages 설정은 `main` / `/docs`.
 - `backend/`: Apps Script 서버. 웹이 쓰는 동작은 `status` · `list` · `save` · `delete` · `products` · `link` · `request` · `requests` · `requestUpdate` · `publish`, 시간 트리거 `syncPublishing`. Gemini 동작은 되돌리기 대비로 남아 있습니다.
-- `tools/register.mjs`: Claude가 만든 콘텐츠를 운영대장에 등록, 「게시」할 영상을 Cloudinary에 올림(`video`). `tools/carousel/`: 캐러셀 HTML → 1080×1350 PNG.
+- `tools/register.mjs`: Claude가 만든 콘텐츠를 운영대장에 등록, 「게시」할 영상(`video`)과 커버(`cover`)를 Cloudinary에 올림. `tools/carousel/`: 캐러셀 HTML → 1080×1350 PNG.
 - `scripts/preview-mock.mjs`: 가짜 데이터로 웹 확인 (http://127.0.0.1:4175/). `scripts/preview-content.mjs`: 실제 서버로 웹 확인 (http://127.0.0.1:4173/).
 - `scripts/reel/`: 사진 4장 + `video-job.json` → ffmpeg 무자막 MP4.
 - `contents/`: 만든 파일 보관 폴더. git에서 제외합니다(저장소가 공개).
 - `app/`, `worker/`, `db/` 등은 이전 Sites/React 코드입니다. Pages 배포에는 포함하지 않습니다. 백업 태그: `legacy-chatgpt-sites-2026-08-11`.
 
 ## 최초 연결
+
+### v3.3.0 대시보드 다듬기 (2026-11-11, 서버 2.9.0)
+
+- 운영대장 37번 칸 「커버 이미지」(`coverUrl`): 커버 원본(1080×1920 PNG)의 Cloudinary 주소. 서버는 `https://res.cloudinary.com/<클라우드>/image/upload/…`만 받고, 등록 도구가 칸 없이 저장해도 시트 값을 지킵니다. Apps Script 버전 20.
+- 등록 도구 `node tools/register.mjs cover contents/<폴더>/entry.json [png]`: `hikary/covers/<콘텐츠 ID>`로 올리고(다시 하면 바꿔 넣음) 운영대장을 다시 읽어 주소가 들어갔는지 확인합니다. 영상과 달리 서버가 지우지 않습니다. `video`와 올리는 코드를 같이 씁니다.
+- 대시보드 「최신 게시물」: 커버가 있으면 흐린 배경 위에 세로 커버와 제목(유튜브 스튜디오 쇼츠 카드처럼), 없으면 예전처럼 인포크 이미지. 화면에는 Cloudinary가 줄인 사본(`w_360,q_auto,f_auto`, 약 30KB)을 쓰고, 「커버 저장」은 원본을 내려받습니다(`fl_attachment:No252_cover`). ✎ 창 오른쪽 맨 위에도 커버와 「커버 저장」.
+- 플랫폼 표시를 글자(YT·IG·CR·TT)에서 진짜 아이콘으로. 틱톡 음표는 Simple Icons(CC0) 모양.
+- 최근 주문(이제 30일 전부) · 상품별 클릭 · 할 일 · 다가오는 예약: 점(●○○, 8쪽 넘으면 「2 / 12」)·‹ ›·휴대폰에서 옆으로 밀기로 넘깁니다. 한 쪽 줄 수는 휴대폰 3, 화면 높이 820px 아래 4, 1000px 아래 5, 그 위 6. 넘길 때 카드 높이를 지켜 아래 카드가 들썩이지 않습니다.
 
 ### v3.2.0 쿠팡 실적 (2026-11-11, 서버 2.8.0)
 

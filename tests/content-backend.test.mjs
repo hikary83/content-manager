@@ -6,7 +6,7 @@ import { createHash, createHmac, randomUUID } from 'node:crypto';
 
 const LEGACY_HEADERS = ['콘텐츠 ID','등록일','카테고리','상품명','원본 링크','변환 링크','대본','YouTube 게시글','YouTube 상태','Instagram 게시글','Instagram 상태','TikTok 게시글','TikTok 상태','비고'];
 const V17_HEADERS = ['형식','YouTube 업로드일','YouTube 링크','Instagram 업로드일','Instagram 링크','TikTok 업로드일','TikTok 링크'];
-const ADDED_HEADERS = [...V17_HEADERS,'Instagram 캐러셀 상태','Instagram 캐러셀 업로드일','Instagram 캐러셀 링크','카드뉴스 문구','인포크 No.','인포크 타이틀','키티챗 키워드','키티챗 DM 문구','인포크 이미지','영상 주소','영상 올린 날','YouTube 예약 ID','Instagram 예약 ID','TikTok 예약 ID','게시 오류'];
+const ADDED_HEADERS = [...V17_HEADERS,'Instagram 캐러셀 상태','Instagram 캐러셀 업로드일','Instagram 캐러셀 링크','카드뉴스 문구','인포크 No.','인포크 타이틀','키티챗 키워드','키티챗 DM 문구','인포크 이미지','영상 주소','영상 올린 날','YouTube 예약 ID','Instagram 예약 ID','TikTok 예약 ID','게시 오류','커버 이미지'];
 // v2.7.0: every action needs a session or the tool key. Tests call as the tool unless they send `token` themselves.
 const TOOL = 'tool-key-for-tests-0123456789abcdef0123';
 function runtime({ legacy = false } = {}) {
@@ -77,14 +77,14 @@ test('헤더 불일치·잘못된 업로드 상태를 거부하고 수식을 문
 test('기존 14칸 시트는 오른쪽 빈칸에만 새 머리글을 채우고 다른 내용이 있으면 멈춘다', () => {
   const env=runtime({legacy:true});env.rows.push(['old-id','2026-10-01','여행','기존 상품','https://trip.coupang.com/p','','대본','','미업로드','','미업로드','','미업로드','']);
   const entries=env.context.readEntries_();assert.deepEqual(env.rows[0].slice(14),ADDED_HEADERS);assert.equal(entries[0].productName,'기존 상품');assert.equal(entries[0].format,'');
-  const blocked=runtime({legacy:true});blocked.rows[0][16]='메모';assert.throws(()=>blocked.context.readEntries_(),/15~36/);assert.equal(blocked.writes(),0);
+  const blocked=runtime({legacy:true});blocked.rows[0][16]='메모';assert.throws(()=>blocked.context.readEntries_(),/15~37/);assert.equal(blocked.writes(),0);
 });
 test('v2.2.0 21칸 시트는 22~27번째 빈칸에만 새 머리글을 채우고 기존 줄은 그대로 읽는다', () => {
   const env=runtime({legacy:true});env.rows[0].push(...V17_HEADERS);
   env.rows.push(['old-id','2026-11-09','여행','기존 상품','https://trip.coupang.com/p','','대본','','미업로드','','업로드완료','','미업로드','','쇼츠','','','2026-11-10','https://www.instagram.com/p/a/','','']);
   const [entry]=env.context.readEntries_();
   assert.deepEqual(env.rows[0].slice(14),ADDED_HEADERS);assert.equal(entry.instagramStatus,'업로드완료');assert.equal(entry.carouselStatus,'');assert.equal(entry.inpockNo,'');
-  const blocked=runtime({legacy:true});blocked.rows[0].push(...V17_HEADERS,'다른 내용');assert.throws(()=>blocked.context.readEntries_(),/15~36/);assert.equal(blocked.writes(),0);
+  const blocked=runtime({legacy:true});blocked.rows[0].push(...V17_HEADERS,'다른 내용');assert.throws(()=>blocked.context.readEntries_(),/15~37/);assert.equal(blocked.writes(),0);
 });
 test('v2.4.0 업로드일에 시간을 같이 저장하고, 시간 형식이 틀리면 거절한다', () => {
   const env=runtime();
@@ -423,4 +423,13 @@ test('v2.8.0 쿠팡 리포트는 클릭·주문·수익을 서명해 부르고, 
   assert.match(first.data.errors.orders, /요청을 받지 않았어요/); assert.equal(first.data.usage.remaining, 17);
   const again = call({ days: 30 }); assert.equal(again.data.fromCache, true); assert.equal(sent.length, 3, '6시간 안에는 다시 부르지 않는다');
   assert.equal(JSON.parse(runtime().context.doPost({ postData: { contents: JSON.stringify({ action: 'report', payload: {} }) } }).text).ok, false, '키가 없으면 거절');
+});
+
+test('v2.9.0 커버 이미지는 Cloudinary 이미지 주소만 받고, 비워 보내면 시트 값을 지킨다', () => {
+  const env = runtime(); const input = sample(); const cover = 'https://res.cloudinary.com/mycloud/image/upload/v17/hikary/covers/abc.png';
+  env.context.saveEntry_({ ...input, coverUrl: cover });
+  const saved = env.context.readEntries_()[0]; assert.equal(saved.coverUrl, cover);
+  env.context.saveEntry_({ ...input, notes: '메모', revision: saved.revision });
+  assert.equal(env.context.readEntries_()[0].coverUrl, cover, '등록 도구가 칸 없이 저장해도 그대로');
+  for (const bad of ['https://evil.invalid/cover.png', 'https://res.cloudinary.com/mycloud/video/upload/v1/x.mp4', 'javascript:alert(1)']) assert.throws(() => env.context.saveEntry_({ ...sample(), coverUrl: bad }), /커버 이미지|https/);
 });

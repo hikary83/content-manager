@@ -10,7 +10,7 @@ const THUMB = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvm
 const row = (fields) => ({ id: randomUUID(), category: '생활', sourceUrl: 'https://www.coupang.com/vp/products/1', affiliateUrl: '', script: '대본', carouselScript: '', inpockNo: '', inpockTitle: '', kittyKeyword: '', kittyDm: '', inpockImage: '', youtube: '', instagram: '', tiktok: '', notes: '', format: '', ...Object.fromEntries(PLACES.flatMap(p => [[p + 'Status', '미업로드'], [p + 'Date', ''], [p + 'Link', '']])), createdAt: '2026-11-05', revision: 'r' + (++revision), ...fields });
 const done = (p, date) => ({ [p + 'Status']: '업로드완료', [p + 'Date']: date, [p + 'Link']: `https://example.com/${p}` });
 const rows = [
-  row({ productName: '씨라이프 코엑스 아쿠아리움 입장권', category: '여행', sourceUrl: 'https://trip.coupang.com/tp/products/30000011240405', affiliateUrl: 'https://link.coupang.com/a/example', createdAt: '2026-11-09', inpockNo: '252', inpockTitle: 'No.252 코엑스 아쿠아리움 입장권',
+  row({ productName: '씨라이프 코엑스 아쿠아리움 입장권', category: '여행', sourceUrl: 'https://trip.coupang.com/tp/products/30000011240405', affiliateUrl: 'https://link.coupang.com/a/example', createdAt: '2026-11-09', inpockNo: '252', inpockTitle: 'No.252 코엑스 아쿠아리움 입장권', coverUrl: 'https://res.cloudinary.com/demo/image/upload/sample.jpg',
     script: '0.15–3.7 주말에 아이랑 어디 가지? 코엑스 아쿠아리움!\n3.85–6.3 쿠팡 구매자 후기, 요약해 봤어요.', carouselScript: '1장: 주말에 아이랑 어디 가지?\n2장: 베스트 후기 4개 중 3개',
     youtube: '제목: 주말에 아이랑 갈 곳, 여기 어디게? #아이와가볼만한곳 #서울나들이 #주말나들이\n\n이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.\n\n주말에 아이랑 어디 가지?', instagram: '이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.\n\n주말에 아이랑 어디 가지? 🐠', tiktok: '이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.', kittyKeyword: '어디', kittyDm: '정답은 씨라이프 코엑스 아쿠아리움이에요! 🐠\n입장권은 여기서 볼 수 있어요 👇\nhttps://link.coupang.com/a/example\n\n이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.', inpockImage: THUMB,
     notes: "키티챗 키워드 '어디'\n\n작업 폴더: D:\\Codex\\shopping-shorts\\contents\\261106_코엑스아쿠아리움\\quiz\n최종본: D:\\01.개인자료\\@SNS Contents\\252_20261106_코엑스아쿠아리움", ...done('instagram', '2026-11-10 19:30'),
@@ -70,7 +70,7 @@ function act({ action, payload, token }) {
     if (payload.delete) { requests.splice(at, 1); return { id: payload.id, deleted: true }; }
     requests[at].status = payload.status; return { request: requests[at] };
   }
-  if (action === 'status') return { version: '2.7.0 (mock)', aiConfigured: false, coupang: { configured: true, usage: usage(), categories: CATEGORIES }, publishing: { buffer: true, video: true, code: true } };
+  if (action === 'status') return { version: '2.9.0 (mock)', aiConfigured: false, coupang: { configured: true, usage: usage(), categories: CATEGORIES }, publishing: { buffer: true, video: true, code: true } };
   if (action === 'publish') { // v2.8.0 mock: code 「mock」, every chosen place is scheduled
     if (payload.code !== 'mock') throw new Error('게시 비밀번호가 맞지 않아요. (목업 비밀번호: mock)');
     const at = rows.findIndex(item => item.id === payload.id);
@@ -87,7 +87,8 @@ function act({ action, payload, token }) {
     const day = n => new Date(Date.now() - n * 864e5).toLocaleDateString('sv-SE').replaceAll('-', '');
     return { startDate: day(29), endDate: day(0), fetchedAt: new Date().toISOString(), fromCache: true, usage: usage(), errors: {}, reports: {
       clicks: [{ date: day(2), ctag: '30000011240405', click: 2 }, { date: day(1), ctag: '30000011240405', click: 1 }, { date: day(1), ctag: '1', click: 3 }, { date: day(12), ctag: '9267215146', click: 2 }],
-      orders: [{ date: day(1), ctag: '30000011240405', productId: 30000011240405, productName: '씨라이프 코엑스 아쿠아리움 입장권 (목업)', quantity: 2, gmv: 39800, commission: 1194 }, { date: day(12), ctag: '9267215146', productId: 9289426304, productName: '예전 링크로 산 다른 상품 (목업)', quantity: 1, gmv: 23000, commission: 690 }],
+      orders: [{ date: day(1), ctag: '30000011240405', productId: 30000011240405, productName: '씨라이프 코엑스 아쿠아리움 입장권 (목업)', quantity: 2, gmv: 39800, commission: 1194 }, { date: day(12), ctag: '9267215146', productId: 9289426304, productName: '예전 링크로 산 다른 상품 (목업)', quantity: 1, gmv: 23000, commission: 690 },
+        ...[3, 5, 8, 15, 20, 26].map(n => ({ date: day(n), ctag: '9267215146', productId: 9289426304, productName: `넘김 확인용 주문 ${n}일 전 (목업)`, quantity: 1, gmv: 10000, commission: 300 }))],
       commission: [{ date: day(12), click: 2, order: 1, commission: 690, gmv: 23000 }, { date: day(2), click: 2, commission: 0 }, { date: day(1), click: 4, order: 1, commission: 1194, gmv: 39800 }]
     } };
   }

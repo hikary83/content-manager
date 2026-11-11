@@ -1,19 +1,19 @@
 <!doctype html>
-<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0f0f0f"><title>HIKARY 콘텐츠 관리</title><link rel="icon" type="image/png" href="assets/favicon.png?v=3.2.0"><link rel="apple-touch-icon" href="assets/apple-touch-icon.png?v=3.2.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css"><link rel="stylesheet" href="css/app.css?v=3.2.0"></head>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0f0f0f"><title>HIKARY 콘텐츠 관리</title><link rel="icon" type="image/png" href="assets/favicon.png?v=3.3.0"><link rel="apple-touch-icon" href="assets/apple-touch-icon.png?v=3.3.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css"><link rel="stylesheet" href="css/app.css?v=3.3.0"></head>
 <body>
 <div class="app">
 <header class="top">
  <button id="menuButton" type="button" class="burger" aria-label="메뉴 열기·닫기"><i></i></button>
- <a class="brand" href="#dashboard"><img class="brand-word" src="assets/logo-word.png?v=3.2.0" alt="HIKARY"><span class="ver">v3.2.0</span></a>
+ <a class="brand" href="#dashboard"><img class="brand-word" src="assets/logo-word.png?v=3.3.0" alt="HIKARY"><span class="ver">v3.3.0</span></a>
  <label class="search"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="콘텐츠 검색 (상품명·카테고리·No.)" aria-label="콘텐츠 검색"></label>
  <div class="top-right"><span id="connectionState" class="conn">연결 확인 중…</span>
-  <div class="account"><button id="accountButton" type="button" class="avatar" aria-haspopup="true" aria-expanded="false" aria-label="계정 메뉴"><img src="assets/logo-mascot.png?v=3.2.0" alt=""></button>
-   <div id="accountMenu" class="account-menu" hidden><div class="who"><img src="assets/logo-mascot.png?v=3.2.0" alt=""><div><b>HIKARY</b><small>이 기기에서 로그인 중</small></div></div>
+  <div class="account"><button id="accountButton" type="button" class="avatar" aria-haspopup="true" aria-expanded="false" aria-label="계정 메뉴"><img src="assets/logo-mascot.png?v=3.3.0" alt=""></button>
+   <div id="accountMenu" class="account-menu" hidden><div class="who"><img src="assets/logo-mascot.png?v=3.3.0" alt=""><div><b>HIKARY</b><small>이 기기에서 로그인 중</small></div></div>
     <button id="logoutHere" type="button"><i>⎋</i>로그아웃</button><button id="logoutAll" type="button"><i>⊘</i>모든 기기에서 로그아웃</button><small class="sub">휴대폰·다른 PC에 남은 로그인도 끝내요</small></div></div>
  </div>
 </header>
 <aside id="side" class="side">
- <div class="me"><img src="assets/logo-mascot.png?v=3.2.0" alt=""><b>내 채널</b><small>HikaryVibe</small></div>
+ <div class="me"><img src="assets/logo-mascot.png?v=3.3.0" alt=""><b>내 채널</b><small>HikaryVibe</small></div>
  <nav class="nav" aria-label="메뉴"><a href="#dashboard" data-view="dashboard"><i>▦</i>대시보드</a><a href="#content" data-view="content"><i>▶</i>콘텐츠</a><a href="#find" data-view="find"><i>◎</i>소재 찾기<span id="requestCount" class="count" hidden></span></a></nav>
  <div class="shortcuts"><small>바로가기</small><div class="sc">
   <a class="s" href="https://docs.google.com/spreadsheets/d/1ZSB7FBZTWdT_eLlo3kpom-u2yM5UwHitG059Zci6TUc/edit" target="_blank" rel="noopener noreferrer" aria-label="운영대장 (새 창)"><span aria-hidden="true">▦</span><em>운영대장</em></a>
@@ -32,7 +32,7 @@
  <h1>대시보드</h1>
  <div class="dash">
   <div class="col"><section class="card"><h2>최신 게시물</h2><div id="latest"></div></section>
-   <section class="card"><h2>최근 주문 <small>파트너스 계정 전체</small></h2><div id="recentOrders"></div></section></div>
+   <section class="card"><h2>최근 주문 <small>최근 30일 · 파트너스 계정 전체</small></h2><div id="recentOrders"></div></section></div>
   <div class="col">
    <section class="card"><h2>쿠팡 실적 <small id="coupangRange">최근 30일 · 파트너스 계정 전체</small></h2><div id="coupangTotals" class="stats"></div><div id="coupangBars" class="bars" aria-label="날짜별 클릭"></div><div id="coupangAxis" class="axis"></div><p id="coupangNote" class="hint"></p></section>
    <section class="card"><h2>상품별 클릭 <small>HIKARY 콘텐츠 · 최근 30일</small></h2><div id="productClicks"></div></section>
@@ -100,12 +100,12 @@
 <p class="hint">연결할 주소는 「상품」 탭의 파트너스 링크예요 <button type="button" class="btn sm" data-copy="d-affiliateUrl">주소 복사</button><a class="btn sm" href="https://link.inpock.co.kr/inpockhome" target="_blank" rel="noopener noreferrer">인포크링크 열기 ↗</a><br>이미지는 오른쪽 칸에서 저장해요.</p>
 </section>
 <section data-panel="sns" role="tabpanel" hidden>
-<h3 class="sec"><span class="pf yt">YT</span>YouTube 쇼츠</h3>
+<h3 class="sec"><span class="pf youtube"></span>YouTube 쇼츠</h3>
 <div class="copy-head"><label for="d-youtubeTitle">제목 <small id="d-youtubeCount">제목 + 해시태그, 100자까지</small></label><button type="button" class="btn sm" data-copy="d-youtubeTitle">복사</button></div><textarea id="d-youtubeTitle" rows="2" maxlength="100" placeholder="질문 한 줄, 어디게? #해시태그"></textarea>
 <div class="copy-head"><label for="d-youtubeBody">설명</label><button type="button" class="btn sm" data-copy="d-youtubeBody">복사</button></div><textarea id="d-youtubeBody" rows="6" maxlength="11800"></textarea>
-<h3 class="sec"><span class="pf ig">IG</span>인스타그램 <small>릴스·캐러셀 같이 씀</small></h3>
+<h3 class="sec"><span class="pf instagram"></span>인스타그램 <small>릴스·캐러셀 같이 씀</small></h3>
 <div class="copy-head"><label for="d-instagram">게시글</label><button type="button" class="btn sm" data-copy="d-instagram">복사</button></div><textarea id="d-instagram" rows="7" maxlength="12000"></textarea>
-<h3 class="sec"><span class="pf tt">TT</span>TikTok</h3>
+<h3 class="sec"><span class="pf tiktok"></span>TikTok</h3>
 <div class="copy-head"><label for="d-tiktok">게시글</label><button type="button" class="btn sm" data-copy="d-tiktok">복사</button></div><textarea id="d-tiktok" rows="5" maxlength="12000"></textarea>
 </section>
 <section data-panel="kitty" role="tabpanel" hidden>
@@ -120,6 +120,7 @@
 <div class="copy-head"><label for="d-notes">메모 · 파일 경로</label><button type="button" class="btn sm" data-copy="d-notes">복사</button></div><textarea id="d-notes" rows="10" maxlength="5000"></textarea>
 </section></div>
 <aside class="detail-side">
+ <div class="cover-row"><img id="d-coverImage" alt="커버"><div><small>커버 이미지</small><p id="d-coverNote" class="hint"></p><a id="d-coverSave" class="btn sm" download>커버 저장</a></div></div>
  <figure id="d-inpockFigure"><img id="d-inpockImage" alt="인포크 썸네일"><figcaption><a id="d-inpockSave" class="btn sm" download="inpock.jpg">이미지 저장</a></figcaption></figure>
  <p id="d-inpockNone" class="hint">썸네일이 아직 없어요. 루미가 등록할 때 넣어요.</p>
  <div class="kv"><small>인포크링크</small><div class="v"><b id="sideNo"></b><span id="sideTitle"></span></div></div>
@@ -145,11 +146,11 @@
 <div class="dialog-body"><p class="hint">아직 다 올리지 않은 콘텐츠예요. 고르면 그날 08:45로 「게시」 창이 열려요.</p><div id="pickList" class="pick-list"></div></div></form></dialog>
 
 <section id="loginView" class="login-view" hidden><form id="loginForm" class="login-card">
-<img class="login-mascot" src="assets/logo-mascot.png?v=3.2.0" alt=""><img class="login-word" src="assets/logo-word.png?v=3.2.0" alt="HIKARY"><p class="login-sub">콘텐츠 관리</p>
+<img class="login-mascot" src="assets/logo-mascot.png?v=3.3.0" alt=""><img class="login-word" src="assets/logo-word.png?v=3.3.0" alt="HIKARY"><p class="login-sub">콘텐츠 관리</p>
 <label class="login-field">아이디<input id="loginId" autocomplete="username" autocapitalize="off" spellcheck="false" required maxlength="100"></label>
 <label class="login-field">비밀번호<input id="loginPassword" type="password" autocomplete="current-password" required maxlength="200"></label>
 <label class="login-keep"><input id="loginKeep" type="checkbox" checked>이 기기에서 로그인 유지</label>
 <button id="loginSubmit" type="submit">로그인</button>
 <p id="loginMessage" class="login-message" role="alert" hidden></p>
 <p class="login-foot">5번 틀리면 1시간 동안 로그인을 막아요</p></form></section>
-<script src="js/config.js?v=3.2.0"></script><script src="js/app.js?v=3.2.0"></script></body></html>
+<script src="js/config.js?v=3.3.0"></script><script src="js/app.js?v=3.3.0"></script></body></html>

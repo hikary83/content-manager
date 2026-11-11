@@ -6,6 +6,8 @@
 //   node tools/register.mjs request <id> <상태>       set a request to 대기 · 진행 · 완료
 //   node tools/register.mjs video <entry.json> [mp4]   v2.6.0: put the video for 「게시」 on Cloudinary (default motion-bgm.mp4 beside entry.json)
 //                                                      and write its address to the row. Again later = replace it (「영상 다시 올려줘」).
+//   node tools/register.mjs cover <entry.json> [png]   v2.9.0 (server): put the full-size cover (default cover.png) on Cloudinary for the
+//                                                      dashboard and 「커버 저장」. Kept for good; again later = replace it.
 // Run "save" only after the owner confirms the content (「컨펌」, CLAUDE.md §2). It writes to the real sheet.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -53,30 +55,45 @@ export async function save(file, send = request) {
 
 // v2.6.0: the server (backend/Publish.js) posts only an mp4 on this Cloudinary account and deletes it after posting.
 // Keys come from .env at the repository root (git-ignored): CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET.
-export async function video(file, mp4 = 'motion-bgm.mp4', send = request) {
+// One file per product (the row id), so uploading again replaces it. Returns the upload answer and the row to save onto.
+async function upload(file, name, kind, folder, send) {
   process.loadEnvFile(envFile);
-  const [cloud, key, secret] = ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET'].map(name => process.env[name]?.trim());
+  const [cloud, key, secret] = ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET'].map(env => process.env[env]?.trim());
   if (!cloud || !key || !secret) throw new Error('.env에 CLOUDINARY_CLOUD_NAME·CLOUDINARY_API_KEY·CLOUDINARY_API_SECRET이 필요해요.');
   const entry = JSON.parse(fs.readFileSync(file, 'utf8'));
   if (!entry.id) throw new Error('먼저 save로 등록해주세요.');
   const row = (await send('list')).entries.find(item => item.id === entry.id);
   if (!row) throw new Error('운영대장에서 이 상품을 찾지 못했어요.');
-  // One file per product (the row id), so uploading again replaces it.
-  const params = { public_id: `hikary/${entry.id}`, timestamp: String(Math.floor(Date.now() / 1000)) };
+  const params = { invalidate: 'true', overwrite: 'true', public_id: folder + entry.id, timestamp: String(Math.floor(Date.now() / 1000)) };
   const form = new FormData();
-  for (const [name, value] of Object.entries(params)) form.append(name, value);
+  for (const [field, value] of Object.entries(params)) form.append(field, value);
   form.append('api_key', key);
-  form.append('signature', createHash('sha1').update(Object.keys(params).sort().map(name => `${name}=${params[name]}`).join('&') + secret).digest('hex'));
-  form.append('file', new Blob([fs.readFileSync(path.resolve(path.dirname(file), mp4))], { type: 'video/mp4' }), 'video.mp4');
-  const response = await fetch(`https://api.cloudinary.com/v1_1/${cloud}/video/upload`, { method: 'POST', body: form });
+  form.append('signature', createHash('sha1').update(Object.keys(params).sort().map(field => `${field}=${params[field]}`).join('&') + secret).digest('hex'));
+  form.append('file', new Blob([fs.readFileSync(path.resolve(path.dirname(file), name))]), name);
+  const response = await fetch(`https://api.cloudinary.com/v1_1/${cloud}/${kind}/upload`, { method: 'POST', body: form });
   const uploaded = await response.json().catch(() => ({}));
   if (!response.ok || !uploaded.secure_url) throw new Error(`Cloudinary 업로드 실패: ${uploaded.error?.message || response.status}`);
   const head = await fetch(uploaded.secure_url, { method: 'HEAD', redirect: 'manual' });
-  if (head.status !== 200) throw new Error(`올린 영상 주소가 열리지 않아요 (${head.status}).`);
+  if (head.status !== 200) throw new Error(`올린 파일 주소가 열리지 않아요 (${head.status}).`);
+  return { entry, row, uploaded };
+}
+
+export async function video(file, mp4 = 'motion-bgm.mp4', send = request) {
+  const { entry, row, uploaded } = await upload(file, mp4, 'video', 'hikary/', send);
   const videoDate = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 16);
   const saved = await send('save', { ...row, videoUrl: uploaded.secure_url, videoDate });
   fs.writeFileSync(file, JSON.stringify({ ...entry, revision: saved.revision }, null, 2) + '\n');
   return { url: uploaded.secure_url, bytes: uploaded.bytes, duration: uploaded.duration, width: uploaded.width, height: uploaded.height, videoDate };
+}
+
+// v2.9.0 (server): the cover is an image under hikary/covers/, which the server's video cleanup never touches.
+export async function cover(file, png = 'cover.png', send = request) {
+  const { entry, row, uploaded } = await upload(file, png, 'image', 'hikary/covers/', send);
+  const saved = await send('save', { ...row, coverUrl: uploaded.secure_url });
+  const check = (await send('list')).entries.find(item => item.id === entry.id);
+  if (check?.coverUrl !== uploaded.secure_url) throw new Error('서버가 커버 주소를 저장하지 않았어요. 서버가 2.9.0인지 확인해주세요.');
+  fs.writeFileSync(file, JSON.stringify({ ...entry, revision: saved.revision }, null, 2) + '\n');
+  return { url: uploaded.secure_url, bytes: uploaded.bytes, width: uploaded.width, height: uploaded.height };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
@@ -99,8 +116,11 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   } else if (command === 'video' && file) {
     const up = await video(file, process.argv[4]);
     console.log(`video: ${up.url}\n${(up.bytes / 1e6).toFixed(1)}MB · ${up.width}x${up.height} · ${Math.round(up.duration)}s · ${up.videoDate}`);
+  } else if (command === 'cover' && file) {
+    const up = await cover(file, process.argv[4]);
+    console.log(`cover: ${up.url}\n${(up.bytes / 1e6).toFixed(2)}MB · ${up.width}x${up.height}`);
   } else {
-    console.log('usage: node tools/register.mjs list [out.json] | save <entry.json> | link <coupang url> | requests | request <id> <대기|진행|완료> | video <entry.json> [mp4]');
+    console.log('usage: node tools/register.mjs list [out.json] | save <entry.json> | link <coupang url> | requests | request <id> <대기|진행|완료> | video <entry.json> [mp4] | cover <entry.json> [png]');
     process.exitCode = 1;
   }
 }
