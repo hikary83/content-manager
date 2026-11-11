@@ -26,8 +26,10 @@ const out = file.replace(/\.html?$/i, '') + '.mp4';
 // drop out of getAnimations() and record blank. This also stops a bad script or a missing voice tool before Chrome starts.
 const voice = voiceTrack(file);
 
+// A fresh profile each run (2026-11-11): two sessions recording at once used to share one folder, and the second Chrome failed.
+const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'hikary-motion-record-'));
 const browser = spawn(chrome, ['--headless=new', '--disable-gpu', '--hide-scrollbars', '--no-first-run', '--no-default-browser-check', '--mute-audio',
-  `--user-data-dir=${path.join(os.tmpdir(), 'hikary-motion-record')}`, '--remote-debugging-pipe', `--window-size=${W},${H}`, '--force-device-scale-factor=1'],
+  `--user-data-dir=${profile}`, '--remote-debugging-pipe', `--window-size=${W},${H}`, '--force-device-scale-factor=1'],
   { stdio: ['ignore', 'ignore', 'ignore', 'pipe', 'pipe'] });
 const calls = new Map(), listeners = [];
 let lastId = 0, buffer = '';
@@ -108,4 +110,6 @@ try {
 } finally {
   encoder?.kill();
   browser.kill();
+  await new Promise(resolve => { if (browser.exitCode !== null || browser.signalCode) return resolve(); browser.once('exit', resolve); setTimeout(resolve, 3000).unref(); });
+  try { fs.rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }); } catch { /* a leftover temp folder is harmless */ }
 }

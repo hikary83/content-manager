@@ -2,6 +2,7 @@
   'use strict';
   // v3.0.0 (2026-11-11): dark YouTube-Studio layout — 대시보드 · 콘텐츠 · 소재 찾기, 바로가기 icons, profile menu.
   // The 「올리기」 dialog is merged into the ✎ detail window (right panel: thumbnail, links, places with an inline record).
+  // v3.4.6: a ring turns in the notice and the pressed button while a job runs; 「게시」 opens on the day after the latest post, 08:45.
   // v3.4.5: new data shows by itself — opening another menu or coming back to the tab reloads quietly (refreshQuietly).
   // v3.4.4: the page notice has ✕, and opening another menu clears what an earlier screen said.
   // v3.4.3: ✕ in the address field clears it and the card below; a refused product says so plainly (server 2.12.0).
@@ -68,11 +69,17 @@
   // v3.4.1: a short message that goes away by itself, for things that worked (the page notice stays for errors).
   let toastTimer = 0;
   function toast(text) { notice(''); $('toast').textContent = text; $('toast').hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { $('toast').hidden = true; }, 2800); }
-  function notice(text, error = false) { $('notice').hidden = !text; $('notice').className = error ? 'error' : ''; $('noticeText').textContent = text; }
+  function notice(text, error = false, spin = false) { $('notice').hidden = !text; $('notice').className = error ? 'error' : spin ? 'busy' : ''; $('noticeText').textContent = text; }
   $('noticeClose').onclick = () => notice('');
+  // v3.4.6: while a job runs, a ring turns in the notice and in the button that started it (css .busy · .btn.spinning).
+  // The pressed button is caught on the way down (capture), before its own onclick calls task().
+  let pressed = null, pressedAt = 0;
+  document.addEventListener('click', event => { pressed = event.target.closest?.('.btn') || null; pressedAt = Date.now(); }, true);
   async function task(work) {
     if (busy) return;
-    busy = true; notice('처리 중입니다…');
+    busy = true; notice('처리 중입니다…', false, true);
+    const button = pressed && Date.now() - pressedAt < 1000 && document.contains(pressed) ? pressed : null;
+    button?.classList.add('spinning');
     // Lock every control so a slow response cannot race a second click.
     const controls = [...document.querySelectorAll('button,input,textarea,select')];
     controls.forEach(control => { control.disabled = true; });
@@ -81,7 +88,7 @@
       const text = error.message || '처리 중 오류가 발생했어요.';
       if (document.querySelector('dialog[open]')) { notice(''); alert(text); } else notice(text, true);
     }
-    finally { busy = false; controls.forEach(control => { control.disabled = false; }); }
+    finally { busy = false; button?.classList.remove('spinning'); controls.forEach(control => { control.disabled = false; }); }
   }
   window.addEventListener('beforeunload', event => { if (busy || dirty) { event.preventDefault(); event.returnValue = ''; } });
 
@@ -619,8 +626,15 @@
       const until = new Date(new Date(row.videoDate.replace(' ', 'T')).getTime() + 30 * 864e5);
       video.className = 'video-box ok'; video.textContent = `영상 준비됨 · ${row.videoDate} 올림 · ${isNaN(until) ? '30일' : monthDay(until)}까지 보관 (그 전에 게시돼야 해요)`;
     } else { video.className = 'video-box none'; video.textContent = `게시할 영상이 아직 없어요. 루미에게 「No.${row.inpockNo || '○○○'} 영상 올려줘」라고 해 주세요.`; }
-    // Default: the next full hour at least 30 minutes away. From the calendar: that day at 08:45, unless that time has passed.
-    const at = new Date(Date.now() + 90 * 60000); at.setMinutes(0, 0, 0);
+    // v3.4.6 default — one post a day at 08:45: the day after the latest day anything is scheduled or posted (or after this
+    // product's registration, if that is later), moved on to a day whose 08:45 is still ahead. A product that already has a
+    // place scheduled ahead keeps that time, so a retried place goes out with the rest. From the calendar: that day at 08:45.
+    const ahead = when => when > Date.now() + 2 * 60000;
+    const own = PUBLISH.map(([key]) => row[key + 'Status'] === '예약됨' ? new Date((row[key + 'Date'] || '').replace(' ', 'T')) : null).filter(when => when && ahead(when)).sort((a, b) => a - b)[0];
+    const used = rows.flatMap(other => PLATFORMS.filter(([key]) => ['예약됨', '업로드완료'].includes(other[key + 'Status'])).map(([key]) => (other[key + 'Date'] || '').slice(0, 10)));
+    const last = [...used, (row.createdAt || '').slice(0, 10)].filter(day => /^\d{4}-\d{2}-\d{2}$/.test(day)).sort().at(-1);
+    let at = own;
+    if (!at) { at = last ? new Date(`${last}T08:45`) : new Date(); at.setDate(at.getDate() + 1); at.setHours(8, 45, 0, 0); while (!ahead(at)) at.setDate(at.getDate() + 1); }
     const chosen = preset && new Date(`${preset.date}T${preset.time}`);
     const usePreset = chosen && chosen > Date.now() + 2 * 60000;
     $('publishDate').value = usePreset ? preset.date : at.toLocaleDateString('sv-SE'); $('publishTime').value = usePreset ? preset.time : at.toTimeString().slice(0, 5); $('publishCode').value = '';

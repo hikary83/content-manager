@@ -102,6 +102,11 @@ label>input,label>select,label>textarea{margin-top:6px;font-weight:400;color:var
 #noticeText{white-space:pre-wrap;flex:1;min-width:0;padding-top:2px}
 .notice-x{flex:none;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;color:inherit;opacity:.7;font-size:13px}
 .notice-x:hover{opacity:1;background:rgba(255,255,255,.08)}
+/* v3.4.6: a turning ring while a job runs — in the notice, and in the button that started it */
+@keyframes spin{to{transform:rotate(360deg)}}
+#notice.busy #noticeText::before{content:"";display:inline-block;width:14px;height:14px;margin:0 9px -2px 0;border-radius:50%;border:2px solid var(--line2);border-top-color:var(--accent);animation:spin .8s linear infinite}
+.btn.spinning::before{content:"";flex:none;width:12px;height:12px;border-radius:50%;border:2px solid rgba(255,255,255,.3);border-top-color:currentColor;animation:spin .8s linear infinite}
+.btn.spinning:disabled{opacity:1;cursor:wait}
 #notice.error{background:#3a1d19;color:#ffb4a8}
 h1{display:flex;align-items:center;gap:12px;font-size:26px;font-weight:800;letter-spacing:-.6px;margin:4px 0 18px}
 h1 .right{margin-left:auto;display:flex;gap:8px}

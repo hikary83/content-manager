@@ -21,10 +21,15 @@ if (!ids.length && !size) throw new Error('id="s1"처럼 번호가 붙은 <secti
 const shots = ids.length
   ? ids.map((id, index) => [`slide-${String(index + 1).padStart(2, '0')}.png`, `#${id}`, '1080,1350'])
   : [[`${path.basename(file, '.html')}.png`, '', `${size[1]},${size[2]}`]];
-// A separate profile so a running Chrome window is never touched.
-const profile = path.join(os.tmpdir(), 'hikary-carousel-render');
-for (const [name, hash, windowSize] of shots) {
-  const out = path.join(path.dirname(file), name);
-  run(chrome, ['--headless=new', '--disable-gpu', '--hide-scrollbars', '--no-first-run', `--user-data-dir=${profile}`, '--force-device-scale-factor=1', `--window-size=${windowSize}`, '--virtual-time-budget=8000', `--screenshot=${out}`, `${pathToFileURL(file).href}${hash}`]);
-  console.log(out);
+// A separate profile so a running Chrome window is never touched — and a fresh one each run (2026-11-11), so two sessions
+// rendering at once do not fight over one folder.
+const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'hikary-carousel-render-'));
+try {
+  for (const [name, hash, windowSize] of shots) {
+    const out = path.join(path.dirname(file), name);
+    run(chrome, ['--headless=new', '--disable-gpu', '--hide-scrollbars', '--no-first-run', `--user-data-dir=${profile}`, '--force-device-scale-factor=1', `--window-size=${windowSize}`, '--virtual-time-budget=8000', `--screenshot=${out}`, `${pathToFileURL(file).href}${hash}`]);
+    console.log(out);
+  }
+} finally {
+  try { fs.rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }); } catch { /* a leftover temp folder is harmless */ }
 }
