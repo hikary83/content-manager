@@ -98,7 +98,10 @@ label>input,label>select,label>textarea{margin-top:6px;font-weight:400;color:var
 .sc .s:hover em,.sc .s:focus-visible em{display:block}
 
 .main{padding:24px clamp(16px,3vw,34px) 80px;min-width:0}
-#notice{position:sticky;top:68px;z-index:20;margin:0 0 16px;padding:12px 16px;border-radius:12px;background:#2a2a2a;color:var(--ink);font-size:14px;white-space:pre-wrap;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+#notice{position:sticky;top:68px;z-index:20;margin:0 0 16px;padding:12px 12px 12px 16px;border-radius:12px;background:#2a2a2a;color:var(--ink);font-size:14px;box-shadow:0 8px 24px rgba(0,0,0,.4);display:flex;align-items:flex-start;gap:12px}
+#noticeText{white-space:pre-wrap;flex:1;min-width:0;padding-top:2px}
+.notice-x{flex:none;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;color:inherit;opacity:.7;font-size:13px}
+.notice-x:hover{opacity:1;background:rgba(255,255,255,.08)}
 #notice.error{background:#3a1d19;color:#ffb4a8}
 h1{display:flex;align-items:center;gap:12px;font-size:26px;font-weight:800;letter-spacing:-.6px;margin:4px 0 18px}
 h1 .right{margin-left:auto;display:flex;gap:8px}

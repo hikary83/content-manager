@@ -2,6 +2,7 @@
   'use strict';
   // v3.0.0 (2026-11-11): dark YouTube-Studio layout — 대시보드 · 콘텐츠 · 소재 찾기, 바로가기 icons, profile menu.
   // The 「올리기」 dialog is merged into the ✎ detail window (right panel: thumbnail, links, places with an inline record).
+  // v3.4.4: the page notice has ✕, and opening another menu clears what an earlier screen said.
   // v3.4.3: ✕ in the address field clears it and the card below; a refused product says so plainly (server 2.12.0).
   // v3.4.2: 「링크 만들기」 fills 「상품 이름」 from the product page when it can (travel pages; www pages block servers).
   // v3.4.1: a toast after a request, a waiting request reopens the window to change it, thumbnails are covers.
@@ -66,7 +67,8 @@
   // v3.4.1: a short message that goes away by itself, for things that worked (the page notice stays for errors).
   let toastTimer = 0;
   function toast(text) { notice(''); $('toast').textContent = text; $('toast').hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { $('toast').hidden = true; }, 2800); }
-  function notice(text, error = false) { $('notice').hidden = !text; $('notice').className = error ? 'error' : ''; $('notice').textContent = text; }
+  function notice(text, error = false) { $('notice').hidden = !text; $('notice').className = error ? 'error' : ''; $('noticeText').textContent = text; }
+  $('noticeClose').onclick = () => notice('');
   async function task(work) {
     if (busy) return;
     busy = true; notice('처리 중입니다…');
@@ -781,7 +783,9 @@
   const VIEWS = ['dashboard', 'content', 'find'];
   function go(next) {
     view = VIEWS.includes(next) ? next : next === 'finder' ? 'find' : 'dashboard'; // #finder from v2 bookmarks
+    const moved = $(view + 'View').hidden; // the menu asked for is not the one on screen
     for (const name of VIEWS) $(name + 'View').hidden = name !== view;
+    if (moved && !busy) notice('');
     for (const node of document.querySelectorAll('[data-view]')) node.classList.toggle('on', node.dataset.view === view);
     if (location.hash !== '#' + view) history.replaceState(null, '', '#' + view);
     closeDrawer();
