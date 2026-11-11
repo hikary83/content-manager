@@ -2,6 +2,7 @@
   'use strict';
   // v3.0.0 (2026-11-11): dark YouTube-Studio layout — 대시보드 · 콘텐츠 · 소재 찾기, 바로가기 icons, profile menu.
   // The 「올리기」 dialog is merged into the ✎ detail window (right panel: thumbnail, links, places with an inline record).
+  // v3.5.0 (server 2.13.0): ✎ ticks 「인포크링크에 넣었어요」·「키티챗에 연결했어요」, shown in the list and kept in 할 일 until ticked.
   // v3.4.6: a ring turns in the notice and the pressed button while a job runs; 「게시」 opens on the day after the latest post, 08:45.
   // v3.4.5: new data shows by itself — opening another menu or coming back to the tab reloads quietly (refreshQuietly).
   // v3.4.4: the page notice has ✕, and opening another menu clears what an earlier screen said.
@@ -103,6 +104,19 @@
     const node = onclick ? button('', onclick, `pf ${key}`) : element('span', `pf ${key}`); node.innerHTML = svgMark(key);
     if (state) node.dataset.state = state; else node.classList.add('none');
     node.title = `${name} · ${status}${row[key + 'Date'] ? ' ' + row[key + 'Date'] : ''}`; if (onclick) node.setAttribute('aria-label', node.title); return node;
+  }
+  // v3.5.0 (server 2.13.0): the owner ticks 「인포크링크에 넣었어요」·「키티챗에 연결했어요」 in the ✎ window; the day is kept in
+  // inpockLinkedAt · kittyLinkedAt and the list shows both like the places (green dot = done, faded = not yet).
+  const LINKS = [['inpock', '인포크링크', '넣음'], ['kitty', '키티챗', '연결']];
+  const LINK_GLYPH = {
+    inpock: '<path d="M10.6 13.4a3.6 3.6 0 0 0 5.1 0l2.8-2.8a3.6 3.6 0 0 0-5.1-5.1l-1 1M13.4 10.6a3.6 3.6 0 0 0-5.1 0l-2.8 2.8a3.6 3.6 0 0 0 5.1 5.1l1-1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+    kitty: '<path d="M6.5 5h11A2.5 2.5 0 0 1 20 7.5v6.5a2.5 2.5 0 0 1-2.5 2.5H11l-4.2 3.2v-3.2h-.3A2.5 2.5 0 0 1 4 14V7.5A2.5 2.5 0 0 1 6.5 5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>'
+  };
+  function linkIcon(row, key, name, verb) {
+    const day = row[key + 'LinkedAt'] || '';
+    const node = button('', () => { openDetail(row); showTab(key); }, `pf lk ${key}`); node.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${LINK_GLYPH[key]}</svg>`;
+    if (day) node.dataset.state = 'done'; else node.classList.add('none');
+    node.title = day ? `${name} ${verb} ${shortDate(day)}` : `${name} 아직`; node.setAttribute('aria-label', node.title); return node;
   }
   function thumb(row) {
     // v3.4.1: the cover when there is one — the vertical cover on a blurred copy of itself, like the dashboard card.
@@ -208,7 +222,11 @@
     actions.append(Object.assign(button('✎', () => openDetail(row), 'ibtn'), { title: '보기·수정', ariaLabel: '보기·수정' }));
     const stats = productStats(row);
     const clicks = element('div', 'clicks', stats ? String(stats.clicks) : '—'); if (stats?.orders) clicks.append(element('small', '', `주문 ${stats.orders}`));
-    tr.append(item, marks, whenCell(row), clicks, actions); return tr;
+    // Its own column on a wide screen; on a phone the same two marks end the places row instead (css .links-in).
+    const links = element('div', 'links'); const inRow = element('span', 'links-in');
+    for (const [key, name, verb] of LINKS) { links.append(linkIcon(row, key, name, verb)); inRow.append(linkIcon(row, key, name, verb)); }
+    marks.append(inRow);
+    tr.append(item, marks, whenCell(row), links, clicks, actions); return tr;
   }
   // v2.7.2: the Partners link is shown as text to copy, never as a link we would click ourselves (self-referral).
   function requestRow(item) {
@@ -231,7 +249,7 @@
     }
     if (https(item.sourceUrl)) actions.append(link('상품 ↗', item.sourceUrl, 'btn sm'));
     if (item.status === '대기') actions.append(button('지우기', () => void task(async () => { await HikaryApi.request('requestUpdate', { id: item.id, delete: true }); await loadRequests(); toast('요청을 지웠어요.'); })));
-    tr.append(box, state, hint, element('div', 'clicks'), actions); return tr;
+    tr.append(box, state, hint, element('div', 'links'), element('div', 'clicks'), actions); return tr;
   }
   function setFilter(next) { filter = next; for (const node of $('filters').children) node.classList.toggle('on', node.dataset.filter === next); renderList(); }
   for (const node of $('filters').children) node.onclick = () => setFilter(node.dataset.filter);
@@ -462,14 +480,17 @@
   }
   function todoItems() {
     const items = [];
-    const add = (text, action) => { const line = element('div', 'trow'); line.append(element('span', '', text)); if (action) line.append(action); items.push(line); };
+    const add = (text, ...actions) => { const line = element('div', 'trow'); line.append(element('span', '', text), ...actions); items.push(line); };
+    const tick = (row, key) => button('체크', () => { openDetail(row); showTab(key); });
     for (const row of rows) {
       const no = row.inpockNo ? `No.${row.inpockNo}` : row.productName;
       for (const [key, name] of PUBLISH) if (row[key + 'Status'] === '오류') add(`${no} ${name} 게시 오류`, button('보기', () => openDetail(row, key)));
       const videoUp = PUBLISH.some(([key]) => row[key + 'Status'] === '업로드완료');
       if (igType(row) === '캐러셀' && videoUp && (row.carouselStatus || '미업로드') === '미업로드') add(`${no} 인스타 캐러셀 올리기`, button('기록', () => openDetail(row, 'carousel')));
-      const ig = igKey(row); const igUp = row[ig + 'Status'] === '업로드완료' && row[ig + 'Date'] && Date.now() - new Date(row[ig + 'Date'].replace(' ', 'T')) < 2 * 864e5;
-      if (igUp && row.kittyKeyword) add(`${no} 키티챗 연결 · ${row.kittyKeyword}`, link('키티챗 ↗', 'https://kittychat.ai', 'btn sm'));
+      // v3.5.0: these stay until ticked in the ✎ window. The Inpock link has to be in before the post goes out.
+      const goingOut = PLATFORMS.some(([key]) => ['예약됨', '업로드완료'].includes(row[key + 'Status']));
+      if (goingOut && !row.inpockLinkedAt) add(`${no} 인포크링크 넣기`, link('인포크 ↗', 'https://link.inpock.co.kr/inpockhome', 'btn sm'), tick(row, 'inpock'));
+      if (row[igKey(row) + 'Status'] === '업로드완료' && row.kittyKeyword && !row.kittyLinkedAt) add(`${no} 키티챗 연결 · ${row.kittyKeyword}`, link('키티챗 ↗', 'https://kittychat.ai', 'btn sm'), tick(row, 'kitty'));
       if (openToPublish(row) && !row.videoUrl && !PUBLISH.some(([key]) => ['업로드완료', '예약됨'].includes(row[key + 'Status']))) add(`${no} 게시할 영상 없음 — 루미에게 「영상 올려줘」`);
     }
     const waiting = openRequests().length;
@@ -502,6 +523,7 @@
     current = row; dirty = false; focusPlace = place; openRecord = place === 'carousel' && (row.carouselStatus || '미업로드') === '미업로드' ? 'carousel' : '';
     showTab(place && place !== 'carousel' ? 'sns' : detailTab);
     for (const key of TEXT_KEYS) $('d-' + key).value = row[key] || '';
+    for (const [key, , verb] of LINKS) { const day = row[key + 'LinkedAt'] || ''; $('d-' + key + 'Linked').checked = !!day; $('d-' + key + 'LinkedAt').textContent = day ? `${shortDate(day)} ${verb}` : ''; }
     [$('d-youtubeTitle').value, $('d-youtubeBody').value] = splitYoutube(row.youtube); titleCount();
     $('detailTitle').textContent = label(row);
     $('detailMeta').textContent = `콘텐츠 세부정보 · ${row.createdAt} 등록 · ${row.category}${row.format ? ' · ' + row.format : ''}`;
@@ -586,6 +608,7 @@
     event.preventDefault();
     const changes = Object.fromEntries(TEXT_KEYS.map(key => [key, $('d-' + key).value.trim()]));
     changes.youtube = joinYoutube($('d-youtubeTitle').value.replace(/\s+/g, ' ').trim(), $('d-youtubeBody').value.trim()); // the title is one line
+    for (const [key] of LINKS) changes[key + 'LinkedAt'] = $('d-' + key + 'Linked').checked ? current[key + 'LinkedAt'] || today() : ''; // a tick keeps its first day
     void task(async () => { await save(changes, '저장했어요.'); dirty = false; $('detailDialog').close(); });
   };
   $('detailDelete').onclick = () => {

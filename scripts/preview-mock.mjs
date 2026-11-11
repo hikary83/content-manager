@@ -16,7 +16,7 @@ const rows = [
     notes: "키티챗 키워드 '어디'\n\n작업 폴더: D:\\Codex\\shopping-shorts\\contents\\261106_코엑스아쿠아리움\\quiz\n최종본: D:\\01.개인자료\\@SNS Contents\\252_20261106_코엑스아쿠아리움", ...done('instagram', '2026-11-10 19:30'),
     // v2.8.0 「게시」: a hosted video, one place scheduled and one failed
     videoUrl: 'https://res.cloudinary.com/demo/video/upload/v1/hikary/example.mp4', videoDate: '2026-11-10 17:00', youtubeStatus: '예약됨', youtubeDate: '2026-11-12 18:00', youtubePostId: 'mock1', tiktokStatus: '오류', publishError: 'TikTok: Buffer 게시 실패 — 예시 오류 문구' }),
-  row({ productName: '접이식 실리콘 밀폐용기 4종 세트', createdAt: '2026-11-04', inpockNo: '251', script: '훅: 냉장고 문 열 때마다 쏟아지죠?\n장점: 접으면 얇아져요', youtube: '냉장고 정리 꿀템 #shorts', ...done('youtube', '2026-11-04'), ...done('instagram', '2026-11-05'), ...done('carousel', '2026-11-05'), ...done('tiktok', '2026-11-06') }),
+  row({ productName: '접이식 실리콘 밀폐용기 4종 세트', createdAt: '2026-11-04', inpockNo: '251', inpockLinkedAt: '2026-11-04', kittyLinkedAt: '2026-11-05', script: '훅: 냉장고 문 열 때마다 쏟아지죠?\n장점: 접으면 얇아져요', youtube: '냉장고 정리 꿀템 #shorts', ...done('youtube', '2026-11-04'), ...done('instagram', '2026-11-05'), ...done('carousel', '2026-11-05'), ...done('tiktok', '2026-11-06') }),
   row({ productName: '제주 오션뷰 호텔 1박 패키지', category: '여행', sourceUrl: 'https://trip.coupang.com/tp/products/2', createdAt: '2026-11-03', script: '제주 바다가 보이는 객실', tiktokStatus: '보류', instagramType: '캐러셀', videoUrl: 'https://res.cloudinary.com/demo/video/upload/v1/hikary/example2.mp4', videoDate: '2026-11-11 09:00' }),
   row({ productName: '무선 미니 청소기 (v2.2.0 전 형식)', category: '가전·디지털', sourceUrl: 'https://www.coupang.com/vp/products/3', format: '캐러셀', createdAt: '2026-11-02', script: '책상 위 먼지, 손바닥 청소기로' })
 ];

@@ -6,7 +6,7 @@ import { createHash, createHmac, randomUUID } from 'node:crypto';
 
 const LEGACY_HEADERS = ['콘텐츠 ID','등록일','카테고리','상품명','원본 링크','변환 링크','대본','YouTube 게시글','YouTube 상태','Instagram 게시글','Instagram 상태','TikTok 게시글','TikTok 상태','비고'];
 const V17_HEADERS = ['형식','YouTube 업로드일','YouTube 링크','Instagram 업로드일','Instagram 링크','TikTok 업로드일','TikTok 링크'];
-const ADDED_HEADERS = [...V17_HEADERS,'Instagram 캐러셀 상태','Instagram 캐러셀 업로드일','Instagram 캐러셀 링크','카드뉴스 문구','인포크 No.','인포크 타이틀','키티챗 키워드','키티챗 DM 문구','인포크 이미지','영상 주소','영상 올린 날','YouTube 예약 ID','Instagram 예약 ID','TikTok 예약 ID','게시 오류','커버 이미지','인스타 형식'];
+const ADDED_HEADERS = [...V17_HEADERS,'Instagram 캐러셀 상태','Instagram 캐러셀 업로드일','Instagram 캐러셀 링크','카드뉴스 문구','인포크 No.','인포크 타이틀','키티챗 키워드','키티챗 DM 문구','인포크 이미지','영상 주소','영상 올린 날','YouTube 예약 ID','Instagram 예약 ID','TikTok 예약 ID','게시 오류','커버 이미지','인스타 형식','인포크 등록일','키티챗 연결일'];
 // v2.7.0: every action needs a session or the tool key. Tests call as the tool unless they send `token` themselves.
 const TOOL = 'tool-key-for-tests-0123456789abcdef0123';
 function runtime({ legacy = false } = {}) {
@@ -77,14 +77,14 @@ test('헤더 불일치·잘못된 업로드 상태를 거부하고 수식을 문
 test('기존 14칸 시트는 오른쪽 빈칸에만 새 머리글을 채우고 다른 내용이 있으면 멈춘다', () => {
   const env=runtime({legacy:true});env.rows.push(['old-id','2026-10-01','여행','기존 상품','https://trip.coupang.com/p','','대본','','미업로드','','미업로드','','미업로드','']);
   const entries=env.context.readEntries_();assert.deepEqual(env.rows[0].slice(14),ADDED_HEADERS);assert.equal(entries[0].productName,'기존 상품');assert.equal(entries[0].format,'');
-  const blocked=runtime({legacy:true});blocked.rows[0][16]='메모';assert.throws(()=>blocked.context.readEntries_(),/15~38/);assert.equal(blocked.writes(),0);
+  const blocked=runtime({legacy:true});blocked.rows[0][16]='메모';assert.throws(()=>blocked.context.readEntries_(),/15~40/);assert.equal(blocked.writes(),0);
 });
 test('v2.2.0 21칸 시트는 22~27번째 빈칸에만 새 머리글을 채우고 기존 줄은 그대로 읽는다', () => {
   const env=runtime({legacy:true});env.rows[0].push(...V17_HEADERS);
   env.rows.push(['old-id','2026-11-09','여행','기존 상품','https://trip.coupang.com/p','','대본','','미업로드','','업로드완료','','미업로드','','쇼츠','','','2026-11-10','https://www.instagram.com/p/a/','','']);
   const [entry]=env.context.readEntries_();
   assert.deepEqual(env.rows[0].slice(14),ADDED_HEADERS);assert.equal(entry.instagramStatus,'업로드완료');assert.equal(entry.carouselStatus,'');assert.equal(entry.inpockNo,'');
-  const blocked=runtime({legacy:true});blocked.rows[0].push(...V17_HEADERS,'다른 내용');assert.throws(()=>blocked.context.readEntries_(),/15~38/);assert.equal(blocked.writes(),0);
+  const blocked=runtime({legacy:true});blocked.rows[0].push(...V17_HEADERS,'다른 내용');assert.throws(()=>blocked.context.readEntries_(),/15~40/);assert.equal(blocked.writes(),0);
 });
 test('v2.4.0 업로드일에 시간을 같이 저장하고, 시간 형식이 틀리면 거절한다', () => {
   const env=runtime();
@@ -455,6 +455,19 @@ test('v2.10.0 인스타 형식은 릴스·캐러셀만 받고, 등록 도구가 
   env.context.saveEntry_({ ...input, notes: '메모', revision: saved.revision });
   assert.equal(env.context.readEntries_()[0].instagramType, '캐러셀');
   assert.throws(() => env.context.saveEntry_({ ...sample(), instagramType: '스토리' }), /릴스나 캐러셀/);
+});
+test('v2.13.0 인포크 등록일·키티챗 연결일은 날짜만 받고, 등록 도구가 칸 없이 저장해도 지킨다', () => {
+  const env = runtime(); const input = sample();
+  env.context.saveEntry_({ ...input, inpockLinkedAt: '2026-11-11', kittyLinkedAt: '' });
+  let saved = env.context.readEntries_()[0];
+  assert.deepEqual([saved.inpockLinkedAt, saved.kittyLinkedAt], ['2026-11-11', '']);
+  env.context.saveEntry_({ ...input, notes: '도구가 다시 저장', revision: saved.revision }); // entry.json carries neither
+  saved = env.context.readEntries_()[0];
+  assert.deepEqual([saved.notes, saved.inpockLinkedAt], ['도구가 다시 저장', '2026-11-11']);
+  env.context.saveEntry_({ ...saved, inpockLinkedAt: '', kittyLinkedAt: '2026-11-12' }); // the web unticks one, ticks the other
+  saved = env.context.readEntries_()[0];
+  assert.deepEqual([saved.inpockLinkedAt, saved.kittyLinkedAt], ['', '2026-11-12']);
+  assert.throws(() => env.context.saveEntry_({ ...sample(), kittyLinkedAt: '오늘' }), /YYYY-MM-DD/);
 });
 test('v2.10.0 캐러셀 상품은 릴스로 예약하지 않고, 게시에서 형식을 바꾸며, 인스타 없이 두 곳이 올라가면 영상을 지운다', () => {
   const { env, sent, posts, call, entry, mutations } = publishEnv();
