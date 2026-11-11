@@ -1,5 +1,5 @@
 /* HIKARY only. No credentials or endpoints from kic-worktools. */
-var SERVICE_VERSION = '2.6.0';
+var SERVICE_VERSION = '2.7.0';
 // Columns 1-14 are the original ledger. 15-21 (v1.7.0), 22-27 (v2.2.0), 28-30 (v2.3.0) and 31-36 (v2.6.0) are appended so existing rows never move.
 // v2.2.0: one row per product. Instagram columns are the reel; the card news (carousel) has its own upload columns.
 // v2.3.0: KittyChat keyword and DM text, and a small Inpock thumbnail as a data URL. 「카드뉴스 문구」 is no longer filled.
@@ -31,11 +31,14 @@ function doPost(event) {
     if (!text || text.length > 12000000) throw new Error('요청 용량을 확인해주세요.');
     var input = JSON.parse(text);
     if (/^[a-zA-Z0-9-]{1,64}$/.test(input.requestId || '')) requestId = input.requestId;
-    // Public by the owner's choice (v1.6.1): no access code. The daily AI limit is the remaining cost guard.
     var payload = input.payload || {};
     action = String(input.action || '');
+    // v2.7.0: everything but `login` needs a session token or the tool key (Auth.js). Before this the server was open to anyone with the address.
+    var who = action === 'login' ? '' : authorize_(input.token);
     var data;
-    if (action === 'status') { getContentSheet_(); data = { version: SERVICE_VERSION, aiConfigured: !!PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY'), coupang: coupangStatus_(), publishing: publishStatus_() }; }
+    if (action === 'login') data = login_(payload);
+    else if (action === 'logout') { if (who !== 'session') throw userError_('브라우저에서 로그인한 세션만 로그아웃할 수 있어요.'); data = logout_(input.token, payload); }
+    else if (action === 'status') { getContentSheet_(); data = { version: SERVICE_VERSION, aiConfigured: !!PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY'), coupang: coupangStatus_(), publishing: publishStatus_() }; }
     else if (action === 'list') data = { entries: readEntries_() };
     else if (action === 'save') data = saveEntry_(payload);
     else if (action === 'delete') data = deleteEntry_(payload);
@@ -54,9 +57,9 @@ function doPost(event) {
     result = { ok: true, requestId: requestId, data: data };
   } catch (error) {
     // Do not log exception text: UrlFetch errors can contain credentials or URLs.
-    result = { ok: false, requestId: requestId, error: safeError_(error) };
+    result = { ok: false, requestId: requestId, error: safeError_(error), auth: !!(error && error.auth) };
   }
-  console.info(JSON.stringify({ requestId: requestId, action: ['status','list','save','delete','products','link','request','requests','requestUpdate','publish','analyze','image','generate','reference','carousel'].indexOf(action) >= 0 ? action : 'unknown', elapsedMs: Date.now() - started, ok: result.ok }));
+  console.info(JSON.stringify({ requestId: requestId, action: ['login','logout','status','list','save','delete','products','link','request','requests','requestUpdate','publish','analyze','image','generate','reference','carousel'].indexOf(action) >= 0 ? action : 'unknown', elapsedMs: Date.now() - started, ok: result.ok }));
   return jsonResponse_(result);
 }
 

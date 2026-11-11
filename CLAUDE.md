@@ -186,9 +186,11 @@ AI 영상은 보류 — 유료이고, AI가 상품 모양을 바꾸면 실제와
 
 - 웹: `docs/` (GitHub Pages, `main` / `docs`). 탭은 「기록」(업로드 관리)과 「상품 찾기」 두 개다.
 - 상품 찾기는 쿠팡 파트너스 Open API를 서버(`backend/Coupang.js`)로 부른다. 쿠팡은 한 시간에 30번 이상 부르면 키를 24시간 멈추고 세 번이면 계정을 정지한다고 해서, 서버가 지난 60분 기준 20회로 막고 같은 목록은 6시간 저장해 다시 쓴다. 상한을 올리지 않는다. 키는 스크립트 속성 `COUPANG_ACCESS_KEY`·`COUPANG_SECRET_KEY`에 사람이 넣는다. 카테고리는 `COUPANG_CATEGORIES` 한 줄로 늘린다.
-- 서버: `backend/` (Apps Script). 동작: `status` · `list` · `save` · `delete` · `products` · `link`(파트너스 링크) · `request`·`requests`·`requestUpdate`(「요청」 탭, 2.5.0 — `backend/Requests.js`) · `publish`(「게시」, 2.6.0 — `backend/Publish.js`). Gemini 동작(`analyze`·`generate`·`carousel` 등)은 웹에서 안 쓰지만 되돌리기 대비로 남겨 두었다 — 지울지는 나중에 정한다.
+- 서버: `backend/` (Apps Script). 동작: `status` · `list` · `save` · `delete` · `products` · `link`(파트너스 링크) · `request`·`requests`·`requestUpdate`(「요청」 탭, 2.5.0 — `backend/Requests.js`) · `publish`(「게시」, 2.6.0 — `backend/Publish.js`) · `login`·`logout`(2.7.0 — `backend/Auth.js`). Gemini 동작(`analyze`·`generate`·`carousel` 등)은 웹에서 안 쓰지만 되돌리기 대비로 남겨 두었다 — 지울지는 나중에 정한다.
 - 「게시」 (2.6.0): Buffer API(api.buffer.com, 무료 요금제 — 채널 3개, 채널마다 예약 10개)로 예약하고, 시간 트리거 `syncPublishing`(Apps Script 편집기 → 트리거 → 10분마다, 사람이 한 번 추가)이 결과를 받아 운영대장을 채운다. 세 곳이 모두 업로드완료·보류가 되면(또는 올린 지 30일이 지나면) Cloudinary 영상을 지운다. 서버 주소가 공개라 `publish`는 비밀번호 `PUBLISH_CODE`가 있어야 하고, 5번 틀리면 1시간 막는다. 운영대장 칸 31~36: 영상 주소 · 영상 올린 날 · 플랫폼별 예약 ID · 게시 오류. 상태에 「예약됨」「오류」가 있다.
   - 스크립트 속성(사람이 넣는다): `BUFFER_API_KEY`, `CLOUDINARY_CLOUD_NAME`·`CLOUDINARY_API_KEY`·`CLOUDINARY_API_SECRET`, `PUBLISH_CODE`. 이 PC의 `.env`에도 같은 Cloudinary 값과 `BUFFER_API_KEY`가 있다 (등록 도구·테스트용).
+- **로그인** (2.7.0 · 웹 2.9.0, 2026-11-11): `login` 말고는 모든 동작에 세션이나 도구 키가 있어야 한다 — 그 전에는 서버 주소만 알면 누구나 저장·상품 찾기를 부를 수 있었다. 웹은 아이디·비밀번호로 로그인하고, 「로그인 유지」를 켜면 이 브라우저에 세션을 두고(끄면 브라우저를 닫을 때까지), 90일 안 쓰면 끝난다. 5번 틀리면 1시간 막는다. 오른쪽 위 「로그아웃 ▾」에 이 기기·모든 기기 로그아웃이 있다. 「게시」 비밀번호는 그대로 따로 묻는다.
+  - 스크립트 속성: `LOGIN_ID`·`LOGIN_PASSWORD`(사람이 정해 넣는다), `TOOL_KEY`(등록 도구용 — `.env`의 `HIKARY_TOOL_KEY`와 같은 값), `SESSIONS`(서버가 쓴다, 토큰의 해시만). Claude는 사람 비밀번호를 쓰지 않고 도구 키로만 서버를 부른다.
   - Buffer 개인 API 키 「HIKARY」는 권한 4개(account:read · posts:read · posts:write · insights:read)이고 **2027-11-10에 만료**된다 — 한 달 전쯤 새 키를 만들어 두 곳에 바꿔 넣는다.
   - Buffer에 연결된 채널: 인스타 hikary.vibe(비즈니스) · 유튜브 HikaryVibe · 틱톡 hikary.vibe (2026-11-10). 서버는 채널을 이름이 아니라 종류로 찾는다 — 같은 종류를 둘 연결하면 예약을 막는다.
   - 운영대장 시트 공유는 「제한됨」이다 (2026-11-10). 서버는 주인 권한으로 돌아서 웹·등록 도구는 그대로 쓴다.
@@ -224,7 +226,7 @@ clasp --auth .clasprc.hikary-personal.json update-deployment AKfycbzN9mw2OKRKHdE
      ```
      「SoX could not be found」·flash-attn 안내는 무시해도 된다. 2026-11-07 이 PC는 torch 2.14.1+cpu로 돌렸다.
 3. 서버 배포까지 할 PC라면: `npm i -g @google/clasp` → `clasp --auth .clasprc.hikary-personal.json login`(개인 계정) → `.clasp.example.json`을 `.clasp.json`으로 복사하고 Script ID를 넣는다. Script ID는 사무실 PC의 `.clasp.json`에 있다.
-4. 「게시」할 영상을 올릴 PC라면 저장소 맨 위에 `.env`를 만들고 `CLOUDINARY_CLOUD_NAME=`·`CLOUDINARY_API_KEY=`·`CLOUDINARY_API_SECRET=`(`BUFFER_API_KEY=`는 선택)를 사람이 채운다. 값은 Cloudinary 콘솔 「API Keys」(개인 계정)에 있다. `.env`는 git에서 빠진다. 키를 채팅에 붙여 넣지 않는다.
+4. 등록 도구를 쓸 PC라면 저장소 맨 위 `.env`에 `HIKARY_TOOL_KEY=`(스크립트 속성 `TOOL_KEY`와 같은 값, v2.9.0)를 사람이 채운다. 「게시」할 영상도 올릴 PC라면 `CLOUDINARY_CLOUD_NAME=`·`CLOUDINARY_API_KEY=`·`CLOUDINARY_API_SECRET=`(`BUFFER_API_KEY=`는 선택)도 채운다. 값은 Cloudinary 콘솔 「API Keys」(개인 계정)에 있다. `.env`는 git에서 빠진다. 키를 채팅에 붙여 넣지 않는다.
 5. 만든 파일(`contents/`)은 PC 사이에 자동으로 옮겨지지 않는다. 작업 파일은 `contents/`에, 최종본은 사무실 PC `D:\01.개인자료\@SNS Contents\<폴더>`에 둔다 (2026-11-09, 2장 5번). 구글 드라이브는 용량이 모자라 쓰지 않는다. 집 PC와 맞추는 방법은 미정.
 
 ## 8. 정해지지 않은 것
@@ -235,4 +237,4 @@ clasp --auth .clasprc.hikary-personal.json update-deployment AKfycbzN9mw2OKRKHdE
 - 업로드 자동화: YouTube 쇼츠·인스타 릴스·TikTok은 웹 「게시」 → Buffer 예약으로 됐다 (v2.8.0, 2026-11-10). 인스타 캐러셀은 아직 직접 — Buffer는 이미지도 받으니 카드뉴스 PNG를 올려 두면 같은 길로 할 수 있다 (미정). 인스타 커버로 `cover.png`를 보낼 수 있는지(Buffer `thumbnailUrl`)도 미정
 - 키티챗 대신 Buffer로 댓글 단 사람에게 DM을 보낼 수 있는지: 확인 전 (키에 engagements 권한을 일부러 넣지 않았다)
 - 키티챗 연결을 Claude가 Chrome 확장으로 대신할지: 시험 전. 키티챗은 공개 API가 없어 보인다. Meta API로 직접 만드는 길은 댓글 알림에 고급 권한·앱 게시·비즈니스 인증이 필요해 접었다 (2026-11-06)
-- 서버의 `save`는 아직 비밀번호 없이 누구나 부를 수 있다 (게시는 비밀번호가 있다). 저장에도 비밀번호를 걸지는 미정
+- 웹 화면 개편 (2026-11-11 시안): 다크 · 왼쪽 메뉴(대시보드 · 콘텐츠 · 소재 찾기) · 콘텐츠 목록/주간/월간 · ✎ 창에 업로드 기록 합치기 · 바로가기 아이콘. 1단계 로그인(v2.9.0)부터 단계별로 만든다 — 2단계 다크 화면 틀, 3단계 캘린더, 4단계 대시보드(쿠팡 리포트·Buffer 조회수는 먼저 조회로 확인)

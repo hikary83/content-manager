@@ -7,6 +7,8 @@ import { createHash, createHmac, randomUUID } from 'node:crypto';
 const LEGACY_HEADERS = ['콘텐츠 ID','등록일','카테고리','상품명','원본 링크','변환 링크','대본','YouTube 게시글','YouTube 상태','Instagram 게시글','Instagram 상태','TikTok 게시글','TikTok 상태','비고'];
 const V17_HEADERS = ['형식','YouTube 업로드일','YouTube 링크','Instagram 업로드일','Instagram 링크','TikTok 업로드일','TikTok 링크'];
 const ADDED_HEADERS = [...V17_HEADERS,'Instagram 캐러셀 상태','Instagram 캐러셀 업로드일','Instagram 캐러셀 링크','카드뉴스 문구','인포크 No.','인포크 타이틀','키티챗 키워드','키티챗 DM 문구','인포크 이미지','영상 주소','영상 올린 날','YouTube 예약 ID','Instagram 예약 ID','TikTok 예약 ID','게시 오류'];
+// v2.7.0: every action needs a session or the tool key. Tests call as the tool unless they send `token` themselves.
+const TOOL = 'tool-key-for-tests-0123456789abcdef0123';
 function runtime({ legacy = false } = {}) {
   const rows = [legacy ? [...LEGACY_HEADERS] : [...LEGACY_HEADERS, ...ADDED_HEADERS]];
   const props = new Map([['SHEET_ID','test'],['SHEET_NAME','콘텐츠 관리']]);
@@ -33,12 +35,14 @@ function runtime({ legacy = false } = {}) {
     UrlFetchApp: { fetch() { fetches++; throw new Error('unexpected network'); } },
     CacheService: { getScriptCache: () => ({ get: key => cache.get(key) ?? null, put: (key, value) => cache.set(key, value) }) }
   });
-  for (const name of ['Code','Product','Gemini','Coupang','Requests','Publish']) vm.runInContext(readFileSync(new URL(`../backend/${name}.js`,import.meta.url),'utf8'),context);
+  for (const name of ['Code','Product','Gemini','Coupang','Requests','Publish','Auth']) vm.runInContext(readFileSync(new URL(`../backend/${name}.js`,import.meta.url),'utf8'),context);
+  props.set('TOOL_KEY', TOOL);
+  const raw = context.doPost; context.doPost = event => { const body = JSON.parse(event.postData.contents); if (!('token' in body)) body.token = TOOL; return raw({ postData: { contents: JSON.stringify(body) } }); };
   return { context, rows, props, tabs, writes: () => writes, fetches: () => fetches };
 }
 const sample = () => ({id:randomUUID(),category:'여행',productName:'제주 숙소',sourceUrl:'https://trip.coupang.com/product',affiliateUrl:'',script:'실제 상품정보 기반 대본',youtube:'',instagram:'',tiktok:'',notes:''});
 
-test('접속 코드 없이 요청을 처리하고 지원하지 않는 요청은 시트·AI 호출 없이 거절한다', () => {
+test('도구 키로 요청을 처리하고 지원하지 않는 요청은 시트·AI 호출 없이 거절한다', () => {
   const env=runtime();const call=body=>JSON.parse(env.context.doPost({postData:{contents:JSON.stringify(body)}}).text);
   assert.equal(call({action:'status'}).ok,true);
   const unknown=call({action:'deleteAll',payload:sample()});assert.equal(unknown.ok,false);
@@ -360,4 +364,43 @@ test('v2.6.0 등록 도구의 저장은 영상·예약 칸을 비워 보내도 �
   env.context.syncPublishing(); assert.equal(entry().videoUrl, VIDEO, '30일 전이면 그대로');
   env.context.saveEntry_({ ...entry(), videoDate: '2026-01-01 09:00' });
   env.context.syncPublishing(); assert.equal(entry().videoUrl, ''); assert.equal(sent.filter(item => item.url.startsWith('https://api.cloudinary.com/')).length, 1);
+});
+
+// v2.7.0 login (Auth.js)
+function authEnv() {
+  const env = runtime(); env.props.set('LOGIN_ID', 'hikary'); env.props.set('LOGIN_PASSWORD', 'pass-word-123');
+  const call = (action, payload = {}, token = null) => JSON.parse(env.context.doPost({ postData: { contents: JSON.stringify({ action, payload, token }) } }).text);
+  const login = () => call('login', { id: 'hikary', password: 'pass-word-123' }).data.token;
+  return { env, call, login };
+}
+test('v2.7.0 로그인 없이는 목록·저장·상품 찾기·게시를 모두 거절하고 시트·외부 호출을 하지 않는다', () => {
+  const { env, call } = authEnv();
+  for (const action of ['status', 'list', 'save', 'delete', 'products', 'link', 'request', 'requests', 'requestUpdate', 'publish', 'logout', 'analyze', 'unknown']) {
+    const result = call(action, sample()); assert.equal(result.ok, false, action); assert.equal(result.auth, true, action); assert.match(result.error, /로그인이 필요/);
+  }
+  assert.equal(call('list', {}, 'x'.repeat(64)).auth, true, '모르는 토큰');
+  assert.equal(env.writes(), 0); assert.equal(env.fetches(), 0);
+});
+test('v2.7.0 로그인하면 세션 토큰으로 쓰고(토큰은 해시로만 저장), 5번 틀리면 맞아도 1시간 막는다', () => {
+  const { env, call } = authEnv();
+  const ok = call('login', { id: ' hikary ', password: 'pass-word-123' });
+  assert.equal(ok.ok, true); assert.match(ok.data.token, /^[a-f0-9]{64}$/); assert.equal(ok.data.days, 90);
+  assert.equal(call('list', {}, ok.data.token).ok, true);
+  assert.ok(!env.props.get('SESSIONS').includes(ok.data.token));
+  const bad = authEnv();
+  assert.match(bad.call('login', { id: 'hikary', password: 'wrong' }).error, /남은 기회 4번/);
+  for (let i = 0; i < 3; i++) bad.call('login', { id: 'hikary', password: 'wrong' });
+  assert.match(bad.call('login', { id: 'hikary', password: 'wrong' }).error, /5번 틀려서/);
+  assert.match(bad.call('login', { id: 'hikary', password: 'pass-word-123' }).error, /5번 틀려서/);
+  const unset = runtime(); assert.match(JSON.parse(unset.context.doPost({ postData: { contents: JSON.stringify({ action: 'login', payload: { id: 'a', password: 'b' } }) } }).text).error, /LOGIN_ID/);
+});
+test('v2.7.0 로그아웃은 그 세션만, 모든 기기 로그아웃은 전부 끝내고, 90일 안 쓴 세션은 끝난다', () => {
+  const { env, call, login } = authEnv();
+  const a = login(), b = login();
+  assert.equal(call('logout', {}, a).ok, true); assert.equal(call('list', {}, a).auth, true); assert.equal(call('list', {}, b).ok, true);
+  assert.equal(call('logout', { all: true }, login()).data.all, true); assert.equal(call('list', {}, b).auth, true);
+  const d = login(); const sessions = JSON.parse(env.props.get('SESSIONS'));
+  for (const key of Object.keys(sessions)) sessions[key].used = Date.now() - 91 * 864e5;
+  env.props.set('SESSIONS', JSON.stringify(sessions)); assert.equal(call('list', {}, d).auth, true);
+  assert.match(call('logout', {}, TOOL).error, /브라우저/, '도구 키로는 로그아웃할 수 없다');
 });

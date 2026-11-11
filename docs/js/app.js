@@ -345,11 +345,44 @@
     if (node.dataset.view === 'finder' && !busy) { HikaryApi.request('status').then(useStatus).catch(() => {}); loadRequests().catch(() => {}); } // the hourly count frees up over time
   };
   showView(location.hash === '#finder' ? 'finder' : 'ledger');
-  if (location.hash === '#finder') loadRequests().catch(() => {});
 
-  void task(async () => {
+  // v2.9.0 login (server 2.7.0). Every call needs the session, so without one the page shows only the login screen.
+  function showLogin(message = '', error = true) {
+    for (const dialog of document.querySelectorAll('dialog[open]')) dialog.close();
+    $('accountMenu').hidden = true; notice('');
+    $('loginMessage').hidden = !message; $('loginMessage').textContent = message; $('loginMessage').classList.toggle('info', !error);
+    $('loginView').hidden = false; document.body.classList.add('locked');
+    setTimeout(() => $(($('loginId').value ? 'loginPassword' : 'loginId')).focus(), 0);
+  }
+  // A request refused for the session (logged out elsewhere, 90 days unused) lands here from HikaryApi.
+  window.addEventListener('hikary-login', () => { if ($('loginView').hidden) showLogin('로그인이 끝났어요. 다시 로그인해주세요.'); });
+  async function start() {
     try { const status = await HikaryApi.request('status'); $('connectionState').textContent = `연결됨 · 서버 ${status.version}`; $('connectionState').classList.add('ok'); useStatus(status); }
-    catch (error) { $('connectionState').textContent = '서버 연결 실패'; throw error; }
+    catch (error) { if (error.auth) return; $('connectionState').textContent = '서버 연결 실패'; throw error; }
     await load(); notice('');
-  });
+    if (location.hash === '#finder') await loadRequests().catch(() => {});
+  }
+  $('loginForm').onsubmit = event => {
+    event.preventDefault();
+    void task(async () => {
+      try { await HikaryApi.login($('loginId').value.trim(), $('loginPassword').value, $('loginKeep').checked); }
+      catch (error) { $('loginMessage').hidden = false; $('loginMessage').classList.remove('info'); $('loginMessage').textContent = error.message; return; }
+      $('loginPassword').value = ''; $('loginView').hidden = true; document.body.classList.remove('locked');
+      await start();
+    });
+  };
+  $('accountButton').onclick = () => { const open = $('accountMenu').hidden; $('accountMenu').hidden = !open; $('accountButton').setAttribute('aria-expanded', open); };
+  document.addEventListener('click', event => { if (!event.target.closest('.account')) $('accountMenu').hidden = true; });
+  function signOut(all) {
+    $('accountMenu').hidden = true;
+    if (all && !confirm('휴대폰·다른 PC에 남은 로그인도 모두 끝낼까요?')) return;
+    void task(async () => {
+      try { await HikaryApi.logout(all); }
+      finally { rows = []; render(); showLogin(all ? '모든 기기에서 로그아웃했어요.' : '로그아웃했어요.', false); }
+    });
+  }
+  $('logoutHere').onclick = () => signOut(false);
+  $('logoutAll').onclick = () => signOut(true);
+
+  if (HikaryApi.hasSession()) void task(start); else showLogin();
 })();

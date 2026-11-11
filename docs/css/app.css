@@ -177,6 +177,28 @@ button.accent{background:var(--accent);color:#fff}
 .place small{margin-left:auto;color:var(--muted);font-size:12px;font-weight:400;text-align:right}
 .place.off{color:var(--muted);background:#faf8f2;cursor:default}
 
+/* v2.9.0 로그인 · 계정 메뉴 (로그인 화면은 다음 디자인에 맞춰 어둡게) */
+body.locked{overflow:hidden}
+.login-view{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:24px 16px;overflow:auto;background:radial-gradient(1200px 600px at 50% 0%,#1d1d1d,#0f0f0f 60%);color:#f1f1f1}
+.login-card{width:min(380px,100%);display:grid;justify-items:center;gap:12px}
+.login-mascot{width:96px;height:96px;border-radius:50%;background:#fde7ef;padding:8px;object-fit:contain}
+.login-word{height:28px;width:auto}
+.login-sub{margin:-4px 0 10px;color:#aaa;font-size:14px}
+.login-field{width:100%;margin:0;display:grid;gap:2px;font-size:12px;font-weight:600;color:#aaa;border:1px solid #3d3d3d;border-radius:12px;padding:10px 14px;background:#141414}
+.login-field:focus-within{border-color:#f1f1f1}
+.login-field input{margin:0;border:0;border-radius:0;padding:0;background:transparent;color:#f1f1f1;font-size:15px}
+.login-field input:focus-visible{outline:none}
+.login-keep{width:100%;margin:2px 0 4px;display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500;color:#aaa;cursor:pointer}
+.login-keep input{width:16px;height:16px;margin:0;padding:0;accent-color:#f1f1f1}
+.login-card button[type=submit]{width:100%;height:46px;border-radius:12px;background:#f1f1f1;color:#0f0f0f;font-weight:800;font-size:15px}
+.login-message{margin:0;font-size:13px;color:#ff5c4d;text-align:center}
+.login-message.info{color:#aaa}
+.login-foot{margin:0;font-size:12px;color:#717171}
+.account{position:relative}
+.account-menu{position:absolute;right:0;top:calc(100% + 8px);z-index:40;display:grid;min-width:200px;background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 30px rgba(29,27,23,.18);padding:6px}
+.account-menu button{background:transparent;color:var(--ink);text-align:left;border-radius:10px;padding:9px 12px;font-size:14px;font-weight:600;white-space:nowrap}
+.account-menu button:hover{background:#ece7dc}
+
 @media(max-width:700px){
   .brand span{display:none}
   .conn{font-size:0}

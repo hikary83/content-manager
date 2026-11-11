@@ -1,7 +1,7 @@
 <!doctype html>
-<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>HIKARY 콘텐츠 기록</title><link rel="icon" type="image/png" href="assets/favicon.png?v=2.8.1"><link rel="apple-touch-icon" href="assets/apple-touch-icon.png?v=2.8.1"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css"><link rel="stylesheet" href="css/app.css?v=2.8.1"></head>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>HIKARY 콘텐츠 기록</title><link rel="icon" type="image/png" href="assets/favicon.png?v=2.9.0"><link rel="apple-touch-icon" href="assets/apple-touch-icon.png?v=2.9.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css"><link rel="stylesheet" href="css/app.css?v=2.9.0"></head>
 <body>
-<header class="top"><a class="brand" href="./"><img class="brand-mascot" src="assets/logo-mascot.png?v=2.8.1" alt=""><img class="brand-word" src="assets/logo-word.png?v=2.8.1" alt="HIKARY"><span>콘텐츠 기록 · v2.8.1</span></a><div class="top-links"><span id="connectionState" class="conn">연결 확인 중…</span><a href="https://docs.google.com/spreadsheets/d/1ZSB7FBZTWdT_eLlo3kpom-u2yM5UwHitG059Zci6TUc/edit" target="_blank" rel="noreferrer">운영대장 ↗</a></div></header>
+<header class="top"><a class="brand" href="./"><img class="brand-mascot" src="assets/logo-mascot.png?v=2.9.0" alt=""><img class="brand-word" src="assets/logo-word.png?v=2.9.0" alt="HIKARY"><span>콘텐츠 기록 · v2.9.0</span></a><div class="top-links"><span id="connectionState" class="conn">연결 확인 중…</span><a href="https://docs.google.com/spreadsheets/d/1ZSB7FBZTWdT_eLlo3kpom-u2yM5UwHitG059Zci6TUc/edit" target="_blank" rel="noreferrer">운영대장 ↗</a><div class="account"><button id="accountButton" type="button" class="ghost small" aria-haspopup="true" aria-expanded="false">로그아웃 ▾</button><div id="accountMenu" class="account-menu" hidden><button id="logoutHere" type="button">이 기기에서 로그아웃</button><button id="logoutAll" type="button">모든 기기에서 로그아웃</button></div></div></div></header>
 <main>
 <div id="notice" role="status" aria-live="polite" hidden></div>
 <div id="views" class="segments views" role="group" aria-label="화면"><button type="button" class="on" data-view="ledger">기록</button><button type="button" data-view="finder">상품 찾기</button></div>
@@ -91,4 +91,12 @@
 <label>게시 비밀번호<input id="publishCode" type="password" autocomplete="off" required></label>
 <p class="hint">올리기 전에 인포크링크에 <b id="publishNo"></b>을 넣었는지 확인하세요. 게시글은 운영대장 글 그대로 올라가요. 결과는 10분마다 받아 와서 업로드 기록에 날짜·링크를 채워요.</p></div>
 <div class="dialog-foot"><button id="publishCancel" type="button" class="ghost">닫기</button><button id="publishSubmit" type="submit">예약하기</button></div></form></dialog>
-<script src="js/config.js?v=2.8.1"></script><script src="js/app.js?v=2.8.1"></script></body></html>
+<section id="loginView" class="login-view" hidden><form id="loginForm" class="login-card">
+<img class="login-mascot" src="assets/logo-mascot.png?v=2.9.0" alt=""><img class="login-word" src="assets/logo-word.png?v=2.9.0" alt="HIKARY"><p class="login-sub">콘텐츠 관리</p>
+<label class="login-field">아이디<input id="loginId" autocomplete="username" autocapitalize="off" spellcheck="false" required maxlength="100"></label>
+<label class="login-field">비밀번호<input id="loginPassword" type="password" autocomplete="current-password" required maxlength="200"></label>
+<label class="login-keep"><input id="loginKeep" type="checkbox" checked>이 기기에서 로그인 유지</label>
+<button id="loginSubmit" type="submit">로그인</button>
+<p id="loginMessage" class="login-message" role="alert" hidden></p>
+<p class="login-foot">5번 틀리면 1시간 동안 로그인을 막아요</p></form></section>
+<script src="js/config.js?v=2.9.0"></script><script src="js/app.js?v=2.9.0"></script></body></html>

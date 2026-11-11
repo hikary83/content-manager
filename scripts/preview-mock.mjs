@@ -47,7 +47,15 @@ function makeLink({ url }) {
   const result = { url, shortenUrl: 'https://link.coupang.com/a/mock' + saved.size, landingUrl: 'https://www.coupang.com/vp/products/1?lptag=AFFSDP', fetchedAt: new Date().toISOString() };
   saved.set(key, result); return { ...result, fromCache: false, usage: usage() };
 }
-function act({ action, payload }) {
+// v2.9.0 mock login: 아이디 mock / 비밀번호 mock. Every other action needs the session, like the real server 2.7.0.
+const MOCK_SESSION = 'mock-session-0123456789abcdef0123456789abcdef';
+function act({ action, payload, token }) {
+  if (action === 'login') {
+    if (payload.id !== 'mock' || payload.password !== 'mock') throw new Error('아이디나 비밀번호가 맞지 않아요 (목업: mock / mock).');
+    return { token: MOCK_SESSION, days: 90 };
+  }
+  if (token !== MOCK_SESSION) throw Object.assign(new Error('로그인이 필요해요.'), { auth: true });
+  if (action === 'logout') return { loggedOut: true, all: !!payload.all };
   if (action === 'link') return makeLink(payload);
   if (action === 'requests') return { requests: [...requests].reverse() };
   if (action === 'request') {
@@ -62,7 +70,7 @@ function act({ action, payload }) {
     if (payload.delete) { requests.splice(at, 1); return { id: payload.id, deleted: true }; }
     requests[at].status = payload.status; return { request: requests[at] };
   }
-  if (action === 'status') return { version: '2.6.0 (mock)', aiConfigured: false, coupang: { configured: true, usage: usage(), categories: CATEGORIES }, publishing: { buffer: true, video: true, code: true } };
+  if (action === 'status') return { version: '2.7.0 (mock)', aiConfigured: false, coupang: { configured: true, usage: usage(), categories: CATEGORIES }, publishing: { buffer: true, video: true, code: true } };
   if (action === 'publish') { // v2.8.0 mock: code 「mock」, every chosen place is scheduled
     if (payload.code !== 'mock') throw new Error('게시 비밀번호가 맞지 않아요. (목업 비밀번호: mock)');
     const at = rows.findIndex(item => item.id === payload.id);
@@ -94,7 +102,7 @@ createServer(async (request, response) => {
   try {
     if (request.url === '/mock-api') {
       let text = ''; for await (const part of request) text += part;
-      let result; try { result = { ok: true, data: act(JSON.parse(text)) }; } catch (error) { result = { ok: false, error: error.message }; }
+      let result; try { result = { ok: true, data: act(JSON.parse(text)) }; } catch (error) { result = { ok: false, error: error.message, auth: !!error.auth }; }
       await new Promise(r => setTimeout(r, 250));
       response.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify(result)); return;
     }

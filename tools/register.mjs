@@ -14,13 +14,17 @@ import { randomUUID, createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 const apiUrl = fs.readFileSync(new URL('../docs/js/config.js', import.meta.url), 'utf8').match(/apiUrl: '([^']+)'/)[1];
+const envFile = fileURLToPath(new URL('../.env', import.meta.url));
+// v2.9.0 (server 2.7.0): the server needs a login. This tool sends the tool key from .env (HIKARY_TOOL_KEY) instead of a password.
+function toolKey() { try { process.loadEnvFile(envFile); } catch {} return process.env.HIKARY_TOOL_KEY?.trim() || ''; }
 
 export async function request(action, payload = {}) {
+  const key = toolKey();
   // Apps Script answers POST with a redirect to a GET result page; fetch follows it like the browser does.
-  const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action, payload, requestId: randomUUID() }) });
+  const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action, payload, requestId: randomUUID(), ...(key ? { token: key } : {}) }) });
   let result;
   try { result = await response.json(); } catch { throw new Error(`서버 응답을 읽지 못했어요 (${response.status}).`); }
-  if (!result.ok) throw new Error(result.error || '처리에 실패했어요.');
+  if (!result.ok) throw new Error(result.auth ? `${result.error} .env의 HIKARY_TOOL_KEY와 스크립트 속성 TOOL_KEY가 같은지 확인해주세요.` : result.error || '처리에 실패했어요.');
   return result.data;
 }
 
@@ -50,7 +54,7 @@ export async function save(file, send = request) {
 // v2.6.0: the server (backend/Publish.js) posts only an mp4 on this Cloudinary account and deletes it after posting.
 // Keys come from .env at the repository root (git-ignored): CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET.
 export async function video(file, mp4 = 'motion-bgm.mp4', send = request) {
-  process.loadEnvFile(fileURLToPath(new URL('../.env', import.meta.url)));
+  process.loadEnvFile(envFile);
   const [cloud, key, secret] = ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET'].map(name => process.env[name]?.trim());
   if (!cloud || !key || !secret) throw new Error('.env에 CLOUDINARY_CLOUD_NAME·CLOUDINARY_API_KEY·CLOUDINARY_API_SECRET이 필요해요.');
   const entry = JSON.parse(fs.readFileSync(file, 'utf8'));

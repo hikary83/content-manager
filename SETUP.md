@@ -1,4 +1,4 @@
-# HIKARY 콘텐츠 기록 v2.8.1
+# HIKARY 콘텐츠 기록 v2.9.0
 
 2026-11-06 · GitHub Pages + Google Apps Script + Google Sheets. 콘텐츠는 Claude에서 만든다.
 
@@ -14,6 +14,15 @@
 - `app/`, `worker/`, `db/` 등은 이전 Sites/React 코드입니다. Pages 배포에는 포함하지 않습니다. 백업 태그: `legacy-chatgpt-sites-2026-08-11`.
 
 ## 최초 연결
+
+### v2.9.0 로그인 (2026-11-11, 서버 2.7.0)
+
+- 첫 화면이 로그인(어두운 화면)입니다: 아이디 · 비밀번호 · 「이 기기에서 로그인 유지」(켜면 localStorage, 끄면 브라우저를 닫을 때까지 sessionStorage). 5번 틀리면 1시간 막습니다. 위쪽 「로그아웃 ▾」 → 이 기기에서 / 모든 기기에서 로그아웃.
+- 서버 `backend/Auth.js`: `login`(세션 토큰 발급) · `logout`(그 세션 또는 전부). `login`을 뺀 **모든 동작**이 세션이나 도구 키를 요구합니다 — 전에는 서버 주소(공개 저장소의 `config.js`)만 알면 누구나 목록·저장·상품 찾기를 부를 수 있었습니다. 세션은 스크립트 속성 `SESSIONS`에 토큰의 SHA-256 해시로만 남고, 90일 안 쓰면 끝나며, 많아야 20개를 둡니다. 거절된 응답에는 `auth: true`가 붙어 웹이 로그인 화면을 다시 띄웁니다.
+- 등록 도구(`tools/register.mjs`)는 `.env`의 `HIKARY_TOOL_KEY`를 보내고, 서버는 스크립트 속성 `TOOL_KEY`와 맞춰 봅니다 (32자 이상). 도구 키로는 로그아웃할 수 없습니다.
+- 「게시」 비밀번호(`PUBLISH_CODE`)는 그대로 따로 묻습니다.
+- 처음 한 번 할 일 (사람): 스크립트 속성 `LOGIN_ID`·`LOGIN_PASSWORD` (2026-11-11 완료), `TOOL_KEY` (`.env`의 `HIKARY_TOOL_KEY`와 같은 값). 쓰는 기기마다 한 번 로그인.
+- 목업(`scripts/preview-mock.mjs`)은 아이디 `mock` / 비밀번호 `mock`.
 
 ### v2.8.1 인포크링크 열기 (2026-11-10, 화면만)
 
@@ -261,6 +270,9 @@ v1.3.0 서버: 기존 개인 배포 ID의 Apps Script v4로 갱신. v3(서비스
 | `BUFFER_API_KEY` | Buffer 개인 API 키, 직접 입력 (v2.8.0 게시). 2027-11-10 만료 |
 | `CLOUDINARY_CLOUD_NAME` · `CLOUDINARY_API_KEY` · `CLOUDINARY_API_SECRET` | 게시할 영상을 지울 때 씀, 직접 입력 (v2.8.0) |
 | `PUBLISH_CODE` | 「게시」 비밀번호, 직접 정해 입력 (v2.8.0) |
+| `LOGIN_ID` · `LOGIN_PASSWORD` | 웹 로그인 아이디·비밀번호, 직접 정해 입력 (v2.9.0) |
+| `TOOL_KEY` | 등록 도구 키 (32자 이상), `.env`의 `HIKARY_TOOL_KEY`와 같은 값 (v2.9.0) |
+| `SESSIONS` | 서버가 쓰는 로그인 세션 (토큰의 해시). 지우면 모든 기기가 로그아웃됨 |
 
 ### 접근 제어
 
