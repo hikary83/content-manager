@@ -475,3 +475,15 @@ test('v2.10.0 캐러셀 상품은 릴스로 예약하지 않고, 게시에서 �
   assert.ok(two.sent.some(item => item.url.endsWith('/video/destroy')));
   assert.equal(sent.filter(item => item.url.endsWith('/video/destroy')).length, 0); assert.ok(posts);
 });
+
+test('v2.11.0 대기 중인 요청은 상품명·템플릿·인스타 형식·한마디를 고칠 수 있고, 루미가 시작한 요청은 못 고친다', () => {
+  const env=runtime();const call=(action,payload)=>JSON.parse(env.context.doPost({postData:{contents:JSON.stringify({action,payload})}}).text);
+  const made=call('request',{sourceUrl:'https://www.coupang.com/vp/products/9',affiliateUrl:'https://link.coupang.com/a/x',template:'photo'}).data.request;
+  const fixed=call('requestUpdate',{id:made.id,edit:true,productName:'경기 펜션',template:'quiz',instagramType:'캐러셀',note:'=이름 숨겨줘'}).data.request;
+  assert.deepEqual([fixed.productName,fixed.template,fixed.instagramType,fixed.note,fixed.status],['경기 펜션','quiz','캐러셀','=이름 숨겨줘','대기']);
+  const row=env.tabs.get('요청').rows[1]; assert.deepEqual([row[3],row[6],row[8],row[9]],['경기 펜션','=이름 숨겨줘','quiz','캐러셀']); assert.equal(row[4],'https://www.coupang.com/vp/products/9','주소·링크는 그대로');
+  assert.match(call('requestUpdate',{id:made.id,edit:true,instagramType:'스토리'}).error,/릴스나 캐러셀/);
+  call('requestUpdate',{id:made.id,status:'진행'});
+  assert.match(call('requestUpdate',{id:made.id,edit:true,template:'soda'}).error,/이미 시작한 요청/);
+  assert.equal(call('requests',{}).data.requests[0].template,'quiz');
+});

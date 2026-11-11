@@ -68,9 +68,14 @@ function act({ action, payload, token }) {
     const at = requests.findIndex(item => item.id === payload.id);
     if (at < 0) throw new Error('요청을 찾지 못했어요. 새로고침해주세요.');
     if (payload.delete) { requests.splice(at, 1); return { id: payload.id, deleted: true }; }
+    if (payload.edit) { // v2.11.0 mock: a waiting request takes new choices
+      if (requests[at].status !== '대기') throw new Error('루미가 이미 시작한 요청이라 고칠 수 없어요.');
+      for (const key of ['productName', 'note', 'template', 'instagramType']) requests[at][key] = payload[key] || (key === 'instagramType' ? '릴스' : '');
+      return { request: requests[at] };
+    }
     requests[at].status = payload.status; return { request: requests[at] };
   }
-  if (action === 'status') return { version: '2.10.0 (mock)', aiConfigured: false, coupang: { configured: true, usage: usage(), categories: CATEGORIES }, publishing: { buffer: true, video: true, code: true } };
+  if (action === 'status') return { version: '2.11.0 (mock)', aiConfigured: false, coupang: { configured: true, usage: usage(), categories: CATEGORIES }, publishing: { buffer: true, video: true, code: true } };
   if (action === 'publish') { // v2.8.0 mock: code 「mock」, every chosen place is scheduled
     if (payload.code !== 'mock') throw new Error('게시 비밀번호가 맞지 않아요. (목업 비밀번호: mock)');
     const at = rows.findIndex(item => item.id === payload.id);

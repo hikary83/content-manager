@@ -1,19 +1,19 @@
 <!doctype html>
-<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0f0f0f"><title>HIKARY 콘텐츠 관리</title><link rel="icon" type="image/png" href="assets/favicon.png?v=3.4.0"><link rel="apple-touch-icon" href="assets/apple-touch-icon.png?v=3.4.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css"><link rel="stylesheet" href="css/app.css?v=3.4.0"></head>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0f0f0f"><title>HIKARY 콘텐츠 관리</title><link rel="icon" type="image/png" href="assets/favicon.png?v=3.4.1"><link rel="apple-touch-icon" href="assets/apple-touch-icon.png?v=3.4.1"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css"><link rel="stylesheet" href="css/app.css?v=3.4.1"></head>
 <body>
 <div class="app">
 <header class="top">
  <button id="menuButton" type="button" class="burger" aria-label="메뉴 열기·닫기"><i></i></button>
- <a class="brand" href="#dashboard"><img class="brand-word" src="assets/logo-word.png?v=3.4.0" alt="HIKARY"><span class="ver">v3.4.0</span></a>
+ <a class="brand" href="#dashboard"><img class="brand-word" src="assets/logo-word.png?v=3.4.1" alt="HIKARY"><span class="ver">v3.4.1</span></a>
  <label class="search"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="콘텐츠 검색 (상품명·카테고리·No.)" aria-label="콘텐츠 검색"></label>
  <div class="top-right"><span id="connectionState" class="conn">연결 확인 중…</span>
-  <div class="account"><button id="accountButton" type="button" class="avatar" aria-haspopup="true" aria-expanded="false" aria-label="계정 메뉴"><img src="assets/logo-mascot.png?v=3.4.0" alt=""></button>
-   <div id="accountMenu" class="account-menu" hidden><div class="who"><img src="assets/logo-mascot.png?v=3.4.0" alt=""><div><b>HIKARY</b><small>이 기기에서 로그인 중</small></div></div>
+  <div class="account"><button id="accountButton" type="button" class="avatar" aria-haspopup="true" aria-expanded="false" aria-label="계정 메뉴"><img src="assets/logo-mascot.png?v=3.4.1" alt=""></button>
+   <div id="accountMenu" class="account-menu" hidden><div class="who"><img src="assets/logo-mascot.png?v=3.4.1" alt=""><div><b>HIKARY</b><small>이 기기에서 로그인 중</small></div></div>
     <button id="logoutHere" type="button"><i>⎋</i>로그아웃</button><button id="logoutAll" type="button"><i>⊘</i>모든 기기에서 로그아웃</button><small class="sub">휴대폰·다른 PC에 남은 로그인도 끝내요</small></div></div>
  </div>
 </header>
 <aside id="side" class="side">
- <div class="me" title="내 채널 · HikaryVibe"><img src="assets/logo-mascot.png?v=3.4.0" alt=""><b>내 채널</b><small>HikaryVibe</small></div>
+ <div class="me" title="내 채널 · HikaryVibe"><img src="assets/logo-mascot.png?v=3.4.1" alt=""><b>내 채널</b><small>HikaryVibe</small></div>
  <nav class="nav" aria-label="메뉴"><a href="#dashboard" data-view="dashboard" title="대시보드"><i>▦</i><span class="lbl">대시보드</span></a><a href="#content" data-view="content" title="콘텐츠"><i>▶</i><span class="lbl">콘텐츠</span><span id="requestCount" class="count" hidden title="루미가 기다리는 요청"></span></a><a href="#find" data-view="find" title="소재 찾기"><i>◎</i><span class="lbl">소재 찾기</span></a></nav>
  <div class="shortcuts"><small>바로가기</small><div class="sc">
   <a class="s" href="https://docs.google.com/spreadsheets/d/1ZSB7FBZTWdT_eLlo3kpom-u2yM5UwHitG059Zci6TUc/edit" target="_blank" rel="noopener noreferrer" aria-label="운영대장 (새 창)"><span aria-hidden="true">▦</span><em>운영대장</em></a>
@@ -144,8 +144,10 @@
 <p class="hint">올리기 전에 인포크링크에 <b id="publishNo"></b>을 넣었는지 확인하세요. 게시글은 운영대장 글 그대로 올라가요. 결과는 10분마다 받아 와서 업로드 기록에 날짜·링크를 채워요.</p></div>
 <div class="dialog-foot"><span></span><span class="r"><button id="publishCancel" type="button" class="btn">닫기</button><button id="publishSubmit" type="submit" class="btn white">예약하기</button></span></div></form></dialog>
 
-<dialog id="askDialog" class="ask"><form id="askForm"><div class="dialog-head"><div><small>루미한테 요청하기</small><h2 id="askTitle"></h2></div><button id="askClose" type="button" class="icon" aria-label="닫기">✕</button></div>
+<dialog id="askDialog" class="ask"><form id="askForm"><div class="dialog-head"><div><small id="askMode">루미한테 요청하기</small><h2 id="askTitle"></h2></div><button id="askClose" type="button" class="icon" aria-label="닫기">✕</button></div>
 <div class="dialog-body">
+<h3 class="q">상품 이름 <small>선택 · 루미가 알아보기 쉽게</small></h3>
+<input id="askName" maxlength="200" placeholder="예: 서울랜드 파크이용권" aria-label="상품 이름">
 <h3 class="q">영상 템플릿 <small>유튜브 쇼츠 · 틱톡 · 인스타 릴스에 같이 써요</small></h3>
 <div id="askTemplates" class="tpls" role="radiogroup" aria-label="영상 템플릿"></div>
 <h3 class="q">인스타그램 <small>둘 중 하나만 올려요</small></h3>
@@ -155,17 +157,18 @@
 </div>
 <h3 class="q">루미에게 한마디 <small>선택</small></h3>
 <textarea id="askNote" rows="2" maxlength="1000" placeholder="예: 가격보다 분위기 위주로, 사우나 장면 꼭 넣어줘"></textarea></div>
-<div class="dialog-foot"><span class="foot-note">요청은 「콘텐츠」 맨 위에 쌓여요 · Claude에서 「요청 확인해줘」</span><span class="r"><button id="askCancel" type="button" class="btn">취소</button><button type="submit" class="btn primary">요청하기</button></span></div></form></dialog>
+<div class="dialog-foot"><span class="foot-note">요청은 「콘텐츠」 맨 위에 쌓여요 · Claude에서 「요청 확인해줘」</span><span class="r"><button id="askCancel" type="button" class="btn">취소</button><button id="askSubmit" type="submit" class="btn primary">요청하기</button></span></div></form></dialog>
 
 <dialog id="pickDialog"><form id="pickForm"><div class="dialog-head"><div><small>캘린더 · 빈 날</small><h2 id="pickTitle">올릴 콘텐츠 고르기</h2></div><button id="pickClose" type="button" class="icon" aria-label="닫기">✕</button></div>
 <div class="dialog-body"><p class="hint">아직 다 올리지 않은 콘텐츠예요. 고르면 그날 08:45로 「게시」 창이 열려요.</p><div id="pickList" class="pick-list"></div></div></form></dialog>
 
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 <section id="loginView" class="login-view" hidden><form id="loginForm" class="login-card">
-<img class="login-mascot" src="assets/logo-mascot.png?v=3.4.0" alt=""><img class="login-word" src="assets/logo-word.png?v=3.4.0" alt="HIKARY"><p class="login-sub">콘텐츠 관리</p>
+<img class="login-mascot" src="assets/logo-mascot.png?v=3.4.1" alt=""><img class="login-word" src="assets/logo-word.png?v=3.4.1" alt="HIKARY"><p class="login-sub">콘텐츠 관리</p>
 <label class="login-field">아이디<input id="loginId" autocomplete="username" autocapitalize="off" spellcheck="false" required maxlength="100"></label>
 <label class="login-field">비밀번호<input id="loginPassword" type="password" autocomplete="current-password" required maxlength="200"></label>
 <label class="login-keep"><input id="loginKeep" type="checkbox" checked>이 기기에서 로그인 유지</label>
 <button id="loginSubmit" type="submit">로그인</button>
 <p id="loginMessage" class="login-message" role="alert" hidden></p>
 <p class="login-foot">5번 틀리면 1시간 동안 로그인을 막아요</p></form></section>
-<script src="js/config.js?v=3.4.0"></script><script src="js/templates.js?v=3.4.0"></script><script src="js/app.js?v=3.4.0"></script></body></html>
+<script src="js/config.js?v=3.4.1"></script><script src="js/templates.js?v=3.4.1"></script><script src="js/app.js?v=3.4.1"></script></body></html>

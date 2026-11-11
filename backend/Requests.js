@@ -31,19 +31,27 @@ function requestRows_(sheet) { return sheet.getLastRow() < 2 ? [] : sheet.getRan
 function requestEntry_(row) { var entry = {}; REQUEST_KEYS.forEach(function(key, index) { entry[key] = String(row[index] == null ? '' : row[index]); }); return entry; }
 function readRequests_() { return { requests: requestRows_(getRequestSheet_()).filter(function(row) { return row[0]; }).map(requestEntry_).reverse() }; }
 
+// What the request window chooses (v2.10.0); also what a waiting request may change (v2.11.0).
+var REQUEST_CHOICES = ['productName', 'note', 'template', 'instagramType'];
+function requestChoice_(input) {
+  var choice = { productName: field_(input.productName || '', 200), note: field_(input.note || '', 1000), template: field_(input.template || '', 30), instagramType: field_(input.instagramType || '릴스', 10) };
+  if (choice.template && !/^[a-z0-9-]+$/.test(choice.template)) throw userError_('템플릿 이름이 올바르지 않아요.');
+  if (INSTAGRAM_TYPES.indexOf(choice.instagramType) < 0) throw userError_('인스타 형식은 릴스나 캐러셀이에요.');
+  return choice;
+}
+
 function addRequest_(input) {
+  var choice = requestChoice_(input);
   var entry = {
     id: /^[a-f0-9-]{36}$/i.test(input.id || '') ? input.id : Utilities.getUuid(),
-    productName: field_(input.productName || '', 200),
+    productName: choice.productName,
     sourceUrl: field_(input.sourceUrl || '', 2000),
     affiliateUrl: field_(input.affiliateUrl || '', 2000),
-    note: field_(input.note || '', 1000),
+    note: choice.note,
     from: field_(input.from || '', 100),
-    template: field_(input.template || '', 30),
-    instagramType: field_(input.instagramType || '릴스', 10)
+    template: choice.template,
+    instagramType: choice.instagramType
   };
-  if (entry.template && !/^[a-z0-9-]+$/.test(entry.template)) throw userError_('템플릿 이름이 올바르지 않아요.');
-  if (INSTAGRAM_TYPES.indexOf(entry.instagramType) < 0) throw userError_('인스타 형식은 릴스나 캐러셀이에요.');
   if (!/^https:\/\/((www|m|trip)\.)?coupang\.com\/\S*$/i.test(entry.sourceUrl)) throw userError_('쿠팡 상품 주소(https://www.coupang.com/… 또는 https://trip.coupang.com/…)를 넣어주세요.');
   if (entry.affiliateUrl && !/^https:\/\/link\.coupang\.com\/\S+$/i.test(entry.affiliateUrl)) throw userError_('파트너스 링크는 https://link.coupang.com/… 주소여야 해요.');
   var lock = LockService.getScriptLock();
@@ -64,10 +72,12 @@ function addRequest_(input) {
   } finally { lock.releaseLock(); }
 }
 
-// status: 대기 · 진행 · 완료, or delete: true to take a mistaken request back.
+// status: 대기 · 진행 · 완료, delete: true to take a mistaken request back,
+// or edit: true (v2.11.0) to change the request window's choices while it still waits — once Lumi starts, it is fixed.
 function updateRequest_(input) {
   var id = field_(input.id || '', 80);
-  if (!input.delete && REQUEST_STATUSES.indexOf(input.status) < 0) throw userError_('요청 상태가 올바르지 않아요.');
+  var choice = input.edit ? requestChoice_(input) : null;
+  if (!input.delete && !input.edit && REQUEST_STATUSES.indexOf(input.status) < 0) throw userError_('요청 상태가 올바르지 않아요.');
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(10000)) throw userError_('다른 저장 작업이 진행 중이에요. 잠시 후 다시 시도해주세요.');
   try {
@@ -78,6 +88,13 @@ function updateRequest_(input) {
       if (sheet.getMaxRows() - sheet.getFrozenRows() <= 1) sheet.insertRowsAfter(sheet.getMaxRows(), 1);
       sheet.deleteRow(index + 2); SpreadsheetApp.flush();
       return { id: id, deleted: true };
+    }
+    if (choice) {
+      var waiting = requestEntry_(rows[index]);
+      if (waiting.status !== '대기') throw userError_('루미가 이미 시작한 요청이라 고칠 수 없어요.');
+      REQUEST_CHOICES.forEach(function(key) { waiting[key] = choice[key]; sheet.getRange(index + 2, REQUEST_KEYS.indexOf(key) + 1).setValues([[sheetLiteral_(choice[key])]]); });
+      SpreadsheetApp.flush();
+      return { request: waiting };
     }
     sheet.getRange(index + 2, REQUEST_KEYS.indexOf('status') + 1).setValues([[input.status]]);
     SpreadsheetApp.flush();

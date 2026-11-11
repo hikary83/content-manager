@@ -2,6 +2,7 @@
   'use strict';
   // v3.0.0 (2026-11-11): dark YouTube-Studio layout — 대시보드 · 콘텐츠 · 소재 찾기, 바로가기 icons, profile menu.
   // The 「올리기」 dialog is merged into the ✎ detail window (right panel: thumbnail, links, places with an inline record).
+  // v3.4.1: a toast after a request, a waiting request reopens the window to change it, thumbnails are covers.
   // v3.4.0: 「루미한테 요청하기」 opens a window (template from templates.js, Instagram format, a word to Lumi). A product goes to
   //   Instagram once — as a reel or as a carousel (server 2.10.0 「인스타 형식」) — so lists show three places, not four.
   // v3.3.1: clicking the latest post opens ✎ (no 보기·수정 button); the cover downloads from the icon on its top right.
@@ -60,6 +61,9 @@
   let current = null;
   let dirty = false;
 
+  // v3.4.1: a short message that goes away by itself, for things that worked (the page notice stays for errors).
+  let toastTimer = 0;
+  function toast(text) { notice(''); $('toast').textContent = text; $('toast').hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { $('toast').hidden = true; }, 2800); }
   function notice(text, error = false) { $('notice').hidden = !text; $('notice').className = error ? 'error' : ''; $('notice').textContent = text; }
   async function task(work) {
     if (busy) return;
@@ -89,6 +93,13 @@
     node.title = `${name} · ${status}${row[key + 'Date'] ? ' ' + row[key + 'Date'] : ''}`; if (onclick) node.setAttribute('aria-label', node.title); return node;
   }
   function thumb(row) {
+    // v3.4.1: the cover when there is one — the vertical cover on a blurred copy of itself, like the dashboard card.
+    const cover = coverUrl(row.coverUrl);
+    if (cover) {
+      const box = element('span', 'thumb cover'); const small = coverAt(cover, 'w_120,q_auto,f_auto');
+      for (const name of ['bg', 'fg']) { const img = element('img', name); img.src = small; img.alt = ''; img.loading = 'lazy'; box.append(img); }
+      return box;
+    }
     const src = imageUrl(row.inpockImage);
     if (!src) return element('span', 'thumb', '—');
     const img = element('img', 'thumb'); img.src = src; img.alt = ''; img.loading = 'lazy'; return img;
@@ -176,6 +187,7 @@
   // v2.7.2: the Partners link is shown as text to copy, never as a link we would click ourselves (self-referral).
   function requestRow(item) {
     const tr = element('div', 'tr req'); const box = element('div', 'item'); const text = element('div');
+    tr.onclick = event => { if (!event.target.closest('button,a')) void ask({ sourceUrl: item.sourceUrl }, item); }; // v3.4.1: change it while it waits
     const tplIndex = TEMPLATES.findIndex(tpl => tpl.id === item.template);
     const picked = [tplIndex >= 0 ? `템플릿 ${tplIndex + 1} ${TEMPLATES[tplIndex].name}` : '', item.instagramType ? `인스타 ${item.instagramType}` : ''].filter(Boolean).join(' · ');
     text.append(element('b', '', item.productName || item.sourceUrl.replace(/^https:\/\//, '').split('?')[0]), element('small', '', `${shortDate(item.requestedAt)} 요청 · ${picked || item.from || '루미한테 요청'}`));
@@ -192,7 +204,7 @@
       actions.append(copy);
     }
     if (https(item.sourceUrl)) actions.append(link('상품 ↗', item.sourceUrl, 'btn sm'));
-    if (item.status === '대기') actions.append(button('지우기', () => void task(async () => { await HikaryApi.request('requestUpdate', { id: item.id, delete: true }); await loadRequests(); notice('요청을 지웠어요.'); })));
+    if (item.status === '대기') actions.append(button('지우기', () => void task(async () => { await HikaryApi.request('requestUpdate', { id: item.id, delete: true }); await loadRequests(); toast('요청을 지웠어요.'); })));
     tr.append(box, state, hint, element('div', 'clicks'), actions); return tr;
   }
   function setFilter(next) { filter = next; for (const node of $('filters').children) node.classList.toggle('on', node.dataset.filter === next); renderList(); }
@@ -697,7 +709,8 @@
     try { await navigator.clipboard.writeText(`이 상품으로 만들어줘\n${name ? `상품명: ${name}\n` : ''}상품 페이지: ${made.url}\n파트너스 링크: ${made.shortenUrl}\n(HIKARY 소재 찾기 · 주소로 만들기)`); $('linkClaude').textContent = '복사됨 ✓'; setTimeout(() => { $('linkClaude').textContent = 'Claude용 글 복사'; }, 1500); }
     catch { notice('복사하지 못했어요. 파트너스 링크 칸에서 직접 복사해주세요.', true); }
   };
-  $('linkAsk').onclick = async () => { if (await ask({ productName: $('linkName').value.trim(), sourceUrl: made.url, affiliateUrl: made.shortenUrl, from: '주소로 만들기' })) $('linkAsk').textContent = '요청함 ✓'; };
+  // Sent → the card goes back to empty, ready for the next address (the toast says where the request went).
+  $('linkAsk').onclick = async () => { if (await ask({ productName: $('linkName').value.trim(), sourceUrl: made.url, affiliateUrl: made.shortenUrl, from: '주소로 만들기' })) { $('linkUrl').value = ''; $('linkName').value = ''; $('linkResult').hidden = true; made = null; } };
   // v2.7.0: 「루미한테 요청하기」 leaves the product in the sheet tab 「요청」 (server 2.5.0). The page cannot wake a Claude chat,
   // so the owner tells Claude 「요청 확인해줘」 and it reads them with tools/register.mjs requests. They show on top of 「콘텐츠」.
   // v3.4.0: a window first — the template (cards from templates.js), the Instagram format and a word to Lumi. Resolves true once sent.
@@ -709,11 +722,23 @@
     card.append(radio, img, name, element('span', '', tpl.note)); if (tpl.default) card.append(element('em', 'def', '기본'));
     return card;
   }));
-  function ask(payload) {
+  // item: a request already sent — the window shows its choices, saved with requestUpdate while it waits (server 2.11.0).
+  function ask(payload, item = null) {
     return new Promise(resolve => {
-      asking = { payload, resolve };
-      $('askForm').reset(); $('askTitle').textContent = payload.productName || payload.sourceUrl.replace(/^https:\/\//, '').split('?')[0];
-      $('askDialog').showModal(); $('askTemplates').scrollLeft = 0;
+      asking = { payload, item, resolve };
+      const form = $('askForm'); form.reset(); const locked = !!item && item.status !== '대기';
+      $('askName').value = (item || payload).productName || '';
+      if (item) {
+        const card = [...form.querySelectorAll('input[name=askTemplate]')].find(radio => radio.value === item.template); if (card) card.checked = true;
+        for (const radio of form.querySelectorAll('input[name=askIg]')) radio.checked = radio.value === (item.instagramType || '릴스');
+        $('askNote').value = item.note || '';
+      }
+      for (const control of form.querySelectorAll('input, textarea')) control.disabled = locked;
+      $('askMode').textContent = !item ? '루미한테 요청하기' : locked ? '루미가 만드는 중이라 고칠 수 없어요' : '보낸 요청 고치기';
+      $('askSubmit').textContent = item ? '고친 대로 저장' : '요청하기'; $('askSubmit').hidden = locked; $('askCancel').textContent = locked ? '닫기' : '취소';
+      $('askTitle').textContent = (item || payload).productName || payload.sourceUrl.replace(/^https:\/\//, '').split('?')[0];
+      $('askDialog').showModal();
+      const picked = form.querySelector('.tpl input:checked')?.closest('.tpl'); $('askTemplates').scrollLeft = picked ? picked.offsetLeft - $('askTemplates').offsetLeft - 8 : 0;
     });
   }
   function closeAsk(sent) { if ($('askDialog').open) $('askDialog').close(); asking?.resolve(sent); asking = null; }
@@ -721,11 +746,15 @@
   $('askDialog').addEventListener('cancel', event => { event.preventDefault(); closeAsk(false); });
   $('askForm').onsubmit = event => {
     event.preventDefault(); const fields = $('askForm').elements;
-    const choice = { template: fields.askTemplate?.value || '', instagramType: fields.askIg.value, note: $('askNote').value.trim() };
+    const choice = { productName: $('askName').value.trim(), template: fields.askTemplate?.value || '', instagramType: fields.askIg.value, note: $('askNote').value.trim() };
     void task(async () => {
+      if (asking.item) {
+        await HikaryApi.request('requestUpdate', { id: asking.item.id, edit: true, ...choice });
+        await loadRequests(); closeAsk(true); toast('요청을 고쳤어요.'); return;
+      }
       const result = await HikaryApi.request('request', { id: crypto.randomUUID(), ...asking.payload, ...choice });
       await loadRequests(); closeAsk(true);
-      notice(result.duplicate ? '이미 보낸 요청이에요. Claude에서 루미한테 「요청 확인해줘」라고 해 주세요.' : '루미한테 보냈어요. 「콘텐츠」 맨 위에 보이고, Claude에서 「요청 확인해줘」라고 하면 시작해요.');
+      toast(result.duplicate ? '이미 보낸 요청이에요 · 「콘텐츠」 맨 위에 있어요' : '루미한테 보냈어요 · 「콘텐츠」 맨 위에 쌓였어요');
     });
   };
   $('finderLoad').onclick = () => { const [source, categoryId] = $('finderSource').value.split(':'); void task(() => findProducts({ source, categoryId: Number(categoryId) || undefined })); };
