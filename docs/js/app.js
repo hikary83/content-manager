@@ -2,6 +2,7 @@
   'use strict';
   // v3.0.0 (2026-11-11): dark YouTube-Studio layout — 대시보드 · 콘텐츠 · 소재 찾기, 바로가기 icons, profile menu.
   // The 「올리기」 dialog is merged into the ✎ detail window (right panel: thumbnail, links, places with an inline record).
+  // v3.4.5: new data shows by itself — opening another menu or coming back to the tab reloads quietly (refreshQuietly).
   // v3.4.4: the page notice has ✕, and opening another menu clears what an earlier screen said.
   // v3.4.3: ✕ in the address field clears it and the card below; a refused product says so plainly (server 2.12.0).
   // v3.4.2: 「링크 만들기」 fills 「상품 이름」 from the product page when it can (travel pages; www pages block servers).
@@ -140,8 +141,22 @@
   let pageSize = perPage();
   addEventListener('resize', () => { if (perPage() === pageSize) return; pageSize = perPage(); for (const id in pages) { $(id).style.minHeight = ''; showPage(id); } });
 
-  async function load() { rows = (await HikaryApi.request('list')).entries; render(); }
-  async function loadRequests() { requests = (await HikaryApi.request('requests')).requests; render(); }
+  // Only the newest call lands: a quiet reload that comes back after a save's own reload must not put older rows back.
+  let loadedAt = 0, listCall = 0, requestCall = 0;
+  async function load() { const call = ++listCall; const entries = (await HikaryApi.request('list')).entries; if (call !== listCall) return; rows = entries; loadedAt = Date.now(); render(); }
+  async function loadRequests() { const call = ++requestCall; const list = (await HikaryApi.request('requests')).requests; if (call !== requestCall) return; requests = list; render(); }
+  // v3.4.5: opening another menu or coming back to the tab reloads in the background — no 「처리 중」, nothing locked.
+  // Skipped within 30 seconds of the last load, while something else is working, and while a window (✎, 요청, 게시) is open,
+  // so nothing being edited is redrawn. The Coupang report comes only with the dashboard; the server keeps it 6 hours,
+  // so this spends none of the hourly Coupang calls. A failure keeps what is on screen (a login problem goes through hikary-login).
+  let refreshing = false;
+  async function refreshQuietly() {
+    if (refreshing || busy || !loadedAt || Date.now() - loadedAt < 30000 || !HikaryApi.hasSession() || !$('loginView').hidden || document.querySelector('dialog[open]')) return;
+    refreshing = true;
+    try { await Promise.all([load(), loadRequests(), view === 'dashboard' ? loadReport() : null]); } catch {} finally { refreshing = false; }
+  }
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') void refreshQuietly(); });
+  window.addEventListener('focus', () => void refreshQuietly());
   const openRequests = () => requests.filter(item => item.status !== '완료');
   function render() {
     renderList(); renderDashboard(); renderCalendar();
@@ -786,6 +801,7 @@
     const moved = $(view + 'View').hidden; // the menu asked for is not the one on screen
     for (const name of VIEWS) $(name + 'View').hidden = name !== view;
     if (moved && !busy) notice('');
+    if (moved) void refreshQuietly();
     for (const node of document.querySelectorAll('[data-view]')) node.classList.toggle('on', node.dataset.view === view);
     if (location.hash !== '#' + view) history.replaceState(null, '', '#' + view);
     closeDrawer();
