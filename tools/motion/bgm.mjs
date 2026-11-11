@@ -5,6 +5,9 @@
 // record.mjs writes motion-bgm.mp4 (sound effects + narration + music) next to motion.mp4; the music ducks
 // while the narration speaks. To redo only the music:
 //   node tools/motion/bgm.mjs contents/<folder>/motion.html   (rebuilds motion-bgm.mp4 from motion.mp4)
+// The photo template cuts its hook on two beats at 108bpm. When the folder-name track has another tempo, find a seed
+// that plays at 108 and put it in data-bgm (No.255 「bulmeong40」, No.256 「hanok40」, 2026-11-11):
+//   node tools/motion/bgm.mjs --find 108 hanok   → hanok5 → A키 108bpm … (seeds hanok1…hanok60)
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -113,7 +116,16 @@ export function addMusic(video, seed, voice) {
 
 export const describe = ({ key, bpm, chords, tone, beat }) => `${key}키 ${bpm}bpm ${chords} · ${tone} · ${beat}`;
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+// Seeds prefix1…prefixN whose track plays at `bpm` (a 50 ms render is enough to read what the seed picks).
+export const findSeeds = (bpm, prefix, count = 60) => Array.from({ length: count }, (_, i) => `${prefix}${i + 1}`)
+  .map(seed => ({ seed, picks: makeMusic(seed, 0.05).picks })).filter(({ picks }) => picks.bpm === bpm);
+
+if (process.argv[1] === fileURLToPath(import.meta.url) && process.argv[2] === '--find') {
+  const bpm = Number(process.argv[3]), prefix = process.argv[4] || 'bgm';
+  if (!bpm) throw new Error('사용: node tools/motion/bgm.mjs --find 108 <아무 단어>');
+  const found = findSeeds(bpm, prefix);
+  console.log(found.length ? found.map(({ seed, picks }) => `${seed} → ${describe(picks)}`).join('\n') : `${bpm}bpm 씨앗이 없어요. 다른 단어로 찾아 보세요.`);
+} else if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const page = path.resolve(process.argv[2] || '');
   if (!process.argv[2] || !fs.existsSync(page)) throw new Error('사용: node tools/motion/bgm.mjs <motion.html>');
   const video = page.replace(/\.html?$/i, '') + '.mp4';

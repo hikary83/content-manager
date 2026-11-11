@@ -41,6 +41,12 @@ test('배경음악은 폴더 이름으로 고르고, 같은 이름이면 같은 
   assert.notDeepEqual(a.picks,b.picks,'다른 이름이면 다른 곡');
   assert.equal(a.wav.length,44+2*44100*4,'2초 스테레오 WAV');
 });
+test('--find는 그 빠르기 곡이 나오는 씨앗만 찾는다 (사진 템플릿 훅은 108bpm)',async()=>{
+  const {findSeeds,makeMusic}=await import(pathToFileURL(bgm).href);
+  const found=findSeeds(108,'hanok');
+  assert.ok(found.some(f=>f.seed==='hanok40'),'No.256에 쓴 씨앗');
+  for(const {seed} of found) assert.equal(makeMusic(seed,0.05).picks.bpm,108);
+});
 test('색 대비는 WCAG 계산을 따른다',async()=>{
   const {contrast}=await import(new URL('../tools/colors.mjs',import.meta.url).href);
   assert.equal(Math.round(contrast('#ffffff','#000000')),21);

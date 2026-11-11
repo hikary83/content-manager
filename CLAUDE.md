@@ -44,7 +44,7 @@ Claude의 이름은 **루미**다 (2026-11-09, 사용자가 지었다). 사용�
 3. **컨펌 (사람)** — 「컨펌」이 게시글 작성과 웹 등록의 승인이다.
 4. **게시글 · 키티챗 문구 (Claude)** — `tools/posts/template.md`를 폴더에 `posts.md`로 복사해 세 플랫폼 게시글과 키티챗 키워드·DM 문구를 채운다.
    - 인포크 번호(No.)는 상품마다 하나다 (쇼츠·캐러셀이 같이 쓴다). 첫 번호는 252다 (코엑스, 2026-11-09). 그 뒤로는 `node tools/register.mjs list`로 운영대장 `inpockNo`의 가장 큰 값에 1을 더한다. 번호는 **링크를 받을 때(작업 시작 때) 정해** 폴더 이름에 쓰므로, 아직 등록 전인 `contents/` 폴더 이름의 번호도 피한다 (서울랜드는 253으로 잡아 두었다).
-   - 파트너스 링크는 **쿠팡 파트너스 Open API(딥링크)로 만든다** (2026-11-10 결정, 그 전에는 사람이 사이트에서 직접 만들었다). 웹 「소재 찾기」의 「링크 만들기」나 `node tools/register.mjs link <쿠팡 주소>` — 한 시간 20번 한도를 같이 쓰고, 같은 주소는 6시간 저장해 둔 걸 쓴다. 만들면 같은 상품으로 가는지 확인한다. API 링크가 거쳐 가는 주소의 `lptag`가 내 파트너스 아이디(사이트 「내 정보」의 ID)와 같고 채널 아이디(subid)는 없어 사이트의 「기본값」과 같다 (2026-11-10 확인). 내 링크는 직접 열지 않는다 — 내 클릭으로 잡힐 수 있다. 실제 클릭·구매가 리포트에 잡히는지는 첫 상품을 올린 뒤 **확인 필요**.
+   - 파트너스 링크는 **쿠팡 파트너스 Open API(딥링크)로 만든다** (2026-11-10 결정, 그 전에는 사람이 사이트에서 직접 만들었다). 웹 「소재 찾기」의 「링크 만들기」나 `node tools/register.mjs link <쿠팡 주소>` — 한 시간 20번 한도를 같이 쓰고, 같은 주소는 6시간 저장해 둔 걸 쓴다. 만들면 같은 상품으로 가는지 확인한다 — 「루미한테 요청하기」로 받은 링크(「주소로 만들기」·「소재 찾기」)는 쿠팡 API가 같이 저장된 그 주소로 만든 것이라 따로 열어 확인하지 않는다 (2026-11-11). API 링크가 거쳐 가는 주소의 `lptag`가 내 파트너스 아이디(사이트 「내 정보」의 ID)와 같고 채널 아이디(subid)는 없어 사이트의 「기본값」과 같다 (2026-11-10 확인). 내 링크는 직접 열지 않는다 — 내 클릭으로 잡힐 수 있다. 실제 클릭·구매가 리포트에 잡히는지는 첫 상품을 올린 뒤 **확인 필요**.
    - 인포크링크에 넣을 것: 연결할 주소(파트너스 링크) · 타이틀(`No.252 코엑스 아쿠아리움 입장권`처럼 번호 먼저) · 이미지(`inpock.png`, 1080×1080 — 실제 상품 사진 + 포인트 색 No. 배지. 첫 사례 `contents/261106_코엑스아쿠아리움/inpock.html`을 복사해 `node tools/carousel/render.mjs contents/<폴더>/inpock.html`로 찍는다. `<body data-size="1080x1080">`이 있어야 한다).
    - 올리기 전에 상품 페이지가 아직 판매 중인지 본다. 롯데월드 상품이 만든 뒤 판매가 멈췄다 (2026-11-09).
 5. **웹 등록 (Claude)** — 상품 하나에 `entry.json` 하나, 운영대장 한 줄이다 (2026-11-09 결정). `node tools/register.mjs save contents/<폴더>/entry.json`. 나레이션 대본은 `script`, 게시글은 `youtube`(첫 줄 `제목: …`)·`instagram`(릴스·캐러셀 같이)·`tiktok`, 키티챗은 `kittyKeyword`·`kittyDm`, 인포크는 `inpockNo`·`inpockTitle`·`inpockImage`(`"inpock.png"` — 등록 도구가 400px JPEG로 줄여 운영대장에 넣는다), 메모(`notes`)는 맨 아래에 **작업 폴더와 최종본 폴더의 전체 경로**를 적는다 (2026-11-09). 카드뉴스 문구(`carouselScript`)는 채우지 않는다 (2026-11-09). 인스타 형식은 `instagramType`(`"릴스"`·`"캐러셀"`, 요청에서 받은 값, 운영대장 38번 칸)이다 — 비우면 릴스로 읽고, 빼고 저장해도 시트 값을 지킨다 (서버 2.10.0).
@@ -107,16 +107,22 @@ AI 영상은 보류 — 유료이고, AI가 상품 모양을 바꾸면 실제와
   - 첫 사례: 사무실 PC의 `contents/261106_코엑스아쿠아리움/motion-mix.html`(소다) · `motion-paper.html`(페이퍼) (git에 없음).
 - 사진은 상품 페이지(판매자 상세 이미지 포함)에서 받아 잘라 쓴다 (2026-11-06 결정). 모자라면 업체 공식 홈페이지 사진도 쓴다 (2026-11-10, 3장). 캐릭터·IP 이미지는 빼고, 사람이 나오지 않는 사진을 먼저 쓴다. 원본이 작으면 화면 전체 대신 액자·썸네일로 넣는다. 사용 범위는 **확인 필요**.
   - 사진 템플릿(4번)에서 사진이 작을 때(가로 1000px 안팎): 화면 가득 장면 대신 **가로 띠**(1.5배까지만 키움)와 같은 사진의 흐린 바탕으로 짠다. 카드·스티커 아래에도 선명한 띠를 둬서 흐린 사진만 나오는 장면이 없게 한다. 가로 1920px 사진은 휴대폰 크기에서 화면 가득 써도 볼 만했다. 첫 사례: `contents/254_20261110_수원라이프스포츠/`.
+  - **쿠팡 여행 상품**(trip.coupang.com, 2026-11-11 No.255·256): `node tools/trip.mjs <상품 주소> contents/<폴더>` → `src/`에 페이지 데이터(`product.json`), 본문·판매 상태·후기 평점·주변(`product.txt`), **원본 사진**(`NNN.jpg` + `index.json`)이 생긴다. 페이지가 주는 사진 주소는 1180×630으로 잘려 있어 원본 주소(가로 1920px 이상)로 받는다. 서버 analyze가 막혀도 된다.
+  - 객실 안 사진이 대표 사진에 없으면(수향 더 한옥) 상품 페이지 「객실사진 및 정보 더보기」 창에만 있다. 크롬으로 창을 넘기며 사진 주소를 모아 `node tools/trip.mjs add contents/<폴더> <객실> <주소…>`. 어느 객실 사진인지 게시글 「확인할 것」에 적는다 — 다른 객실 안쪽은 다를 수 있다.
+  - 후기 글은 페이지 데이터에 베스트 하나뿐이다. 전체는 상품 페이지 「전체 상품평 보기」를 크롬으로 읽고 센다 (글 없이 별점만 남긴 후기가 많다 — 글 있는 후기 수도 센다).
+  - 사진 고르기: `node tools/sheet.mjs photos contents/<폴더>`(번호 붙은 묶음) → 고른 사진을 `node tools/sheet.mjs pick contents/<폴더> "89:① 훅 컷 1" …`로 `사진-초안.png`를 만들어 초안과 같이 보낸다. 카메라 가운데 점은 `node tools/sheet.mjs grid contents/<폴더> 89 51 …`(10% 눈금)로 읽는다.
+  - 넣기 전에 본다: **계절·기간 한정 시설**(No.255 자쿠지는 05-30~09-30만 — 11월 영상에서 사진을 뺐다), **사진 속 글자**(간판·벽화의 이름이나 「STAY HOUSE」 같은 글자는 퀴즈가 깨지니 화면 밖으로), **이모지**(한옥에 일본 성 🏯을 붙일 뻔했다), **확대**(1920×1000 사진은 화면 가득만으로 1.92배라 당기기는 1.15배까지).
 - 장면마다 `--at`(시작)·`--len`(길이)을 주고, 움직이는 요소는 `--d`(장면 안에서 늦출 시간)를 준다. 움직임은 **CSS 애니메이션만** 된다 (JS 타이머·동영상 파일은 녹화되지 않는다).
 - 글씨는 x 60~900, y 200~1480 안에 둔다. 바깥은 플랫폼 버튼·설명·아이디가 가린다.
 - 글씨는 화면에 넣는다. 나레이션도 녹화할 때 같이 들어가서 후반 편집은 없다.
 - **효과음과 배경음악 모두 Claude가 직접 만들어 넣는다** (2026-11-07 결정). 남의 음원은 쓰지 않는다.
 - 효과음은 `<body data-sfx="0.12 pop .5, 1.9 whoosh .35, …">`(「초 소리 [크기]」) 목록대로 녹화할 때 같이 들어간다. 소리는 `tools/motion/sfx.mjs`가 직접 만든다 (whoosh · swoosh · pop · click · tick · thud · ding · notify). 두 템플릿에 장면 시각에 맞춘 목록이 있으니, 장면 시각이나 검색창 타자 글자 수를 바꾸면 목록도 같이 고친다. 다시 녹화하지 않고 소리만 고칠 때: `node tools/motion/sfx.mjs contents/<폴더>/motion.html` (나레이션도 다시 넣고, 배경음악 버전도 같이 다시 만든다).
 - 배경음악은 `tools/motion/bgm.mjs`가 음 하나하나를 직접 만든다. 폴더 이름에 따라 키·빠르기·코드 진행·악기(마림바·벨·건반·뜯는 소리)·비트가 달라져 영상마다 곡이 다르고, 같은 폴더는 다시 녹화해도 같은 곡이다. 효과음보다 작게 깔고 끝에서 2초 동안 줄어든다. 다른 곡을 원하면 `<body data-bgm="아무 글자">`, 배경음악을 빼려면 `data-bgm="off"`. 음악만 다시 만들 때: `node tools/motion/bgm.mjs contents/<폴더>/motion.html`.
+  - 사진 템플릿은 훅 컷이 108bpm 두 박자다. 녹화 끝 「배경음악 버전 … 120bpm」처럼 다르면 `node tools/motion/bgm.mjs --find 108 <아무 단어>`로 108bpm 씨앗을 찾아 `data-bgm`에 쓴다 (No.255 `bulmeong40` 뜯는 소리, No.256 `hanok40` 종소리, 2026-11-11). 나레이션은 녹화 로그의 `x1.27`처럼 1보다 크면 빨리 읽힌 것이니 문장을 줄인다.
 - 영상은 두 개가 나온다 — `motion.mp4`(효과음 + 나레이션)와 `motion-bgm.mp4`(효과음 + 나레이션 + 배경음악). 기본은 `motion-bgm.mp4`를 올린다. 앱에서 유행 음원을 넣고 싶을 때만 `motion.mp4`를 올려 앱 음악을 고른다 (두 음악이 겹치지 않게).
 - 인스타 계정은 **비즈니스 계정**이다 (2026-11-10 확인 — Buffer 자동 게시가 된다). 비즈니스 계정은 앱 음악 목록이 제한될 수 있다.
 - 영상 만들기: `node tools/motion/record.mjs contents/<폴더>/motion.html` → 같은 폴더에 `motion.mp4`와 `motion-bgm.mp4` (사무실 PC에서 18~21초 영상에 약 50~70초. 처음 읽는 나레이션은 한 줄에 30~50초 더).
-- 만든 영상은 장면마다 프레임을 뽑아 직접 보고(글자 넘침·겹침·가림·고지) 보여준다. 프레임 묶음: `node scripts/reel/review.mjs contents/<폴더>/motion.mp4`.
+- 만든 영상은 장면마다 프레임을 뽑아 직접 보고(글자 넘침·겹침·가림·고지) 보여준다. 프레임 묶음: `node scripts/reel/review.mjs contents/<폴더>/motion.mp4`. 장면마다 크게 볼 때: `node tools/sheet.mjs frames contents/<폴더>/motion-bgm.mp4 0.6 1.6 3.3 4.9 6.8 9.6 11.2 13.4 15.6 17.2 19.8 24` → `frames.png` (사진 템플릿 장면 시각, 2026-11-11).
 
 ### 나레이션 (2026-11-07 결정)
 
@@ -202,7 +208,7 @@ AI 영상은 보류 — 유료이고, AI가 상품 모양을 바꾸면 실제와
   - Buffer에 연결된 채널: 인스타 hikary.vibe(비즈니스) · 유튜브 HikaryVibe · 틱톡 hikary.vibe (2026-11-10). 서버는 채널을 이름이 아니라 종류로 찾는다 — 같은 종류를 둘 연결하면 예약을 막는다.
   - 운영대장 시트 공유는 「제한됨」이다 (2026-11-10). 서버는 주인 권한으로 돌아서 웹·등록 도구는 그대로 쓴다.
 - 로컬 확인: `node scripts/preview-mock.mjs` → http://127.0.0.1:4175/ (가짜 데이터라 실제 시트를 건드리지 않는다)
-- 테스트: `node --test tests/content-backend.test.mjs tests/content-client.test.mjs tests/travel-extraction.test.mjs tests/production.test.mjs tests/reel.test.mjs tests/reference.test.mjs tests/carousel.test.mjs tests/motion.test.mjs`
+- 테스트: `node --test tests/content-backend.test.mjs tests/content-client.test.mjs tests/travel-extraction.test.mjs tests/production.test.mjs tests/reel.test.mjs tests/reference.test.mjs tests/carousel.test.mjs tests/motion.test.mjs tests/trip.test.mjs`
 - 버전을 올릴 때: `docs/index.html`의 `?v=`·표시 버전, `docs/js/config.js`, `backend/Code.js`의 `SERVICE_VERSION`, README·SETUP.
 - git이 "dubious ownership"으로 막히면 전역 설정을 바꾸지 말고 `git -c safe.directory=<저장소 경로> …`로 실행한다.
 
