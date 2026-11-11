@@ -215,6 +215,11 @@ h1 .right{margin-left:auto;display:flex;gap:8px}
 .line{display:flex;gap:8px;align-items:center}
 .line input,.line select{flex:1;min-width:0}
 .line .btn{flex:none}
+/* v3.4.3: ✕ inside the address field */
+.clearable{position:relative;flex:1;min-width:0;display:flex}
+.clearable input{padding-right:42px}
+.clear{position:absolute;right:8px;top:50%;transform:translateY(-50%);width:28px;height:28px;border-radius:50%;display:grid;place-items:center;color:var(--muted);font-size:13px}
+.clear:hover{background:var(--hover);color:var(--ink)}
 .link-result{display:grid;gap:4px;margin-top:12px;background:var(--raise);border-radius:12px;padding:6px 14px 14px}
 .link-result label small{font-weight:400;color:var(--muted);font-size:12px;margin-left:6px}
 .link-result .hint{margin:2px 0 0}

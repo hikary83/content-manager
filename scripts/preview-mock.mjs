@@ -79,7 +79,7 @@ function act({ action, payload, token }) {
     }
     requests[at].status = payload.status; return { request: requests[at] };
   }
-  if (action === 'status') return { version: '2.11.0 (mock)', aiConfigured: false, coupang: { configured: true, usage: usage(), categories: CATEGORIES }, publishing: { buffer: true, video: true, code: true } };
+  if (action === 'status') return { version: '2.12.0 (mock)', aiConfigured: false, coupang: { configured: true, usage: usage(), categories: CATEGORIES }, publishing: { buffer: true, video: true, code: true } };
   if (action === 'publish') { // v2.8.0 mock: code 「mock」, every chosen place is scheduled
     if (payload.code !== 'mock') throw new Error('게시 비밀번호가 맞지 않아요. (목업 비밀번호: mock)');
     const at = rows.findIndex(item => item.id === payload.id);

@@ -1,6 +1,6 @@
 /* Public configuration only. Never put API keys in this file.
  * v2.9.0: the server needs a login. The session token lives in this browser only (localStorage when 「로그인 유지」, else sessionStorage). */
-window.HIKARY_CONFIG = Object.freeze({ version: '3.4.2', apiUrl: 'https://script.google.com/macros/s/AKfycbzN9mw2OKRKHdEYjUCqv3sYOsp5LPKRLhBP7yR_8pwfK3j1FKY-4eUc5hdG6FOLov1z/exec' });
+window.HIKARY_CONFIG = Object.freeze({ version: '3.4.3', apiUrl: 'https://script.google.com/macros/s/AKfycbzN9mw2OKRKHdEYjUCqv3sYOsp5LPKRLhBP7yR_8pwfK3j1FKY-4eUc5hdG6FOLov1z/exec' });
 
 window.HikaryApi = (() => {
   const endpoint = window.HIKARY_CONFIG.apiUrl;

@@ -487,3 +487,19 @@ test('v2.11.0 대기 중인 요청은 상품명·템플릿·인스타 형식·�
   assert.match(call('requestUpdate',{id:made.id,edit:true,template:'soda'}).error,/이미 시작한 요청/);
   assert.equal(call('requests',{}).data.requests[0].template,'quiz');
 });
+
+test('v2.12.0 쿠팡이 바꿔 주지 않는 상품은 알아보기 쉽게 알리고, 같은 주소는 6시간 다시 부르지 않는다', () => {
+  const env = runtime(); env.props.set('COUPANG_ACCESS_KEY', 'access-example'); env.props.set('COUPANG_SECRET_KEY', 'secret-example');
+  let answer = { rCode: '400', rMessage: 'url convert failed' }; const sent = [];
+  env.context.UrlFetchApp.fetch = (url, options) => { sent.push(url); return { getResponseCode: () => 200, getContentText: () => JSON.stringify(answer) }; };
+  const call = url => JSON.parse(env.context.doPost({ postData: { contents: JSON.stringify({ action: 'link', payload: { url } }) } }).text);
+  const url = 'https://www.coupang.com/vp/products/7779079073?vendorItemId=88083647458&sourceType=HOME_PERSONALIZED';
+  assert.match(call(url).error, /파트너스 링크로 바꿔 주지 않았어요/); assert.equal(sent.length, 1);
+  assert.match(call(url).error, /이번엔 쿠팡을 부르지 않았어요/); assert.equal(sent.length, 1, '두 번째는 횟수를 쓰지 않는다');
+  assert.equal(JSON.parse(env.props.get('COUPANG_CALLS')).length, 1);
+  // Other refusals (keys, limits) are not remembered: they are about the account, not the product.
+  answer = { rCode: '500', rMessage: 'internal error' };
+  assert.match(call('https://www.coupang.com/vp/products/1').error, /요청을 받지 않았어요 \(200 · internal error\)/);
+  answer = { rCode: '0', data: [{ shortenUrl: 'https://link.coupang.com/a/ok' }] };
+  assert.equal(call('https://www.coupang.com/vp/products/1').data.shortenUrl, 'https://link.coupang.com/a/ok');
+});

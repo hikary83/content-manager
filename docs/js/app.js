@@ -2,6 +2,7 @@
   'use strict';
   // v3.0.0 (2026-11-11): dark YouTube-Studio layout — 대시보드 · 콘텐츠 · 소재 찾기, 바로가기 icons, profile menu.
   // The 「올리기」 dialog is merged into the ✎ detail window (right panel: thumbnail, links, places with an inline record).
+  // v3.4.3: ✕ in the address field clears it and the card below; a refused product says so plainly (server 2.12.0).
   // v3.4.2: 「링크 만들기」 fills 「상품 이름」 from the product page when it can (travel pages; www pages block servers).
   // v3.4.1: a toast after a request, a waiting request reopens the window to change it, thumbnails are covers.
   // v3.4.0: 「루미한테 요청하기」 opens a window (template from templates.js, Instagram format, a word to Lumi). A product goes to
@@ -696,6 +697,10 @@
   }
   // v2.7.0: a pasted Coupang address → the owner's Partners link (server `link`: 1 API call, the same address is kept 6 hours).
   let made = null;
+  const showClear = () => { $('linkClear').hidden = !$('linkUrl').value; };
+  function clearLink() { $('linkUrl').value = ''; $('linkName').value = ''; $('linkResult').hidden = true; made = null; showClear(); }
+  $('linkUrl').addEventListener('input', showClear);
+  $('linkClear').onclick = () => { clearLink(); notice(''); $('linkUrl').focus(); };
   $('linkForm').onsubmit = event => { event.preventDefault(); void task(async () => {
     let result;
     try { result = await HikaryApi.request('link', { url: $('linkUrl').value.trim() }); }
@@ -722,7 +727,7 @@
     catch { notice('복사하지 못했어요. 파트너스 링크 칸에서 직접 복사해주세요.', true); }
   };
   // Sent → the card goes back to empty, ready for the next address (the toast says where the request went).
-  $('linkAsk').onclick = async () => { if (await ask({ productName: $('linkName').value.trim(), sourceUrl: made.url, affiliateUrl: made.shortenUrl, from: '주소로 만들기' })) { $('linkUrl').value = ''; $('linkName').value = ''; $('linkResult').hidden = true; made = null; } };
+  $('linkAsk').onclick = async () => { if (await ask({ productName: $('linkName').value.trim(), sourceUrl: made.url, affiliateUrl: made.shortenUrl, from: '주소로 만들기' })) clearLink(); };
   // v2.7.0: 「루미한테 요청하기」 leaves the product in the sheet tab 「요청」 (server 2.5.0). The page cannot wake a Claude chat,
   // so the owner tells Claude 「요청 확인해줘」 and it reads them with tools/register.mjs requests. They show on top of 「콘텐츠」.
   // v3.4.0: a window first — the template (cards from templates.js), the Instagram format and a word to Lumi. Resolves true once sent.

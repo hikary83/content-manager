@@ -52,7 +52,11 @@ function coupangCall_(path, query, body) {
   try { json = JSON.parse(response.getContentText()); } catch (error) { json = null; }
   if (code === 401 || code === 403) throw userError_('쿠팡이 API 키를 받지 않았어요. 스크립트 속성의 키를 확인해주세요.');
   if (code === 429) throw userError_('쿠팡 API 호출 한도에 걸렸어요. 한 시간 뒤에 다시 시도해주세요.');
-  if (code !== 200 || !json || String(json.rCode) !== '0') throw userError_('쿠팡 API가 요청을 받지 않았어요 (' + code + (json && json.rMessage ? ' · ' + String(json.rMessage).slice(0, 120) : '') + ').');
+  if (code !== 200 || !json || String(json.rCode) !== '0') {
+    var refused = userError_('쿠팡 API가 요청을 받지 않았어요 (' + code + (json && json.rMessage ? ' · ' + String(json.rMessage).slice(0, 120) : '') + ').');
+    refused.coupang = json && json.rMessage ? String(json.rMessage) : ''; // v2.12.0: the deeplink reads 「url convert failed」 from here
+    throw refused;
+  }
   return json.data;
 }
 
@@ -114,16 +118,26 @@ function coupangReport_(payload) {
 }
 
 // v2.2.0: turn a plain Coupang page address into the owner's Partners link (deeplink API). Same address → saved answer for 6 hours.
+// v2.12.0: 「url convert failed」 is about the product, not the address form (2026-11-11: the bare /vp/products/<id> failed too) —
+// say so plainly and keep the refusal 6 hours, so pressing again does not spend another of the hourly 20.
+var COUPANG_LINK_REFUSED = '쿠팡이 이 상품은 파트너스 링크로 바꿔 주지 않았어요. 판매가 끝났거나 파트너스 링크를 만들 수 없는 상품일 수 있어요 — 쿠팡 파트너스 사이트 「링크 생성」에서도 안 되는지 확인해 보세요.';
 function coupangLink_(payload) {
   var url = typeof payload.url === 'string' ? payload.url.trim() : '';
   if (url.length > 2000 || !/^https:\/\/((www|m|trip)\.)?coupang\.com\/\S*$/i.test(url)) throw userError_('쿠팡 상품 주소(https://www.coupang.com/… 또는 https://trip.coupang.com/…)를 넣어주세요.');
   var cache = CacheService.getScriptCache(); var key = 'coupang:' + hash_('deeplink?' + url);
   var saved = cache.get(key);
   if (saved) { var hit = JSON.parse(saved); hit.fromCache = true; hit.usage = coupangUsage_(); return hit; }
-  var data = coupangCall_(COUPANG_ROOT + '/deeplink', '', { coupangUrls: [url] });
+  var refusedKey = 'coupang:' + hash_('deeplink-refused?' + url);
+  if (cache.get(refusedKey)) throw userError_(COUPANG_LINK_REFUSED + ' (6시간 안에 같은 주소가 거절돼서 이번엔 쿠팡을 부르지 않았어요.)');
+  var data;
+  try { data = coupangCall_(COUPANG_ROOT + '/deeplink', '', { coupangUrls: [url] }); }
+  catch (error) {
+    if (error && /convert/i.test(error.coupang || '')) { cache.put(refusedKey, '1', COUPANG_CACHE_SECONDS); throw userError_(COUPANG_LINK_REFUSED); }
+    throw error;
+  }
   var item = Array.isArray(data) ? data[0] : null;
   var link = item && coupangHttps_(item.shortenUrl);
-  if (!link) throw userError_('쿠팡이 이 주소의 파트너스 링크를 돌려주지 않았어요.');
+  if (!link) { cache.put(refusedKey, '1', COUPANG_CACHE_SECONDS); throw userError_(COUPANG_LINK_REFUSED); }
   var result = { url: url, shortenUrl: link, landingUrl: coupangHttps_(item.landingUrl), fetchedAt: new Date().toISOString() };
   try { cache.put(key, JSON.stringify(result), COUPANG_CACHE_SECONDS); } catch (error) { /* keep going without the saved copy */ }
   result.fromCache = false; result.usage = coupangUsage_();
