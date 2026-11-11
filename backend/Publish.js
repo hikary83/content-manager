@@ -2,12 +2,17 @@
  * the web's 「게시」 schedules the product video on YouTube Shorts, Instagram Reels and TikTok through the Buffer API,
  * syncPublishing (a 10-minute time trigger the owner adds in the Apps Script editor) records the results,
  * and the video on Cloudinary is deleted once every place has posted (or after 30 days). The Instagram carousel stays manual.
+ * v2.10.0: a product goes to Instagram as a reel or as a carousel (「인스타 형식」). A carousel product never sends the reel,
+ * and 「게시」 may change the format while nothing has gone to Instagram yet.
  * Script properties: BUFFER_API_KEY, CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET, PUBLISH_CODE.
  * Claude puts the video on Cloudinary at registration (tools/register.mjs video); the server only deletes it. */
 var PUBLISH_PLATFORMS = ['youtube', 'instagram', 'tiktok']; // Buffer channel `service` names are the same words
 var PUBLISH_LABELS = { youtube: 'YouTube', instagram: '인스타 릴스', tiktok: 'TikTok' };
 var VIDEO_KEEP_DAYS = 30;
 var COVER_OFFSET_MS = 3000; // Instagram and TikTok take a frame for the cover; Buffer cannot send cover.png as a video cover
+function carouselProduct_(entry) { return entry.instagramType === '캐러셀'; }
+// The places the video still waits for: Instagram only when the product goes there as a reel.
+function videoPlaces_(entry) { return PUBLISH_PLATFORMS.filter(function(p) { return p !== 'instagram' || !carouselProduct_(entry); }); }
 
 function publishProps_() { return PropertiesService.getScriptProperties(); }
 function publishStatus_() {
@@ -118,7 +123,7 @@ function deleteVideo_(url) {
 // Delete once nothing is waiting and every place is up or skipped — or 30 days after the upload, whatever is left.
 function videoDone_(entry) {
   if (PUBLISH_PLATFORMS.some(function(p) { return entry[p + 'Status'] === '예약됨'; })) return false;
-  if (PUBLISH_PLATFORMS.every(function(p) { return ['업로드완료', '보류'].indexOf(entry[p + 'Status']) >= 0; })) return true;
+  if (videoPlaces_(entry).every(function(p) { return ['업로드완료', '보류'].indexOf(entry[p + 'Status']) >= 0; })) return true;
   var uploaded = new Date(String(entry.videoDate || '').replace(' ', 'T') + ':00+09:00');
   return !isNaN(uploaded.getTime()) && Date.now() - uploaded.getTime() > VIDEO_KEEP_DAYS * 864e5;
 }
@@ -163,6 +168,12 @@ function publish_(input) {
     if (index < 0) throw userError_('콘텐츠를 찾지 못했어요. 목록을 새로고침해주세요.');
     var entry = rowEntry_(rows[index]);
     if (!input.revision || input.revision !== entry.revision) throw userError_('시트 내용이 변경됐어요. 새로고침한 뒤 다시 게시해주세요.');
+    if (input.instagramType !== undefined && input.instagramType !== (entry.instagramType || '릴스')) {
+      if (INSTAGRAM_TYPES.indexOf(input.instagramType) < 0) throw userError_('인스타 형식은 릴스나 캐러셀이에요.');
+      if (['instagram', 'carousel'].some(function(p) { return ['업로드완료', '예약됨'].indexOf(entry[p + 'Status']) >= 0; })) throw userError_('인스타에 이미 올렸거나 예약해서 형식을 바꿀 수 없어요.');
+      entry.instagramType = input.instagramType;
+    }
+    if (platforms.indexOf('instagram') >= 0 && carouselProduct_(entry)) throw userError_('이 상품은 인스타 캐러셀이라 릴스로 예약하지 않아요. 캐러셀은 직접 올려요.');
     if (!videoPublicId_(entry.videoUrl)) throw userError_('게시할 영상이 없어요. 루미에게 「No.' + (entry.inpockNo || '○○○') + ' 영상 올려줘」라고 해 주세요.');
     platforms.forEach(function(p) { if (['업로드완료', '예약됨'].indexOf(entry[p + 'Status']) >= 0) throw userError_(PUBLISH_LABELS[p] + '은(는) 이미 ' + entry[p + 'Status'] + '이에요.'); });
     var channels = bufferChannels_(); var results = {};

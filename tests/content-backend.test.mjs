@@ -6,7 +6,7 @@ import { createHash, createHmac, randomUUID } from 'node:crypto';
 
 const LEGACY_HEADERS = ['콘텐츠 ID','등록일','카테고리','상품명','원본 링크','변환 링크','대본','YouTube 게시글','YouTube 상태','Instagram 게시글','Instagram 상태','TikTok 게시글','TikTok 상태','비고'];
 const V17_HEADERS = ['형식','YouTube 업로드일','YouTube 링크','Instagram 업로드일','Instagram 링크','TikTok 업로드일','TikTok 링크'];
-const ADDED_HEADERS = [...V17_HEADERS,'Instagram 캐러셀 상태','Instagram 캐러셀 업로드일','Instagram 캐러셀 링크','카드뉴스 문구','인포크 No.','인포크 타이틀','키티챗 키워드','키티챗 DM 문구','인포크 이미지','영상 주소','영상 올린 날','YouTube 예약 ID','Instagram 예약 ID','TikTok 예약 ID','게시 오류','커버 이미지'];
+const ADDED_HEADERS = [...V17_HEADERS,'Instagram 캐러셀 상태','Instagram 캐러셀 업로드일','Instagram 캐러셀 링크','카드뉴스 문구','인포크 No.','인포크 타이틀','키티챗 키워드','키티챗 DM 문구','인포크 이미지','영상 주소','영상 올린 날','YouTube 예약 ID','Instagram 예약 ID','TikTok 예약 ID','게시 오류','커버 이미지','인스타 형식'];
 // v2.7.0: every action needs a session or the tool key. Tests call as the tool unless they send `token` themselves.
 const TOOL = 'tool-key-for-tests-0123456789abcdef0123';
 function runtime({ legacy = false } = {}) {
@@ -77,14 +77,14 @@ test('헤더 불일치·잘못된 업로드 상태를 거부하고 수식을 문
 test('기존 14칸 시트는 오른쪽 빈칸에만 새 머리글을 채우고 다른 내용이 있으면 멈춘다', () => {
   const env=runtime({legacy:true});env.rows.push(['old-id','2026-10-01','여행','기존 상품','https://trip.coupang.com/p','','대본','','미업로드','','미업로드','','미업로드','']);
   const entries=env.context.readEntries_();assert.deepEqual(env.rows[0].slice(14),ADDED_HEADERS);assert.equal(entries[0].productName,'기존 상품');assert.equal(entries[0].format,'');
-  const blocked=runtime({legacy:true});blocked.rows[0][16]='메모';assert.throws(()=>blocked.context.readEntries_(),/15~37/);assert.equal(blocked.writes(),0);
+  const blocked=runtime({legacy:true});blocked.rows[0][16]='메모';assert.throws(()=>blocked.context.readEntries_(),/15~38/);assert.equal(blocked.writes(),0);
 });
 test('v2.2.0 21칸 시트는 22~27번째 빈칸에만 새 머리글을 채우고 기존 줄은 그대로 읽는다', () => {
   const env=runtime({legacy:true});env.rows[0].push(...V17_HEADERS);
   env.rows.push(['old-id','2026-11-09','여행','기존 상품','https://trip.coupang.com/p','','대본','','미업로드','','업로드완료','','미업로드','','쇼츠','','','2026-11-10','https://www.instagram.com/p/a/','','']);
   const [entry]=env.context.readEntries_();
   assert.deepEqual(env.rows[0].slice(14),ADDED_HEADERS);assert.equal(entry.instagramStatus,'업로드완료');assert.equal(entry.carouselStatus,'');assert.equal(entry.inpockNo,'');
-  const blocked=runtime({legacy:true});blocked.rows[0].push(...V17_HEADERS,'다른 내용');assert.throws(()=>blocked.context.readEntries_(),/15~37/);assert.equal(blocked.writes(),0);
+  const blocked=runtime({legacy:true});blocked.rows[0].push(...V17_HEADERS,'다른 내용');assert.throws(()=>blocked.context.readEntries_(),/15~38/);assert.equal(blocked.writes(),0);
 });
 test('v2.4.0 업로드일에 시간을 같이 저장하고, 시간 형식이 틀리면 거절한다', () => {
   const env=runtime();
@@ -230,7 +230,8 @@ test('요청은 「요청」 탭을 처음 쓸 때 만들고, 같은 주소가 �
   assert.deepEqual(call('requests',{}).data.requests,[]);
   const first=call('request',{productName:'서울랜드',sourceUrl:'https://trip.coupang.com/tp/products/30000001063207',affiliateUrl:'https://link.coupang.com/a/abc',from:'주소로 만들기'});
   assert.equal(first.ok,true);assert.equal(first.data.duplicate,false);assert.equal(first.data.request.status,'대기');
-  assert.deepEqual(env.tabs.get('요청').rows[0],['요청 ID','요청 시각','상태','상품명','쿠팡 주소','파트너스 링크','메모','어디서']);
+  assert.deepEqual(env.tabs.get('요청').rows[0],['요청 ID','요청 시각','상태','상품명','쿠팡 주소','파트너스 링크','메모','어디서','템플릿','인스타 형식']);
+  assert.deepEqual([first.data.request.template,first.data.request.instagramType],['','릴스'],'고르지 않으면 템플릿은 비우고 인스타는 릴스');
   const again=call('request',{sourceUrl:'https://trip.coupang.com/tp/products/30000001063207'});
   assert.equal(again.data.duplicate,true);assert.equal(again.data.request.id,first.data.request.id);
   assert.equal(call('requests',{}).data.requests.length,1);assert.equal(env.fetches(),0);
@@ -432,4 +433,45 @@ test('v2.9.0 커버 이미지는 Cloudinary 이미지 주소만 받고, 비워 �
   env.context.saveEntry_({ ...input, notes: '메모', revision: saved.revision });
   assert.equal(env.context.readEntries_()[0].coverUrl, cover, '등록 도구가 칸 없이 저장해도 그대로');
   for (const bad of ['https://evil.invalid/cover.png', 'https://res.cloudinary.com/mycloud/video/upload/v1/x.mp4', 'javascript:alert(1)']) assert.throws(() => env.context.saveEntry_({ ...sample(), coverUrl: bad }), /커버 이미지|https/);
+});
+
+test('v2.10.0 요청은 템플릿·인스타 형식·한마디를 남기고, v2.5.0 탭은 빈 칸에만 새 머리글을 채운다', () => {
+  const env=runtime();const call=(action,payload)=>JSON.parse(env.context.doPost({postData:{contents:JSON.stringify({action,payload})}}).text);
+  env.context.SpreadsheetApp.openById().insertSheet('요청'); const tab=env.tabs.get('요청');
+  tab.rows.push(['요청 ID','요청 시각','상태','상품명','쿠팡 주소','파트너스 링크','메모','어디서'],['old-1','2026-11-10 14:05','완료','서울랜드','https://trip.coupang.com/tp/products/1','','','소재 찾기']);
+  const made=call('request',{sourceUrl:'https://www.coupang.com/vp/products/9',template:'photo',instagramType:'캐러셀',note:'사우나 장면 꼭'}).data.request;
+  assert.deepEqual(tab.rows[0].slice(8),['템플릿','인스타 형식']); assert.deepEqual(tab.rows[1].slice(0,3),['old-1','2026-11-10 14:05','완료'],'예전 줄은 그대로');
+  assert.deepEqual([made.template,made.instagramType,made.note],['photo','캐러셀','사우나 장면 꼭']);
+  const listed=call('requests',{}).data.requests; assert.equal(listed[0].template,'photo'); assert.equal(listed[1].instagramType,'');
+  assert.match(call('request',{sourceUrl:'https://www.coupang.com/vp/products/8',instagramType:'스토리'}).error,/릴스나 캐러셀/);
+  assert.match(call('request',{sourceUrl:'https://www.coupang.com/vp/products/8',template:'../soda'}).error,/템플릿/);
+  const other=runtime(); other.context.SpreadsheetApp.openById().insertSheet('요청'); other.tabs.get('요청').rows.push(['요청 ID','요청 시각','상태','상품명','쿠팡 주소','파트너스 링크','메모','어디서','누군가 쓴 칸']);
+  assert.match(JSON.parse(other.context.doPost({postData:{contents:JSON.stringify({action:'requests',payload:{}})}}).text).error,/칸이 예상과 달라요/);
+});
+test('v2.10.0 인스타 형식은 릴스·캐러셀만 받고, 등록 도구가 칸 없이 저장해도 지킨다', () => {
+  const env = runtime(); const input = sample();
+  env.context.saveEntry_({ ...input, instagramType: '캐러셀' });
+  const saved = env.context.readEntries_()[0]; assert.equal(saved.instagramType, '캐러셀');
+  env.context.saveEntry_({ ...input, notes: '메모', revision: saved.revision });
+  assert.equal(env.context.readEntries_()[0].instagramType, '캐러셀');
+  assert.throws(() => env.context.saveEntry_({ ...sample(), instagramType: '스토리' }), /릴스나 캐러셀/);
+});
+test('v2.10.0 캐러셀 상품은 릴스로 예약하지 않고, 게시에서 형식을 바꾸며, 인스타 없이 두 곳이 올라가면 영상을 지운다', () => {
+  const { env, sent, posts, call, entry, mutations } = publishEnv();
+  env.context.saveEntry_({ ...entry(), instagramType: '캐러셀' });
+  assert.match(call({ platforms: ['instagram'] }).error, /캐러셀이라 릴스로 예약하지 않아요/); assert.equal(mutations().length, 0);
+  // Back to 릴스 inside the same 「게시」: the format is saved with the schedule.
+  assert.equal(call({ platforms: ['instagram'], instagramType: '릴스' }).ok, true);
+  assert.deepEqual([entry().instagramType, entry().instagramStatus], ['릴스', '예약됨']);
+  assert.match(call({ platforms: ['youtube'], instagramType: '캐러셀' }).error, /형식을 바꿀 수 없어요/, '인스타가 예약된 뒤에는 못 바꾼다');
+  assert.match(call({ platforms: ['youtube'], instagramType: '스토리' }).error, /릴스나 캐러셀|형식을 바꿀 수 없어요/);
+  // A carousel product: YouTube and TikTok up → the video goes, though the reel place stays 미업로드.
+  const two = publishEnv(); two.env.context.saveEntry_({ ...two.entry(), instagramType: '캐러셀' });
+  assert.equal(two.call({ platforms: ['youtube', 'tiktok'] }).ok, true);
+  two.posts.set('post1', { status: 'sent', sentAt: '2026-11-12T09:00:00.000Z', externalLink: 'https://www.youtube.com/watch?v=a' });
+  two.posts.set('post2', { status: 'sent', sentAt: '2026-11-12T09:00:00.000Z', externalLink: 'https://www.tiktok.com/@a/video/1' });
+  two.env.context.syncPublishing();
+  assert.deepEqual([two.entry().instagramStatus, two.entry().videoUrl], ['미업로드', '']);
+  assert.ok(two.sent.some(item => item.url.endsWith('/video/destroy')));
+  assert.equal(sent.filter(item => item.url.endsWith('/video/destroy')).length, 0); assert.ok(posts);
 });

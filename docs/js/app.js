@@ -2,6 +2,8 @@
   'use strict';
   // v3.0.0 (2026-11-11): dark YouTube-Studio layout — 대시보드 · 콘텐츠 · 소재 찾기, 바로가기 icons, profile menu.
   // The 「올리기」 dialog is merged into the ✎ detail window (right panel: thumbnail, links, places with an inline record).
+  // v3.4.0: 「루미한테 요청하기」 opens a window (template from templates.js, Instagram format, a word to Lumi). A product goes to
+  //   Instagram once — as a reel or as a carousel (server 2.10.0 「인스타 형식」) — so lists show three places, not four.
   // v3.3.1: clicking the latest post opens ✎ (no 보기·수정 button); the cover downloads from the icon on its top right.
   // v3.3.0: the latest post shows its cover (server 2.9.0 「커버 이미지」), real platform marks, dashboard lists turn pages.
   // Before: v2.0.0 ledger web · v2.1.0 product finder · v2.2.0 one row per product · v2.8.0 「게시」 through Buffer · v2.9.0 login.
@@ -11,10 +13,11 @@
   // TikTok: Simple Icons path (CC0), scaled into the box.
   const GLYPH = {
     youtube: '<path d="M9.4 7.2v9.6l8-4.8z"/>',
-    instagram: '<rect x="5" y="5" width="14" height="14" rx="4.2" fill="none" stroke="currentColor" stroke-width="2.1"/><circle cx="12" cy="12" r="3.3" fill="none" stroke="currentColor" stroke-width="2.1"/><circle cx="16.4" cy="7.6" r="1.1"/>',
+    instagram: '<rect x="4.5" y="4.5" width="15" height="15" rx="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4.5 9.2h15M9 4.7l2.4 4.4M13.6 4.7l2.4 4.4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M10.4 11.8v4.8l4.1-2.4z"/>', // v3.4.0: the Reels mark, so a reel and a carousel tell apart
     carousel: '<rect x="4.5" y="7.5" width="11" height="12" rx="2.6" fill="none" stroke="currentColor" stroke-width="2.1"/><path d="M8.5 4.5h8.4a2.6 2.6 0 0 1 2.6 2.6v9.4" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/>',
     tiktok: '<path transform="translate(4.6 4.5) scale(.62)" d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/>'
   };
+  const TEMPLATES = window.HIKARY_TEMPLATES || [];
   const svgMark = key => `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">${GLYPH[key]}</svg>`;
   // v2.8.0 「게시」 (server 2.6.0): the video places go through Buffer; the carousel stays manual.
   // ERROR_LABELS are the line prefixes the server writes into 「게시 오류」 (backend/Publish.js PUBLISH_LABELS).
@@ -23,7 +26,14 @@
   const STATE = { 업로드완료: 'done', 보류: 'hold', 예약됨: 'sched', 오류: 'err' };
   const errorFor = (row, key) => ERROR_LABELS[key] && (row.publishError || '').split('\n').find(line => line.startsWith(ERROR_LABELS[key] + ': '))?.slice(ERROR_LABELS[key].length + 2) || '';
   const settledPlace = status => ['업로드완료', '예약됨', '보류'].includes(status);
-  const openToPublish = row => PUBLISH.some(([key]) => !settledPlace(row[key + 'Status']));
+  // v3.4.0: 「인스타 형식」 — empty means 릴스 (every product before it went up as a reel).
+  const igType = row => row.instagramType === '캐러셀' ? '캐러셀' : '릴스';
+  const igKey = row => igType(row) === '캐러셀' ? 'carousel' : 'instagram';
+  // The places of a product: YouTube, its Instagram format, TikTok — plus the other format if it already has a record.
+  const placesOf = row => PLATFORMS.filter(([key]) => !['instagram', 'carousel'].includes(key) || key === igKey(row) || (row[key + 'Status'] || '미업로드') !== '미업로드');
+  const publishOf = row => PUBLISH.filter(([key]) => key !== 'instagram' || igType(row) === '릴스');
+  const igLocked = row => ['instagram', 'carousel'].some(key => ['업로드완료', '예약됨'].includes(row[key + 'Status']));
+  const openToPublish = row => publishOf(row).some(([key]) => !settledPlace(row[key + 'Status']));
   const TEXT_KEYS = ['productName', 'category', 'sourceUrl', 'affiliateUrl', 'inpockNo', 'inpockTitle', 'script', 'instagram', 'kittyKeyword', 'kittyDm', 'tiktok', 'notes'];
   const imageUrl = value => /^data:image\/(jpeg|png);base64,[A-Za-z0-9+/]+=*$/.test(value || '') ? value : '';
   // The ledger keeps one YouTube cell: first line 「제목: …」, a blank line, then the description.
@@ -38,7 +48,7 @@
   const shortDate = value => (value || '').slice(5).replace('-', '.'); // 2026-11-11 08:45 → 11.11 08:45
   const posted = row => PLATFORMS.filter(([key]) => row[key + 'Status'] === '업로드완료').length;
   // 「보류」 is a place the owner chose to skip, so it counts as done for 「다 올림」.
-  const settled = row => PLATFORMS.every(([key]) => ['업로드완료', '보류'].includes(row[key + 'Status']));
+  const settled = row => placesOf(row).every(([key]) => ['업로드완료', '보류'].includes(row[key + 'Status']));
   const recent = row => PLATFORMS.filter(([key]) => row[key + 'Status'] === '업로드완료' && row[key + 'Date'] && Date.now() - new Date(row[key + 'Date'].replace(' ', 'T')) < 7 * 864e5).length;
   const lastPosted = row => PLATFORMS.filter(([key]) => row[key + 'Status'] === '업로드완료').map(([key]) => row[key + 'Date']).filter(Boolean).sort().at(-1) || '';
   let rows = [];
@@ -144,7 +154,7 @@
     const box = element('div', 'when');
     const scheduled = PLATFORMS.filter(([key]) => row[key + 'Status'] === '예약됨').map(([key]) => row[key + 'Date']).filter(Boolean).sort()[0];
     const done = posted(row); const last = lastPosted(row);
-    const left = PLATFORMS.filter(([key]) => !['업로드완료', '보류'].includes(row[key + 'Status'])).map(([, name]) => name);
+    const left = placesOf(row).filter(([key]) => !['업로드완료', '보류'].includes(row[key + 'Status'])).map(([, name]) => name);
     const errors = PLATFORMS.filter(([key]) => row[key + 'Status'] === '오류').length;
     if (scheduled) box.append(element('span', 'chip sched', `예약 ${shortDate(scheduled)}`)); else box.append(document.createTextNode(last ? shortDate(last) : '—'));
     box.append(element('small', '', errors ? `오류 ${errors}곳` : done ? (left.length ? `${done}곳 올라감 · ${left.length === 1 ? left[0] + ' 남음' : left.length + '곳 남음'}` : '다 올라감') : `등록 ${shortDate(row.createdAt)}`));
@@ -155,7 +165,7 @@
     const item = element('div', 'item'); const text = element('div'); const name = element('b', '', label(row));
     if (row.format) name.prepend(element('span', 'pill', row.format)); // rows made before v2.2.0
     text.append(name, element('small', '', `${row.category} · 등록 ${shortDate(row.createdAt)}`)); item.append(thumb(row), text);
-    const marks = element('div', 'pfs'); for (const [key, name] of PLATFORMS) marks.append(placeIcon(row, key, name, () => openDetail(row, key)));
+    const marks = element('div', 'pfs'); for (const [key, name] of placesOf(row)) marks.append(placeIcon(row, key, name, () => openDetail(row, key)));
     const actions = element('div', 'acts');
     if (openToPublish(row)) actions.append(button('게시', () => openPublish(row), 'btn sm primary'));
     actions.append(Object.assign(button('✎', () => openDetail(row), 'ibtn'), { title: '보기·수정', ariaLabel: '보기·수정' }));
@@ -166,7 +176,10 @@
   // v2.7.2: the Partners link is shown as text to copy, never as a link we would click ourselves (self-referral).
   function requestRow(item) {
     const tr = element('div', 'tr req'); const box = element('div', 'item'); const text = element('div');
-    text.append(element('b', '', item.productName || item.sourceUrl.replace(/^https:\/\//, '').split('?')[0]), element('small', '', `${shortDate(item.requestedAt)} 요청 · ${item.from || '루미한테 요청'}`));
+    const tplIndex = TEMPLATES.findIndex(tpl => tpl.id === item.template);
+    const picked = [tplIndex >= 0 ? `템플릿 ${tplIndex + 1} ${TEMPLATES[tplIndex].name}` : '', item.instagramType ? `인스타 ${item.instagramType}` : ''].filter(Boolean).join(' · ');
+    text.append(element('b', '', item.productName || item.sourceUrl.replace(/^https:\/\//, '').split('?')[0]), element('small', '', `${shortDate(item.requestedAt)} 요청 · ${picked || item.from || '루미한테 요청'}`));
+    text.title = [item.from, item.note && `루미에게: ${item.note}`].filter(Boolean).join('\n');
     box.append(element('span', 'thumb', '⋯'), text);
     const state = element('div', 'pfs'); state.append(element('span', `chip req${item.status === '진행' ? ' doing' : ''}`, item.status === '진행' ? '루미가 만드는 중' : '루미 대기 중'));
     const hint = element('div', 'when'); hint.append(element('small', '', 'Claude에서 「요청 확인해줘」'));
@@ -377,7 +390,7 @@
         const hero = element('div', 'latest-hero'); hero.onclick = event => { if (!event.target.closest('a')) openDetail(latest); };
         const back = element('img', 'bg'); back.src = coverSmall(cover); back.alt = '';
         const front = element('img', 'fg'); front.src = coverSmall(cover); front.alt = '커버';
-        const file = element('a', 'cover-dl'); file.href = coverFile(cover, latest); file.download = ''; file.title = '커버 저장'; file.setAttribute('aria-label', '커버 저장');
+        const file = element('a', 'dl'); file.href = coverFile(cover, latest); file.download = ''; file.title = '커버 저장'; file.setAttribute('aria-label', '커버 저장');
         file.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m-5-5 5 5 5-5M5 20h14"/></svg>';
         hero.append(back, front, element('p', 'over', label(latest)), file); nodes.push(hero);
       } else {
@@ -385,7 +398,7 @@
         nodes.push(element('p', 'latest-title', label(latest)));
       }
       nodes.push(element('p', 'latest-meta', `${shortDate(lastPosted(latest))} 게시 · ${latest.category}`));
-      for (const [key, name] of PLATFORMS) {
+      for (const [key, name] of placesOf(latest)) {
         const line = element('div', 'prow'); const status = latest[key + 'Status'] || '미업로드';
         line.append(placeIcon(latest, key, name), element('span', '', name), element('span', 'st', status === '업로드완료' ? shortDate(latest[key + 'Date']) || '올라감' : status === '미업로드' ? '아직' : status));
         if (https(latest[key + 'Link'])) line.append(Object.assign(link('↗', latest[key + 'Link'], 'ibtn'), { title: '게시물 열기' }));
@@ -416,9 +429,9 @@
       const no = row.inpockNo ? `No.${row.inpockNo}` : row.productName;
       for (const [key, name] of PUBLISH) if (row[key + 'Status'] === '오류') add(`${no} ${name} 게시 오류`, button('보기', () => openDetail(row, key)));
       const videoUp = PUBLISH.some(([key]) => row[key + 'Status'] === '업로드완료');
-      if (videoUp && (row.carouselStatus || '미업로드') === '미업로드') add(`${no} 인스타 캐러셀 올리기`, button('기록', () => openDetail(row, 'carousel')));
-      const reel = row.instagramStatus === '업로드완료' && row.instagramDate && Date.now() - new Date(row.instagramDate.replace(' ', 'T')) < 2 * 864e5;
-      if (reel && row.kittyKeyword) add(`${no} 키티챗 연결 · ${row.kittyKeyword}`, link('키티챗 ↗', 'https://kittychat.ai', 'btn sm'));
+      if (igType(row) === '캐러셀' && videoUp && (row.carouselStatus || '미업로드') === '미업로드') add(`${no} 인스타 캐러셀 올리기`, button('기록', () => openDetail(row, 'carousel')));
+      const ig = igKey(row); const igUp = row[ig + 'Status'] === '업로드완료' && row[ig + 'Date'] && Date.now() - new Date(row[ig + 'Date'].replace(' ', 'T')) < 2 * 864e5;
+      if (igUp && row.kittyKeyword) add(`${no} 키티챗 연결 · ${row.kittyKeyword}`, link('키티챗 ↗', 'https://kittychat.ai', 'btn sm'));
       if (openToPublish(row) && !row.videoUrl && !PUBLISH.some(([key]) => ['업로드완료', '예약됨'].includes(row[key + 'Status']))) add(`${no} 게시할 영상 없음 — 루미에게 「영상 올려줘」`);
     }
     const waiting = openRequests().length;
@@ -442,7 +455,7 @@
     for (const node of $('detailTabs').children) { const on = node.dataset.tab === tab; node.classList.toggle('on', on); node.setAttribute('aria-selected', on); }
     for (const panel of document.querySelectorAll('[data-panel]')) panel.hidden = panel.dataset.panel !== tab;
   }
-  for (const node of document.querySelectorAll('h3.sec .pf')) node.innerHTML = svgMark(node.classList[1]);
+  for (const node of document.querySelectorAll('h3.sec .pf, .igs .pf')) node.innerHTML = svgMark(node.classList[1]);
   for (const node of $('detailTabs').children) node.onclick = () => { showTab(node.dataset.tab); $('detailDialog').querySelector('.dialog-body').scrollTop = 0; };
   // A required field on a hidden tab cannot show its message, so open that tab first.
   $('detailForm').addEventListener('invalid', event => { const panel = event.target.closest('[data-panel]'); if (panel?.hidden) showTab(panel.dataset.panel); }, true);
@@ -459,18 +472,23 @@
   }
   function renderSide() {
     const row = current; const image = imageUrl(row.inpockImage); const cover = coverUrl(row.coverUrl);
-    $('d-coverImage').hidden = $('d-coverSave').hidden = !cover;
+    // v3.3.3: both images side by side with a download icon inside, no captions.
+    $('d-coverImage').hidden = $('d-coverSave').hidden = !cover; $('d-coverNone').hidden = !!cover;
     if (cover) { $('d-coverImage').src = coverSmall(cover); $('d-coverSave').href = coverFile(cover, row); } else $('d-coverImage').removeAttribute('src');
-    $('d-coverNote').textContent = cover ? '원본 그대로 내려받아요. 앱에서 커버로 넣을 때 써요.' : '아직 없어요 · 루미에게 「커버 올려줘」';
-    $('d-inpockFigure').hidden = !image; $('d-inpockNone').hidden = !!image;
+    $('d-inpockImage').hidden = $('d-inpockSave').hidden = !image; $('d-inpockNone').hidden = !!image;
     $('d-inpockImage').src = image; $('d-inpockSave').href = image || '#';
     $('d-inpockSave').download = `inpock-${row.inpockNo || 'image'}.${image.startsWith('data:image/png') ? 'png' : 'jpg'}`;
     $('sideNo').textContent = row.inpockNo ? `No.${row.inpockNo}` : '—'; $('sideTitle').textContent = row.inpockTitle || '';
     $('sidePage').textContent = https(row.sourceUrl) ? row.sourceUrl.replace(/^https:\/\//, '') : '—'; $('sidePage').href = https(row.sourceUrl) ? row.sourceUrl : '#';
     $('sideAffiliate').textContent = row.affiliateUrl || '—';
     $('sidePublish').hidden = !openToPublish(row);
-    $('places').replaceChildren(...PLATFORMS.flatMap(([key, name]) => placeRow(row, key, name)));
-    const allUp = PUBLISH.every(([key]) => settledPlace(row[key + 'Status']));
+    $('places').replaceChildren(...placesOf(row).flatMap(([key, name]) => placeRow(row, key, name)));
+    // v3.4.0: the Instagram format, while nothing has gone (or is scheduled) to Instagram.
+    const seg = element('span', 'seg sm');
+    for (const type of ['릴스', '캐러셀']) seg.append(Object.assign(button(type, () => { if (type !== igType(row)) saveIg(type); }, type === igType(row) ? 'on' : ''), { disabled: igLocked(row) }));
+    $('igType').replaceChildren(element('small', '', '인스타 형식'), seg);
+    $('igType').title = igLocked(row) ? '인스타에 이미 올렸거나 예약해서 바꿀 수 없어요' : '릴스는 영상을 「게시」로, 캐러셀은 카드뉴스를 직접 올려요';
+    const allUp = publishOf(row).every(([key]) => settledPlace(row[key + 'Status']));
     $('detailVideo').textContent = row.videoUrl ? `게시할 영상 있음 · ${row.videoDate} 올림` : allUp ? '영상은 다 올라가서 지웠어요' : '게시할 영상 없음 — 루미에게 「영상 올려줘」';
   }
   function placeRow(row, key, name) {
@@ -515,6 +533,13 @@
       current = rows.find(row => row.id === current.id) || current; openRecord = ''; renderSide();
     });
   }
+  function saveIg(type) {
+    if (dirty) { alert('고친 글을 먼저 「저장」해 주세요. 그다음 형식을 바꿀 수 있어요.'); return; }
+    void task(async () => {
+      await save({ instagramType: type }, `인스타 형식을 ${type}로 바꿨어요.`);
+      current = rows.find(row => row.id === current.id) || current; renderSide();
+    });
+  }
   function closeDetail() { if (!dirty || confirm('고친 내용을 저장하지 않고 닫을까요?')) { dirty = false; $('detailDialog').close(); } }
   $('detailForm').oninput = event => { if (event.target.closest('[data-record]')) return; dirty = true; if (event.target.id === 'd-youtubeTitle') titleCount(); };
   $('detailClose').onclick = $('detailCancel').onclick = closeDetail;
@@ -544,6 +569,17 @@
     $('publishSubmit').textContent = count ? `${count}곳 예약하기` : '예약하기';
     $('publishSubmit').disabled = !count || !current.videoUrl;
   }
+  let publishIg = '릴스';
+  // The Instagram line follows the chosen format: 릴스 is scheduled with the others, 캐러셀 stays manual (and on the to-do list).
+  function igLine(row, place, box) {
+    const note = place.querySelector('small'); const status = row.instagramStatus || '미업로드';
+    const reel = publishIg === '릴스'; const locked = ['업로드완료', '예약됨'].includes(status);
+    box.disabled = !reel || locked; box.checked = reel && ['미업로드', '오류'].includes(status);
+    place.classList.toggle('off', box.disabled);
+    note.textContent = !reel ? '캐러셀은 직접 올려요 · 할 일에 남아요' : { 업로드완료: `올라감 ${row.instagramDate}`, 예약됨: `예약됨 ${row.instagramDate}`, 오류: '지난번 오류 — 다시 걸기', 보류: '보류해 둔 곳' }[status] || PLACE_NOTES.instagram;
+    for (const node of place.querySelectorAll('.seg button')) node.classList.toggle('on', node.textContent === publishIg);
+    countPlaces();
+  }
   function openPublish(row, preset) {
     current = row; $('publishTarget').textContent = label(row);
     $('publishNo').textContent = row.inpockNo ? `No.${row.inpockNo}` : '이 상품 번호';
@@ -557,14 +593,20 @@
     const chosen = preset && new Date(`${preset.date}T${preset.time}`);
     const usePreset = chosen && chosen > Date.now() + 2 * 60000;
     $('publishDate').value = usePreset ? preset.date : at.toLocaleDateString('sv-SE'); $('publishTime').value = usePreset ? preset.time : at.toTimeString().slice(0, 5); $('publishCode').value = '';
+    publishIg = igType(row);
     $('publishPlaces').replaceChildren(...PUBLISH.map(([key, name]) => {
       const status = row[key + 'Status'] || '미업로드'; const when = row[key + 'Date'] || '';
       const place = element('label', 'place'); const box = document.createElement('input'); box.type = 'checkbox'; box.value = key;
       box.checked = ['미업로드', '오류'].includes(status); box.disabled = ['업로드완료', '예약됨'].includes(status); box.onchange = countPlaces;
       const note = { 업로드완료: `올라감 ${when}`, 예약됨: `예약됨 ${when}`, 오류: '지난번 오류 — 다시 걸기', 보류: '보류해 둔 곳' }[status] || PLACE_NOTES[key];
-      place.classList.toggle('off', box.disabled); place.append(box, element('span', '', name), element('small', '', note)); return place;
-    }), Object.assign(element('div', 'place off'), { textContent: '인스타 캐러셀' }));
-    $('publishPlaces').lastChild.append(element('small', '', '아직 직접 올려요'));
+      place.classList.toggle('off', box.disabled); place.append(box, element('span', '', key === 'instagram' ? '인스타' : name));
+      if (key === 'instagram') {
+        const seg = element('span', 'seg sm');
+        for (const type of ['릴스', '캐러셀']) seg.append(Object.assign(button(type, () => { publishIg = type; igLine(row, place, box); }), { disabled: igLocked(row) }));
+        place.append(seg, element('small', '', note)); igLine(row, place, box); return place;
+      }
+      place.append(element('small', '', note)); return place;
+    }));
     countPlaces(); $('publishDialog').showModal(); $('publishDialog').querySelector('.dialog-body').scrollTop = 0;
   }
   $('publishClose').onclick = $('publishCancel').onclick = () => $('publishDialog').close();
@@ -575,7 +617,7 @@
     const platforms = [...$('publishPlaces').querySelectorAll('input:checked')].map(box => box.value);
     const code = $('publishCode').value;
     void task(async () => {
-      const result = await HikaryApi.request('publish', { id: current.id, revision: current.revision, dueAt: due.toISOString(), platforms, code });
+      const result = await HikaryApi.request('publish', { id: current.id, revision: current.revision, dueAt: due.toISOString(), platforms, code, instagramType: publishIg });
       $('publishCode').value = ''; $('publishDialog').close(); await load();
       if ($('detailDialog').open) { current = rows.find(row => row.id === current.id) || current; renderSide(); }
       const name = key => PUBLISH.find(([place]) => place === key)[1];
@@ -585,6 +627,7 @@
     }).then(() => { // task() re-enables every control; places already up or scheduled stay locked
       if (!$('publishDialog').open) return;
       for (const box of $('publishPlaces').querySelectorAll('input')) box.disabled = box.closest('.place').classList.contains('off');
+      for (const node of $('publishPlaces').querySelectorAll('.seg button')) node.disabled = igLocked(current);
       countPlaces();
     });
   };
@@ -657,15 +700,34 @@
   $('linkAsk').onclick = async () => { if (await ask({ productName: $('linkName').value.trim(), sourceUrl: made.url, affiliateUrl: made.shortenUrl, from: '주소로 만들기' })) $('linkAsk').textContent = '요청함 ✓'; };
   // v2.7.0: 「루미한테 요청하기」 leaves the product in the sheet tab 「요청」 (server 2.5.0). The page cannot wake a Claude chat,
   // so the owner tells Claude 「요청 확인해줘」 and it reads them with tools/register.mjs requests. They show on top of 「콘텐츠」.
-  async function ask(payload) {
-    let sent = false;
-    await task(async () => {
-      const result = await HikaryApi.request('request', { id: crypto.randomUUID(), ...payload });
-      await loadRequests(); sent = true;
+  // v3.4.0: a window first — the template (cards from templates.js), the Instagram format and a word to Lumi. Resolves true once sent.
+  let asking = null;
+  $('askTemplates').replaceChildren(...TEMPLATES.map((tpl, index) => {
+    const card = element('label', 'tpl'); const radio = Object.assign(document.createElement('input'), { type: 'radio', name: 'askTemplate', value: tpl.id, defaultChecked: !!tpl.default });
+    const img = element('img'); img.src = /^https:\/\/res\.cloudinary\.com\//.test(tpl.preview) ? tpl.preview.replace('/image/upload/', '/image/upload/w_240,q_auto,f_auto/') : tpl.preview; img.alt = ''; // not lazy: a closed dialog never starts a lazy image
+    const name = element('b'); name.append(element('i', '', String(index + 1)), document.createTextNode(tpl.name));
+    card.append(radio, img, name, element('span', '', tpl.note)); if (tpl.default) card.append(element('em', 'def', '기본'));
+    return card;
+  }));
+  function ask(payload) {
+    return new Promise(resolve => {
+      asking = { payload, resolve };
+      $('askForm').reset(); $('askTitle').textContent = payload.productName || payload.sourceUrl.replace(/^https:\/\//, '').split('?')[0];
+      $('askDialog').showModal(); $('askTemplates').scrollLeft = 0;
+    });
+  }
+  function closeAsk(sent) { if ($('askDialog').open) $('askDialog').close(); asking?.resolve(sent); asking = null; }
+  $('askClose').onclick = $('askCancel').onclick = () => closeAsk(false);
+  $('askDialog').addEventListener('cancel', event => { event.preventDefault(); closeAsk(false); });
+  $('askForm').onsubmit = event => {
+    event.preventDefault(); const fields = $('askForm').elements;
+    const choice = { template: fields.askTemplate?.value || '', instagramType: fields.askIg.value, note: $('askNote').value.trim() };
+    void task(async () => {
+      const result = await HikaryApi.request('request', { id: crypto.randomUUID(), ...asking.payload, ...choice });
+      await loadRequests(); closeAsk(true);
       notice(result.duplicate ? '이미 보낸 요청이에요. Claude에서 루미한테 「요청 확인해줘」라고 해 주세요.' : '루미한테 보냈어요. 「콘텐츠」 맨 위에 보이고, Claude에서 「요청 확인해줘」라고 하면 시작해요.');
     });
-    return sent;
-  }
+  };
   $('finderLoad').onclick = () => { const [source, categoryId] = $('finderSource').value.split(':'); void task(() => findProducts({ source, categoryId: Number(categoryId) || undefined })); };
   $('finderSearch').onsubmit = event => { event.preventDefault(); void task(() => findProducts({ source: 'search', keyword: $('finderKeyword').value.trim() })); };
 

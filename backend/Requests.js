@@ -2,8 +2,10 @@
 // (made on first use); Claude reads the waiting ones with `node tools/register.mjs requests` and marks them done.
 // The web cannot wake a Claude conversation, so the owner says 「요청 확인해줘」 there. No Coupang API call is spent here.
 var REQUEST_SHEET = '요청';
-var REQUEST_HEADERS = ['요청 ID', '요청 시각', '상태', '상품명', '쿠팡 주소', '파트너스 링크', '메모', '어디서'];
-var REQUEST_KEYS = ['id', 'requestedAt', 'status', 'productName', 'sourceUrl', 'affiliateUrl', 'note', 'from'];
+// v2.10.0: the request window picks the video template (an id from docs/js/templates.js) and the Instagram format; 「메모」 is 「루미에게 한마디」.
+var REQUEST_HEADERS = ['요청 ID', '요청 시각', '상태', '상품명', '쿠팡 주소', '파트너스 링크', '메모', '어디서', '템플릿', '인스타 형식'];
+var REQUEST_KEYS = ['id', 'requestedAt', 'status', 'productName', 'sourceUrl', 'affiliateUrl', 'note', 'from', 'template', 'instagramType'];
+var REQUEST_FIRST_HEADERS = 8; // the tab made by v2.5.0 had these; the rest are filled into empty cells
 var REQUEST_STATUSES = ['대기', '진행', '완료'];
 
 function getRequestSheet_() {
@@ -18,7 +20,11 @@ function getRequestSheet_() {
     return sheet;
   }
   var headers = sheet.getRange(1, 1, 1, REQUEST_HEADERS.length).getDisplayValues()[0];
-  if (JSON.stringify(headers) !== JSON.stringify(REQUEST_HEADERS)) throw userError_('「요청」 탭의 칸이 예상과 달라요. 데이터를 보호하기 위해 작업을 중단했어요.');
+  if (JSON.stringify(headers) === JSON.stringify(REQUEST_HEADERS)) return sheet;
+  var added = headers.slice(REQUEST_FIRST_HEADERS);
+  if (JSON.stringify(headers.slice(0, REQUEST_FIRST_HEADERS)) !== JSON.stringify(REQUEST_HEADERS.slice(0, REQUEST_FIRST_HEADERS))
+    || added.some(function(value, index) { return value !== '' && value !== REQUEST_HEADERS[REQUEST_FIRST_HEADERS + index]; })) throw userError_('「요청」 탭의 칸이 예상과 달라요. 데이터를 보호하기 위해 작업을 중단했어요.');
+  sheet.getRange(1, REQUEST_FIRST_HEADERS + 1, 1, added.length).setValues([REQUEST_HEADERS.slice(REQUEST_FIRST_HEADERS)]);
   return sheet;
 }
 function requestRows_(sheet) { return sheet.getLastRow() < 2 ? [] : sheet.getRange(2, 1, sheet.getLastRow() - 1, REQUEST_HEADERS.length).getValues(); }
@@ -32,8 +38,12 @@ function addRequest_(input) {
     sourceUrl: field_(input.sourceUrl || '', 2000),
     affiliateUrl: field_(input.affiliateUrl || '', 2000),
     note: field_(input.note || '', 1000),
-    from: field_(input.from || '', 100)
+    from: field_(input.from || '', 100),
+    template: field_(input.template || '', 30),
+    instagramType: field_(input.instagramType || '릴스', 10)
   };
+  if (entry.template && !/^[a-z0-9-]+$/.test(entry.template)) throw userError_('템플릿 이름이 올바르지 않아요.');
+  if (INSTAGRAM_TYPES.indexOf(entry.instagramType) < 0) throw userError_('인스타 형식은 릴스나 캐러셀이에요.');
   if (!/^https:\/\/((www|m|trip)\.)?coupang\.com\/\S*$/i.test(entry.sourceUrl)) throw userError_('쿠팡 상품 주소(https://www.coupang.com/… 또는 https://trip.coupang.com/…)를 넣어주세요.');
   if (entry.affiliateUrl && !/^https:\/\/link\.coupang\.com\/\S+$/i.test(entry.affiliateUrl)) throw userError_('파트너스 링크는 https://link.coupang.com/… 주소여야 해요.');
   var lock = LockService.getScriptLock();

@@ -8,6 +8,8 @@
 //                                                      and write its address to the row. Again later = replace it (「영상 다시 올려줘」).
 //   node tools/register.mjs cover <entry.json> [png]   v2.9.0 (server): put the full-size cover (default cover.png) on Cloudinary for the
 //                                                      dashboard and 「커버 저장」. Kept for good; again later = replace it.
+//   node tools/register.mjs template <id> <image>      v3.4.0 (web): a frame of a template's first video for the request window, at
+//                                                      hikary/templates/<id>. Prints the address to put in docs/js/templates.js.
 // Run "save" only after the owner confirms the content (「컨펌」, CLAUDE.md §2). It writes to the real sheet.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -55,27 +57,36 @@ export async function save(file, send = request) {
 
 // v2.6.0: the server (backend/Publish.js) posts only an mp4 on this Cloudinary account and deletes it after posting.
 // Keys come from .env at the repository root (git-ignored): CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET.
-// One file per product (the row id), so uploading again replaces it. Returns the upload answer and the row to save onto.
-async function upload(file, name, kind, folder, send) {
+// Signed upload under a fixed public id, so uploading again replaces it.
+async function cloudinary(source, kind, publicId) {
   process.loadEnvFile(envFile);
   const [cloud, key, secret] = ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET'].map(env => process.env[env]?.trim());
   if (!cloud || !key || !secret) throw new Error('.env에 CLOUDINARY_CLOUD_NAME·CLOUDINARY_API_KEY·CLOUDINARY_API_SECRET이 필요해요.');
-  const entry = JSON.parse(fs.readFileSync(file, 'utf8'));
-  if (!entry.id) throw new Error('먼저 save로 등록해주세요.');
-  const row = (await send('list')).entries.find(item => item.id === entry.id);
-  if (!row) throw new Error('운영대장에서 이 상품을 찾지 못했어요.');
-  const params = { invalidate: 'true', overwrite: 'true', public_id: folder + entry.id, timestamp: String(Math.floor(Date.now() / 1000)) };
+  const params = { invalidate: 'true', overwrite: 'true', public_id: publicId, timestamp: String(Math.floor(Date.now() / 1000)) };
   const form = new FormData();
   for (const [field, value] of Object.entries(params)) form.append(field, value);
   form.append('api_key', key);
   form.append('signature', createHash('sha1').update(Object.keys(params).sort().map(field => `${field}=${params[field]}`).join('&') + secret).digest('hex'));
-  form.append('file', new Blob([fs.readFileSync(path.resolve(path.dirname(file), name))]), name);
+  form.append('file', new Blob([fs.readFileSync(source)]), path.basename(source));
   const response = await fetch(`https://api.cloudinary.com/v1_1/${cloud}/${kind}/upload`, { method: 'POST', body: form });
   const uploaded = await response.json().catch(() => ({}));
   if (!response.ok || !uploaded.secure_url) throw new Error(`Cloudinary 업로드 실패: ${uploaded.error?.message || response.status}`);
   const head = await fetch(uploaded.secure_url, { method: 'HEAD', redirect: 'manual' });
   if (head.status !== 200) throw new Error(`올린 파일 주소가 열리지 않아요 (${head.status}).`);
-  return { entry, row, uploaded };
+  return uploaded;
+}
+// One file per product (the row id). Returns the upload answer and the row to save onto.
+async function upload(file, name, kind, folder, send) {
+  const entry = JSON.parse(fs.readFileSync(file, 'utf8'));
+  if (!entry.id) throw new Error('먼저 save로 등록해주세요.');
+  const row = (await send('list')).entries.find(item => item.id === entry.id);
+  if (!row) throw new Error('운영대장에서 이 상품을 찾지 못했어요.');
+  return { entry, row, uploaded: await cloudinary(path.resolve(path.dirname(file), name), kind, folder + entry.id) };
+}
+// v3.4.0: the request window shows a frame of each template's first video (docs/js/templates.js).
+export async function template(id, image) {
+  if (!/^[a-z0-9-]+$/.test(id || '')) throw new Error('템플릿 id는 영문 소문자·숫자·-만 써요 (tools/motion/template-<id>.html의 <id>).');
+  return cloudinary(image, 'image', 'hikary/templates/' + id);
 }
 
 export async function video(file, mp4 = 'motion-bgm.mp4', send = request) {
@@ -119,8 +130,11 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   } else if (command === 'cover' && file) {
     const up = await cover(file, process.argv[4]);
     console.log(`cover: ${up.url}\n${(up.bytes / 1e6).toFixed(2)}MB · ${up.width}x${up.height}`);
+  } else if (command === 'template' && file && process.argv[4]) {
+    const up = await template(file, process.argv[4]);
+    console.log(`template ${file}: ${up.secure_url}\n${up.width}x${up.height}`);
   } else {
-    console.log('usage: node tools/register.mjs list [out.json] | save <entry.json> | link <coupang url> | requests | request <id> <대기|진행|완료> | video <entry.json> [mp4] | cover <entry.json> [png]');
+    console.log('usage: node tools/register.mjs list [out.json] | save <entry.json> | link <coupang url> | requests | request <id> <대기|진행|완료> | video <entry.json> [mp4] | cover <entry.json> [png] | template <id> <image>');
     process.exitCode = 1;
   }
 }

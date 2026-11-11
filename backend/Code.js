@@ -1,17 +1,20 @@
 /* HIKARY only. No credentials or endpoints from kic-worktools. */
-var SERVICE_VERSION = '2.9.0';
-// Columns 1-14 are the original ledger. 15-21 (v1.7.0), 22-27 (v2.2.0), 28-30 (v2.3.0), 31-36 (v2.6.0) and 37 (v2.9.0) are appended so existing rows never move.
+var SERVICE_VERSION = '2.10.0';
+// Columns 1-14 are the original ledger. 15-21 (v1.7.0), 22-27 (v2.2.0), 28-30 (v2.3.0), 31-36 (v2.6.0), 37 (v2.9.0) and 38 (v2.10.0) are appended so existing rows never move.
 // v2.2.0: one row per product. Instagram columns are the reel; the card news (carousel) has its own upload columns.
 // v2.3.0: KittyChat keyword and DM text, and a small Inpock thumbnail as a data URL. 「카드뉴스 문구」 is no longer filled.
 // v2.6.0: 「게시」 (Publish.js) — the hosted video, the Buffer post of each place and the last publishing errors.
 var LEGACY_HEADER_COUNT = 14;
-var CONTENT_HEADERS = ['콘텐츠 ID', '등록일', '카테고리', '상품명', '원본 링크', '변환 링크', '대본', 'YouTube 게시글', 'YouTube 상태', 'Instagram 게시글', 'Instagram 상태', 'TikTok 게시글', 'TikTok 상태', '비고', '형식', 'YouTube 업로드일', 'YouTube 링크', 'Instagram 업로드일', 'Instagram 링크', 'TikTok 업로드일', 'TikTok 링크', 'Instagram 캐러셀 상태', 'Instagram 캐러셀 업로드일', 'Instagram 캐러셀 링크', '카드뉴스 문구', '인포크 No.', '인포크 타이틀', '키티챗 키워드', '키티챗 DM 문구', '인포크 이미지', '영상 주소', '영상 올린 날', 'YouTube 예약 ID', 'Instagram 예약 ID', 'TikTok 예약 ID', '게시 오류', '커버 이미지'];
-var CONTENT_KEYS = ['id', 'createdAt', 'category', 'productName', 'sourceUrl', 'affiliateUrl', 'script', 'youtube', 'youtubeStatus', 'instagram', 'instagramStatus', 'tiktok', 'tiktokStatus', 'notes', 'format', 'youtubeDate', 'youtubeLink', 'instagramDate', 'instagramLink', 'tiktokDate', 'tiktokLink', 'carouselStatus', 'carouselDate', 'carouselLink', 'carouselScript', 'inpockNo', 'inpockTitle', 'kittyKeyword', 'kittyDm', 'inpockImage', 'videoUrl', 'videoDate', 'youtubePostId', 'instagramPostId', 'tiktokPostId', 'publishError', 'coverUrl'];
+var CONTENT_HEADERS = ['콘텐츠 ID', '등록일', '카테고리', '상품명', '원본 링크', '변환 링크', '대본', 'YouTube 게시글', 'YouTube 상태', 'Instagram 게시글', 'Instagram 상태', 'TikTok 게시글', 'TikTok 상태', '비고', '형식', 'YouTube 업로드일', 'YouTube 링크', 'Instagram 업로드일', 'Instagram 링크', 'TikTok 업로드일', 'TikTok 링크', 'Instagram 캐러셀 상태', 'Instagram 캐러셀 업로드일', 'Instagram 캐러셀 링크', '카드뉴스 문구', '인포크 No.', '인포크 타이틀', '키티챗 키워드', '키티챗 DM 문구', '인포크 이미지', '영상 주소', '영상 올린 날', 'YouTube 예약 ID', 'Instagram 예약 ID', 'TikTok 예약 ID', '게시 오류', '커버 이미지', '인스타 형식'];
+var CONTENT_KEYS = ['id', 'createdAt', 'category', 'productName', 'sourceUrl', 'affiliateUrl', 'script', 'youtube', 'youtubeStatus', 'instagram', 'instagramStatus', 'tiktok', 'tiktokStatus', 'notes', 'format', 'youtubeDate', 'youtubeLink', 'instagramDate', 'instagramLink', 'tiktokDate', 'tiktokLink', 'carouselStatus', 'carouselDate', 'carouselLink', 'carouselScript', 'inpockNo', 'inpockTitle', 'kittyKeyword', 'kittyDm', 'inpockImage', 'videoUrl', 'videoDate', 'youtubePostId', 'instagramPostId', 'tiktokPostId', 'publishError', 'coverUrl', 'instagramType'];
 // 「예약됨」·「오류」 are set by 「게시」 and the result check (Publish.js); the upload dialog may still set any of them by hand.
 var CONTENT_STATUSES = ['미업로드', '업로드완료', '보류', '예약됨', '오류'];
 // Written by tools/register.mjs video and Publish.js. A save that leaves one out keeps what the sheet has (entry.json never carries them).
 // v2.9.0: 「커버 이미지」 is the full-size cover on Cloudinary (tools/register.mjs cover), for the dashboard and for download.
-var MANAGED_KEYS = ['videoUrl', 'videoDate', 'youtubePostId', 'instagramPostId', 'tiktokPostId', 'publishError', 'coverUrl'];
+// v2.10.0: 「인스타 형식」 — each product goes to Instagram once, as a reel (the video, through 「게시」) or as a carousel (card news, by hand).
+// Empty means 릴스 (every row before v2.10.0 was posted as a reel). Kept like the others when entry.json leaves it out.
+var MANAGED_KEYS = ['videoUrl', 'videoDate', 'youtubePostId', 'instagramPostId', 'tiktokPostId', 'publishError', 'coverUrl', 'instagramType'];
+var INSTAGRAM_TYPES = ['릴스', '캐러셀'];
 var CONTENT_FORMATS = ['쇼츠', '캐러셀']; // only rows made before v2.2.0 carry a format
 var UPLOAD_PLATFORMS = ['youtube', 'instagram', 'tiktok', 'carousel'];
 
@@ -123,6 +126,7 @@ function validateEntry_(input) {
   MANAGED_KEYS.forEach(function(key) { if (input[key] !== undefined) entry[key] = field_(input[key], key === 'videoDate' ? 16 : key === 'videoUrl' || key === 'coverUrl' || key === 'publishError' ? 2000 : 64); });
   if (entry.videoUrl && !/^https:\/\/[^\s@]+\.[^\s]+$/i.test(entry.videoUrl)) throw userError_('영상 주소는 https 주소로 입력해주세요.');
   if (entry.coverUrl && !/^https:\/\/res\.cloudinary\.com\/[a-z0-9_-]+\/image\/upload\/[A-Za-z0-9_\/.,-]+$/.test(entry.coverUrl)) throw userError_('커버 이미지는 Cloudinary 이미지 주소만 받아요.');
+  if (entry.instagramType && INSTAGRAM_TYPES.indexOf(entry.instagramType) < 0) throw userError_('인스타 형식은 릴스나 캐러셀이에요.');
   if (entry.videoDate && !/^\d{4}-\d{2}-\d{2}( ([01]\d|2[0-3]):[0-5]\d)?$/.test(entry.videoDate)) throw userError_('영상 올린 날은 YYYY-MM-DD HH:mm 형식이어야 해요.');
   ['youtubePostId', 'instagramPostId', 'tiktokPostId'].forEach(function(key) { if (entry[key] && !/^[A-Za-z0-9_-]+$/.test(entry[key])) throw userError_('예약 ID 형식이 올바르지 않아요.'); });
   return entry;

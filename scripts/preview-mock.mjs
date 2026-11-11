@@ -17,7 +17,7 @@ const rows = [
     // v2.8.0 「게시」: a hosted video, one place scheduled and one failed
     videoUrl: 'https://res.cloudinary.com/demo/video/upload/v1/hikary/example.mp4', videoDate: '2026-11-10 17:00', youtubeStatus: '예약됨', youtubeDate: '2026-11-12 18:00', youtubePostId: 'mock1', tiktokStatus: '오류', publishError: 'TikTok: Buffer 게시 실패 — 예시 오류 문구' }),
   row({ productName: '접이식 실리콘 밀폐용기 4종 세트', createdAt: '2026-11-04', inpockNo: '251', script: '훅: 냉장고 문 열 때마다 쏟아지죠?\n장점: 접으면 얇아져요', youtube: '냉장고 정리 꿀템 #shorts', ...done('youtube', '2026-11-04'), ...done('instagram', '2026-11-05'), ...done('carousel', '2026-11-05'), ...done('tiktok', '2026-11-06') }),
-  row({ productName: '제주 오션뷰 호텔 1박 패키지', category: '여행', sourceUrl: 'https://trip.coupang.com/tp/products/2', createdAt: '2026-11-03', script: '제주 바다가 보이는 객실', tiktokStatus: '보류' }),
+  row({ productName: '제주 오션뷰 호텔 1박 패키지', category: '여행', sourceUrl: 'https://trip.coupang.com/tp/products/2', createdAt: '2026-11-03', script: '제주 바다가 보이는 객실', tiktokStatus: '보류', instagramType: '캐러셀', videoUrl: 'https://res.cloudinary.com/demo/video/upload/v1/hikary/example2.mp4', videoDate: '2026-11-11 09:00' }),
   row({ productName: '무선 미니 청소기 (v2.2.0 전 형식)', category: '가전·디지털', sourceUrl: 'https://www.coupang.com/vp/products/3', format: '캐러셀', createdAt: '2026-11-02', script: '책상 위 먼지, 손바닥 청소기로' })
 ];
 // Fake product finder: same rolling 20-calls-an-hour budget and 6-hour reuse as backend/Coupang.js, no real Coupang call.
@@ -37,7 +37,7 @@ function products({ source, categoryId, keyword }) {
   saved.set(key, result); return { ...result, fromCache: false, usage: usage() };
 }
 // v2.7.0 mock: the Partners link (counts like a product call, kept for reuse) and the sheet tab 「요청」.
-const requests = [{ id: 'mock-request-1', requestedAt: '2026-11-11 10:20', status: '대기', productName: '예시 요청 상품 (목업)', sourceUrl: 'https://www.coupang.com/vp/products/123', affiliateUrl: 'https://link.coupang.com/a/mockreq', note: '', from: '소재 찾기 · 오늘의 특가' }];
+const requests = [{ id: 'mock-request-1', requestedAt: '2026-11-11 10:20', status: '대기', productName: '예시 요청 상품 (목업)', sourceUrl: 'https://www.coupang.com/vp/products/123', affiliateUrl: 'https://link.coupang.com/a/mockreq', note: '사우나 장면 꼭 넣어줘', from: '소재 찾기 · 오늘의 특가', template: 'photo', instagramType: '캐러셀' }];
 function makeLink({ url }) {
   if (!/^https:\/\/((www|m|trip)\.)?coupang\.com\/\S*$/i.test(url || '')) throw new Error('쿠팡 상품 주소(https://www.coupang.com/… 또는 https://trip.coupang.com/…)를 넣어주세요.');
   const key = 'link:' + url;
@@ -61,7 +61,7 @@ function act({ action, payload, token }) {
   if (action === 'request') {
     const same = requests.find(item => item.id === payload.id || (item.sourceUrl === payload.sourceUrl && item.status !== '완료'));
     if (same) return { request: same, duplicate: true };
-    const entry = { id: payload.id, requestedAt: new Date().toISOString().slice(0, 16).replace('T', ' '), status: '대기', productName: payload.productName || '', sourceUrl: payload.sourceUrl, affiliateUrl: payload.affiliateUrl || '', note: '', from: payload.from || '' };
+    const entry = { id: payload.id, requestedAt: new Date().toISOString().slice(0, 16).replace('T', ' '), status: '대기', productName: payload.productName || '', sourceUrl: payload.sourceUrl, affiliateUrl: payload.affiliateUrl || '', note: payload.note || '', from: payload.from || '', template: payload.template || '', instagramType: payload.instagramType || '릴스' };
     requests.push(entry); return { request: entry, duplicate: false };
   }
   if (action === 'requestUpdate') {
@@ -70,12 +70,14 @@ function act({ action, payload, token }) {
     if (payload.delete) { requests.splice(at, 1); return { id: payload.id, deleted: true }; }
     requests[at].status = payload.status; return { request: requests[at] };
   }
-  if (action === 'status') return { version: '2.9.0 (mock)', aiConfigured: false, coupang: { configured: true, usage: usage(), categories: CATEGORIES }, publishing: { buffer: true, video: true, code: true } };
+  if (action === 'status') return { version: '2.10.0 (mock)', aiConfigured: false, coupang: { configured: true, usage: usage(), categories: CATEGORIES }, publishing: { buffer: true, video: true, code: true } };
   if (action === 'publish') { // v2.8.0 mock: code 「mock」, every chosen place is scheduled
     if (payload.code !== 'mock') throw new Error('게시 비밀번호가 맞지 않아요. (목업 비밀번호: mock)');
     const at = rows.findIndex(item => item.id === payload.id);
     if (at < 0 || rows[at].revision !== payload.revision) throw new Error('시트 내용이 변경됐어요. 새로고침한 뒤 다시 게시해주세요.');
     if (!rows[at].videoUrl) throw new Error('게시할 영상이 없어요.');
+    if (payload.instagramType && payload.instagramType !== (rows[at].instagramType || '릴스')) rows[at] = { ...rows[at], instagramType: payload.instagramType };
+    if (payload.platforms.includes('instagram') && rows[at].instagramType === '캐러셀') throw new Error('이 상품은 인스타 캐러셀이라 릴스로 예약하지 않아요. 캐러셀은 직접 올려요.');
     const when = new Date(payload.dueAt).toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 16);
     const next = { ...rows[at], revision: 'r' + (++revision) };
     for (const p of payload.platforms) Object.assign(next, { [p + 'Status']: '예약됨', [p + 'Date']: when, [p + 'PostId']: 'mock-' + p });
