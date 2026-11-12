@@ -2,6 +2,7 @@
   'use strict';
   // v3.0.0 (2026-11-11): dark YouTube-Studio layout — 대시보드 · 콘텐츠 · 소재 찾기, 바로가기 icons, profile menu.
   // The 「올리기」 dialog is merged into the ✎ detail window (right panel: thumbnail, links, places with an inline record).
+  // v3.5.3: ✎ 「예약 …」 opens the record box (hand record when the result check is late); list place icons open the post.
   // v3.5.2 (server 2.14.0): 할 일 says when the server rests after Buffer's 「too many」.
   // v3.5.0 (server 2.13.0): ✎ ticks 「인포크링크에 넣었어요」·「키티챗에 연결했어요」, shown in the list and kept in 할 일 until ticked.
   // v3.4.6: a ring turns in the notice and the pressed button while a job runs; 「게시」 opens on the day after the latest post, 08:45.
@@ -101,11 +102,12 @@
   function emptyBox(title, sub) { const box = element('div', 'empty'); box.append(element('strong', '', title)); if (sub) box.append(element('span', '', sub)); return box; }
   const label = (row, prefix = true) => `${prefix && row.inpockNo ? 'No.' + row.inpockNo + ' ' : ''}${row.productName}`;
   // One platform mark; the dot shows the state (green up, orange scheduled, red error, grey on hold, dim not yet).
-  function placeIcon(row, key, name, onclick) {
+  // href (v3.5.3, the 콘텐츠 list): a place with a post link opens that post in a new window instead of the ✎ window.
+  function placeIcon(row, key, name, onclick, href = '') {
     const status = row[key + 'Status'] || '미업로드'; const state = STATE[status];
-    const node = onclick ? button('', onclick, `pf ${key}`) : element('span', `pf ${key}`); node.innerHTML = svgMark(key);
+    const node = href ? link('', href, `pf ${key}`) : onclick ? button('', onclick, `pf ${key}`) : element('span', `pf ${key}`); node.innerHTML = svgMark(key);
     if (state) node.dataset.state = state; else node.classList.add('none');
-    node.title = `${name} · ${status}${row[key + 'Date'] ? ' ' + row[key + 'Date'] : ''}`; if (onclick) node.setAttribute('aria-label', node.title); return node;
+    node.title = `${name} · ${status}${row[key + 'Date'] ? ' ' + row[key + 'Date'] : ''}${href ? ' — 게시물 열기 ↗' : ''}`; if (onclick || href) node.setAttribute('aria-label', node.title); return node;
   }
   // v3.5.0 (server 2.13.0): the owner ticks 「인포크링크에 넣었어요」·「키티챗에 연결했어요」 in the ✎ window; the day is kept in
   // inpockLinkedAt · kittyLinkedAt and the list shows both like the places (green dot = done, faded = not yet).
@@ -218,7 +220,8 @@
     const item = element('div', 'item'); const text = element('div'); const name = element('b', '', label(row));
     if (row.format) name.prepend(element('span', 'pill', row.format)); // rows made before v2.2.0
     text.append(name, element('small', '', `${row.category} · 등록 ${shortDate(row.createdAt)}`)); item.append(thumb(row), text);
-    const marks = element('div', 'pfs'); for (const [key, name] of placesOf(row)) marks.append(placeIcon(row, key, name, () => openDetail(row, key)));
+    const marks = element('div', 'pfs');
+    for (const [key, name] of placesOf(row)) { const post = https(row[key + 'Link']) ? row[key + 'Link'] : ''; marks.append(placeIcon(row, key, name, () => openDetail(row, key), post)); }
     const actions = element('div', 'acts');
     if (openToPublish(row)) actions.append(button('게시', () => openPublish(row), 'btn sm primary'));
     actions.append(Object.assign(button('✎', () => openDetail(row), 'ibtn'), { title: '보기·수정', ariaLabel: '보기·수정' }));
@@ -559,10 +562,13 @@
     const line = element('div', `place-row${focusPlace === key ? ' focus' : ''}`);
     line.append(placeIcon(row, key, name), element('span', '', name));
     const tone = { 업로드완료: 'ok', 예약됨: 'sched', 오류: 'err' }[status] || '';
-    line.append(element('span', `st ${tone}`, status === '업로드완료' ? `● ${shortDate(date) || '올라감'}` : status === '예약됨' ? `예약 ${shortDate(date)}` : status === '미업로드' ? '아직' : status));
+    const toggle = () => { openRecord = openRecord === key ? '' : key; renderSide(); };
+    // v3.5.3: 「예약 …」 is a button — when the result check is late (Buffer's call limit, 2026-11-12), the owner records it by hand.
+    // The box opens with the scheduled time filled in; a hand record ends the check for that place (Buffer's post stays).
+    if (status === '예약됨') line.append(Object.assign(button(`예약 ${shortDate(date)}`, toggle, `st ${tone} st-btn`), { title: '올라갔으면 눌러서 직접 기록' }));
+    else line.append(element('span', `st ${tone}`, status === '업로드완료' ? `● ${shortDate(date) || '올라감'}` : status === '미업로드' ? '아직' : status));
     if (https(row[key + 'Link'])) line.append(Object.assign(link('↗', row[key + 'Link'], 'ibtn'), { title: '게시물 열기' }));
-    // 「예약됨」 belongs to Buffer and the 10-minute result check; editing it by hand would stop that check.
-    if (status !== '예약됨') line.append(button(openRecord === key ? '닫기' : status === '업로드완료' ? '수정' : '기록', () => { openRecord = openRecord === key ? '' : key; renderSide(); }));
+    if (status !== '예약됨' || openRecord === key) line.append(button(openRecord === key ? '닫기' : status === '업로드완료' ? '수정' : '기록', toggle));
     const nodes = [line];
     const error = errorFor(row, key); if (status === '오류' && error) nodes.push(element('div', 'place-err', error));
     if (openRecord === key) nodes.push(recordBox(row, key));
