@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><title>HIKARY 모션 템플릿 · 투어</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&display=block">
+<style>
+/* 투어 (2026-11-12 시험): 숙소를 한 바퀴 도는 영상. 시설마다 한 컷 2.5~3초, 사진이 주인공이고 꾸밈은 적다 —
+   화면 가운데 작은 이름표(「✔ 거실」)와 흰 자막 한 줄뿐. 실내는 2.5D(사진 한 장을 깊이대로 움직여 카메라가 지나가는 것처럼, tools/motion/depth.mjs),
+   바깥은 지금 방식 CSS 카메라. AI는 깊이만 읽고 픽셀은 새로 만들지 않는다. 글씨체·색·고지·효과음·나레이션은 사진 템플릿(4번)과 같다.
+   레퍼런스(인스타 릴스, 직접 다녀온 숙소 영상)에서 장면 구성과 꾸밈의 양만 참고했다. 경험담처럼 쓰지 않는다 (CLAUDE.md 3장).
+   쓰는 법: contents/<폴더>/motion.html로 복사 → 사진을 photo-1.jpg…로 옆에 두고 ph 클래스를 뺀다 → 「…」 자리를 상품 페이지 사실로 바꾼다 →
+     node tools/motion/record.mjs contents/<폴더>/motion.html   → motion.mp4 + motion-bgm.mp4 (2.5D 프레임은 <폴더>/depth/에 처음 한 번 만든다)
+   대본 틀 (숙소 상품, 24.5초 — 시간과 장면 수는 사진에 맞게 바꾼다. 장면을 더하면 --at·--len, 나레이션 줄, data-sfx를 같이 옮긴다):
+     | 시간       | 장면                        | 움직임              | 화면                                   |
+     | 0~2.6      | 외관                        | 2.5D in (세기 .7)   | 질문 하나 (예: 「강아지랑 하룻밤?」), 고지 |
+     | 2.6~5.3    | 거실                        | 2.5D in             | 이름표 + 한 줄 (+ 작은 조건 한 줄)      |
+     | 5.3~10.7   | 방마다 한 컷 (침실·주방 …)  | 2.5D, 2.7초씩       | 이름표 + 한 줄                          |
+     | 10.7~16.0  | 바깥 시설 (바베큐·계곡 …)   | CSS 밀기·당기기     | 이름표 + 한 줄                          |
+     | 16.0~19.6  | 쿠팡 후기 요약 카드          | 흐린 바탕 (CSS)     | 출처를 밝힌 요약                        |
+     | 19.6~24.5  | 밤 외관 멀어지기             | CSS                 | 「어딘지 궁금하면?」 + 프로필 링크, 고지  |
+   2.5D 사진 (<img class="depth" data-depth="in">): 움직임 in·out·left·right·up·down, 세기 data-strength(기본 1, 0.5 약하게 ~ 2).
+     구도는 object-position을 %로만. 가로 1920 사진을 세로 화면에 채우면 가로 31.6%만 보인다 — 보일 가운데가 사진 가로 f(0~1)이면 x% = (f − 0.158) ÷ 0.684.
+     img에 CSS 움직임을 주지 않는다 (움직임은 프레임에 들어 있다). 브라우저 미리보기에서는 멈춘 사진으로 보인다.
+     맞는 사진: 단순한 바탕(벽·바닥·하늘) 앞에 물체 하나 — 거실·침실·주방·욕실, 테이블 위 소품. 가로 1920px 이상.
+     피할 사진: 난간·나뭇가지·울타리가 복잡한 바탕 앞에 있는 사진(기둥 옆이 늘어나 일렁인다 → 테라스·바베큐·숲은 CSS로),
+       사람이 나오는 사진, 작은 사진. 밤 외관처럼 난간이 앞에 있으면 세기를 .7 아래로 줄이고 프레임을 보고 정한다.
+   CSS 카메라 .cam: 사진 템플릿과 같다 (--w×--h, (--x0,--y0,--s0) → (--x1,--y1,--s1), 당기고 밀 때 가운데 --o). 1920×1080 사진은 --w:3413px;--h:1920px,
+     가운데 f를 보이려면 --x = −(f × 3413 − 540), 범위 0 ≥ --x ≥ −2333.
+   글씨는 x 60~900, y 200~1480 안에 (가운데는 x 480). 고지는 첫 장면과 마지막 장면 위쪽(.disc). 이름이 크게 보이는 사진(간판·로고)은 피한다.
+   자막(.say)은 나레이션 줄과 같은 시각에 바뀐다. 등장 방식(drop·slide·wipe·zoom·rise)과 자리(가운데·왼쪽·오른쪽)는 장면마다 다르게 한다. 줄을 읽는 동안 화면에도 같은 말이 보이게 짧게 쓴다.
+   효과음: <body data-sfx> — 컷마다 swoosh, 이름표마다 pop. 장면 시각을 바꾸면 같이 고친다. */
+/* 색: 상품에 맞춰 이 블록만 바꾼다 (CLAUDE.md §4 · 후보는 node tools/colors.mjs).
+   포인트 --point(이름표·링크 알약·후기 칩) · --on-point(그 위 글자) · --hi(자막 핵심어) · --night(바탕) */
+:root{
+  --point:#e8312f;
+  --on-point:#fff;
+  --hi:#ffe14d;
+  --night:#050a2d;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1080px;height:1920px;overflow:hidden}
+body{position:relative;background:var(--night);font-family:Jua,sans-serif;font-synthesis:none;color:#fff;letter-spacing:-.5px;word-break:keep-all}
+em,i{font-style:normal}
+/* 사진 자리 표시 (CSS 카메라만): 사진을 넣으면 ph 클래스를 뺀다. 2.5D img는 사진 파일이 옆에 있어야 녹화된다 */
+.ph::after{content:attr(data-label) " 자리";position:absolute;inset:0;display:grid;place-items:center;background:rgba(255,255,255,.08);color:rgba(255,255,255,.5);font-size:44px}
+
+.scene{position:absolute;inset:0;opacity:0;animation:show var(--len) linear var(--at)}
+@keyframes show{from,to{opacity:1}}
+.up,.pop,.fade{animation-duration:.6s;animation-timing-function:cubic-bezier(.2,.8,.2,1);animation-fill-mode:both;animation-delay:calc(var(--at) + var(--d,0s))}
+.up{animation-name:up}     @keyframes up{from{opacity:0;transform:translateY(50px)}}
+.pop{animation-name:pop;animation-timing-function:cubic-bezier(.3,1.6,.5,1)} @keyframes pop{from{opacity:0;transform:scale(.3)}}
+.fade{animation-name:fade} @keyframes fade{from{opacity:0}}
+
+/* 컷 하나 = 사진 한 장. 들어올 때 잠깐 흐렸다가 또렷해진다. ::after는 고지(위)·자막(가운데)·플랫폼 글자(아래) 자리만 살짝 어둡게 */
+.shot{position:absolute;inset:0;overflow:hidden;opacity:0;animation:show var(--len) linear var(--at),whip .35s cubic-bezier(.2,.8,.2,1) var(--at) both}
+.shot::after{content:"";position:absolute;inset:0;background:linear-gradient(rgba(0,0,0,.4),transparent 17%,transparent 36%,rgba(0,0,0,.28) 48%,rgba(0,0,0,.28) 56%,transparent 68%,transparent 84%,rgba(0,0,0,.4))}
+@keyframes whip{from{filter:blur(22px) brightness(1.3)}}
+.depth{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.cam{position:absolute;left:0;top:0;width:var(--w);height:var(--h);background:var(--img) 0 0/100% 100% no-repeat;transform-origin:var(--o,0 0);
+  animation:cam var(--len) cubic-bezier(.35,0,.65,1) var(--at) both}
+@keyframes cam{from{transform:translate(var(--x0,0px),var(--y0,0px)) scale(var(--s0,1))}to{transform:translate(var(--x1,0px),var(--y1,0px)) scale(var(--s1,1))}}
+.cam.soft{filter:blur(8px) brightness(.45)}
+.cam.lin{animation-timing-function:linear} /* 끝 장면: 마지막 프레임까지 같은 빠르기로 */
+
+/* 위: 고지 */
+.disc{position:absolute;left:60px;width:840px;top:200px;padding:12px 22px 10px;border-radius:18px;background:rgba(0,0,0,.5);color:rgba(255,255,255,.92);font-size:26px;line-height:1.4}
+/* 가운데: 질문(첫 장면) · 이름표 + 자막 한 줄 + 작은 조건 */
+.ask,.line,.sub{text-shadow:0 0 3px rgba(0,0,0,.9),0 3px 10px rgba(0,0,0,.7),0 0 30px rgba(0,0,0,.45)}
+.ask{position:absolute;left:60px;width:840px;top:var(--y,760px);text-align:center;font-size:104px;line-height:1.12}
+.ask b{display:block;font-weight:400;animation:up .5s cubic-bezier(.2,.8,.2,1) var(--t) both}
+.ask em,.line em{color:var(--hi)}
+.say{position:absolute;left:60px;width:840px;top:var(--y,820px);text-align:center}
+.say.left{text-align:left} .say.right{text-align:right}
+.label{display:inline-block;padding:12px 32px 6px;border-radius:999px;background:var(--point);color:var(--on-point);font-size:48px;box-shadow:0 8px 24px rgba(0,0,0,.35)}
+.line{margin-top:16px;font-size:84px;line-height:1.15}
+.sub{margin-top:14px;font-size:40px;color:rgba(255,255,255,.94)}
+/* 자막 등장 (2026-11-12): 같은 등장이 이어지면 심심하다 — 장면마다 다른 것을 .say에 붙이고, 자리도 가운데·왼쪽(.left)·오른쪽(.right)을 섞는다.
+   drop 한 단어씩 위에서 떨어짐 · rise 한 단어씩 아래서 기울어 올라옴 · slide 옆에서 미끄러짐(--from) · wipe 왼쪽부터 써지듯 · zoom 크게 흐렸다 또렷하게.
+   drop·rise는 단어를 <span class="w" style="--i:0">로 나눈다. 이름표는 먼저 튀어나오고, 핵심어(em)는 줄이 다 나온 뒤 한 번 통 튄다 (--e로 늦춘다, 기본 .7초) */
+.say .label{animation:pop .45s cubic-bezier(.3,1.6,.5,1) calc(var(--at) + var(--d,0s)) both}
+.say .sub{animation:fade .5s ease calc(var(--at) + var(--d,0s) + .8s) both}
+.say em{display:inline-block;animation:empop .5s cubic-bezier(.3,1.8,.5,1) calc(var(--at) + var(--d,0s) + var(--e,.7s)) both}
+@keyframes empop{50%{transform:scale(1.14) rotate(-2deg)}}
+.w{display:inline-block}
+.say.drop .w{animation:wdrop .45s cubic-bezier(.3,1.5,.5,1) calc(var(--at) + var(--d,0s) + .15s + var(--i) * .13s) both}
+@keyframes wdrop{from{opacity:0;transform:translateY(-80px)}}
+.say.rise .w{animation:wrise .45s cubic-bezier(.3,1.4,.5,1) calc(var(--at) + var(--d,0s) + .15s + var(--i) * .13s) both}
+@keyframes wrise{from{opacity:0;transform:translateY(70px) rotate(10deg)}}
+.say.slide .line{animation:slide .5s cubic-bezier(.3,1.3,.5,1) calc(var(--at) + var(--d,0s) + .15s) both}
+@keyframes slide{from{opacity:0;transform:translateX(var(--from,-240px))}}
+.say.wipe .line{animation:wipe .6s cubic-bezier(.4,0,.3,1) calc(var(--at) + var(--d,0s) + .15s) both}
+@keyframes wipe{from{clip-path:inset(-30% 100% -30% 0)}to{clip-path:inset(-30% 0 -30% 0)}}
+.say.zoom .line{animation:zoomin .45s cubic-bezier(.2,.8,.2,1) calc(var(--at) + var(--d,0s) + .15s) both}
+@keyframes zoomin{from{opacity:0;transform:scale(1.7);filter:blur(12px)}}
+
+/* 후기 카드 (흐린 바탕 위) */
+.rcard{position:absolute;left:100px;width:760px;top:640px;padding:34px 44px 26px;border-radius:40px;background:#fff;color:#171717;box-shadow:0 30px 70px rgba(0,0,0,.45);text-align:center}
+.rcard .src{font-size:34px;color:#8a857c}
+.rcard .stat{margin:6px 0 18px;font-size:150px;line-height:1.05;color:var(--point)}
+.rcard .stat small{font-size:60px;color:#171717}
+.rcard .cnt{font-size:38px}
+.rcard .row{display:flex;justify-content:space-between;align-items:center;gap:20px;margin-top:22px;padding-top:24px;border-top:2px solid #eee;font-size:44px;text-align:left}
+.chip{flex:none;padding:10px 22px 6px;border-radius:999px;background:var(--point);color:var(--on-point);font-size:30px}
+
+/* 끝: 프로필 링크 */
+.link{position:absolute;left:0;width:960px;top:var(--y,1000px);display:flex;justify-content:center;animation-delay:calc(var(--at) + var(--d))}
+.link b{display:flex;align-items:center;gap:20px;padding:20px 22px 16px 44px;border-radius:999px;background:var(--point);color:var(--on-point);font-weight:400;font-size:62px;box-shadow:0 20px 50px rgba(0,0,0,.45);transform:rotate(-2deg)}
+.link i{display:grid;place-items:center;width:80px;height:80px;border-radius:50%;background:#fff;color:var(--point);font-size:56px;line-height:1;padding-top:6px}
+.dm{position:absolute;left:60px;width:840px;top:var(--y,1150px);text-align:center;font-size:34px;color:rgba(255,255,255,.94);text-shadow:0 0 3px rgba(0,0,0,.9),0 3px 10px rgba(0,0,0,.7)}
+</style></head>
+<body data-duration="24.5" data-sfx="0 thud .5, 0.3 pop .3, 2.6 swoosh .45, 2.75 pop .3, 5.3 swoosh .45, 5.45 pop .3, 8 swoosh .45, 8.15 pop .3, 10.7 swoosh .45, 10.85 pop .3, 13.4 swoosh .45, 13.55 pop .3, 16 whoosh .6, 16.2 pop .4, 19.6 whoosh .7, 21.8 ding .55">
+
+<!-- ── 사진 (컷마다 하나. 실내는 2.5D img, 바깥은 CSS .cam) ── -->
+<!-- 01 외관 (0~2.6초): 2.5D 다가가기. 난간이 앞에 있으면 세기를 줄인다 -->
+<div class="shot" style="--at:0s;--len:2.6s"><img class="depth" src="photo-1.jpg" data-depth="in" data-strength=".7" style="object-position:57% 50%"></div>
+<!-- 02~04 실내 (2.6~10.7초): 2.5D, 2.7초씩 -->
+<div class="shot" style="--at:2.6s;--len:2.7s"><img class="depth" src="photo-2.jpg" data-depth="in" style="object-position:40% 50%"></div>
+<div class="shot" style="--at:5.3s;--len:2.7s"><img class="depth" src="photo-3.jpg" data-depth="in" style="object-position:30% 50%"></div>
+<div class="shot" style="--at:8s;--len:2.7s"><img class="depth" src="photo-4.jpg" data-depth="in" style="object-position:70% 50%"></div>
+<!-- 05~06 바깥 (10.7~16초): 난간·나무가 많아 CSS. 옆으로 밀기 / 당기기 -->
+<div class="shot" style="--at:10.7s;--len:2.7s"><div class="cam ph" data-label="바깥 1" style="--at:10.7s;--len:2.7s;--img:url(photo-5.jpg);--w:3413px;--h:1920px;--x0:-1780px;--x1:-2050px;--s0:1.04;--s1:1.04"></div></div>
+<div class="shot" style="--at:13.4s;--len:2.6s"><div class="cam ph" data-label="바깥 2" style="--at:13.4s;--len:2.6s;--img:url(photo-6.jpg);--w:3413px;--h:1920px;--x0:-1337px;--x1:-1337px;--o:1877px 1100px;--s0:1;--s1:1.12"></div></div>
+<!-- 07 후기 (16~19.6초): 살짝 흐린 바탕 (방 사진을 다시 써도 된다. 흰 이불처럼 무늬 없는 사진은 흐리면 얼룩져 보여서 피한다) -->
+<div class="shot" style="--at:16s;--len:3.6s"><div class="cam soft ph" data-label="흐린 바탕" style="--at:16s;--len:3.6s;--img:url(photo-3.jpg);--w:3413px;--h:1920px;--x0:-900px;--x1:-1100px"></div></div>
+<!-- 08 끝 (19.6~24.5초): 밤 외관 멀어지기 -->
+<div class="shot" style="--at:19.6s;--len:4.9s"><div class="cam lin ph" data-label="밤 외관" style="--at:19.6s;--len:4.9s;--img:url(photo-7.jpg);--w:3413px;--h:1920px;--x0:-893px;--x1:-893px;--o:1433px 1000px;--s0:1.3;--s1:1"></div></div>
+
+<!-- 고지: 첫 장면과 마지막 장면 -->
+<section class="scene" style="--at:0s;--len:2.6s"><p class="disc">이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.</p></section>
+<section class="scene" style="--at:19.6s;--len:4.9s"><p class="disc">이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.</p></section>
+
+<!-- 01 질문 하나 (한 줄에 6자 안쪽) -->
+<section class="scene" style="--at:0s;--len:2.6s"><p class="ask"><b style="--t:.3s">보는 사람</b><b style="--t:.8s"><em>상황 질문?</em></b></p></section>
+
+<!-- 02~06 이름표 + 한 줄 (상품 페이지 사실). 조건이 있으면 .sub 한 줄 (가격·시간은 넣지 않는다) -->
+<section class="scene" style="--at:2.6s;--len:2.7s"><div class="say drop" style="--d:.15s;--e:.75s"><p class="label">✔ 거실</p><p class="line"><span class="w" style="--i:0">사실</span> <span class="w" style="--i:1"><em>한 줄</em></span></p><p class="sub">작은 조건</p></div></section>
+<section class="scene" style="--at:5.3s;--len:2.7s"><div class="say slide left" style="--d:.15s;--y:760px"><p class="label">✔ 방 1</p><p class="line">사실 <em>한 줄</em></p></div></section>
+<section class="scene" style="--at:8s;--len:2.7s"><div class="say wipe right" style="--d:.15s;--y:880px"><p class="label">✔ 방 2</p><p class="line">사실 <em>한 줄</em></p></div></section>
+<section class="scene" style="--at:10.7s;--len:2.7s"><div class="say zoom" style="--d:.15s"><p class="label">✔ 바깥 1</p><p class="line">사실 <em>한 줄</em></p></div></section>
+<section class="scene" style="--at:13.4s;--len:2.6s"><div class="say rise" style="--d:.15s;--e:.75s"><p class="label">✔ 바깥 2</p><p class="line"><span class="w" style="--i:0">사실</span> <span class="w" style="--i:1"><em>한 줄</em></span></p></div></section>
+
+<!-- 07 쿠팡 후기 요약 (페이지에서 센 만큼만. 한 명이 한 말은 칩에 그렇게 밝힌다) -->
+<section class="scene" style="--at:16s;--len:3.6s">
+  <div class="rcard up" style="--d:.15s">
+    <p class="src">쿠팡 구매자 후기</p>
+    <p class="stat pop" style="--d:.45s">N<small>/5</small></p>
+    <p class="cnt">후기 M개 평균</p>
+    <p class="row fade" style="--d:1.1s">후기 요약 한 줄<span class="chip">몇 개</span></p>
+  </div>
+</section>
+
+<!-- 08 끝: 궁금하면 → 프로필 링크. 이름은 화면·나레이션에 말하지 않는다 -->
+<section class="scene" style="--at:19.6s;--len:4.9s">
+  <p class="ask" style="--y:720px"><b style="--t:19.8s">어딘지</b><b style="--t:20.2s"><em>궁금하면?</em></b></p>
+  <div class="link pop" style="--d:2.2s"><b>프로필 링크 No.○○○<i>+</i></b></div>
+  <p class="dm fade" style="--d:2.6s">인스타는 댓글에 '키워드' 남기면 DM으로 알려 드려요</p>
+  <!-- 댓글 버전 (사람이 정하면 위 줄 대신): <p class="dm fade" style="--d:2.6s">아무 댓글이나 남기면 정답과 링크를 DM으로 보내 드려요</p> -->
+</section>
+
+</body></html>

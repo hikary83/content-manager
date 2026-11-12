@@ -3,6 +3,7 @@
 //   node tools/motion/record.mjs contents/<folder>/motion.html
 // The page sets its length with <body data-duration="18">. Every CSS animation is paused and seeked to each
 // frame's time before the screenshot, so the video is identical however fast or slow this PC is.
+// 2.5D photos (<img data-depth="in">, depth.mjs) are made into frames first and swapped in before each screenshot.
 // Uses the installed Chrome (or Edge, or CHROME=<path>) over a DevTools pipe (no port is opened) and ffmpeg.
 import fs from 'node:fs';
 import os from 'node:os';
@@ -13,6 +14,7 @@ import { run, probe } from '../../scripts/reel/lib.mjs';
 import { parseCues, addSound } from './sfx.mjs';
 import { musicSeed, addMusic, describe } from './bgm.mjs';
 import { voiceTrack } from './voice.mjs';
+import { DEPTH_QUERY, depthScenes, swapFrames } from './depth.mjs';
 
 const W = 1080, H = 1920, FPS = 30;
 const file = path.resolve(process.argv[2] || '');
@@ -77,11 +79,23 @@ try {
   };
   await page('Emulation.setDeviceMetricsOverride', { width: W, height: H, deviceScaleFactor: 1, mobile: false });
   await page('Page.enable');
-  const loaded = nextEvent('Page.loadEventFired');
-  await page('Page.navigate', { url: pathToFileURL(file).href });
-  await loaded;
-  const seconds = await evaluate('document.fonts.ready.then(() => Number(document.body.dataset.duration))');
+  const open = async () => {
+    const loaded = nextEvent('Page.loadEventFired');
+    await page('Page.navigate', { url: pathToFileURL(file).href });
+    await loaded;
+    return evaluate('document.fonts.ready.then(() => Number(document.body.dataset.duration))');
+  };
+  const seconds = await open();
   if (!(seconds >= 1 && seconds <= 60)) throw new Error('<body data-duration="18">처럼 1~60초 길이를 적어주세요.');
+  // 2.5D photos (<img data-depth>, see depth.mjs): frames are made first, then swapped in before each screenshot.
+  // Making them takes a while, so the page is opened again afterwards (same reason as the narration note above).
+  let depth = [];
+  const marked = await evaluate(DEPTH_QUERY);
+  if (marked.length) {
+    const { jobs, rendered } = depthScenes(file, marked, FPS);
+    if (rendered) { await open(); await evaluate(DEPTH_QUERY); }
+    depth = jobs;
+  }
   const frames = Math.round(seconds * FPS);
   const cues = parseCues(await evaluate('document.body.dataset.sfx || ""')); // checked before the long recording
 
@@ -93,6 +107,7 @@ try {
   const encoded = new Promise((resolve, reject) => encoder.on('close', code => code === 0 ? resolve() : reject(new Error(`ffmpeg 실패: ${log.slice(-1500)}`))));
 
   for (let i = 0; i < frames; i++) {
+    if (depth.length) await evaluate(swapFrames(depth, i, FPS));
     await evaluate(`document.getAnimations().forEach(a => { a.pause(); a.currentTime = ${i * 1000 / FPS}; });
       new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))`);
     const { data } = await page('Page.captureScreenshot', { format: 'jpeg', quality: 95 });

@@ -31,6 +31,27 @@ test('모션 녹화는 CSS 애니메이션을 프레임 시각에 맞춰 찍는�
     assert.ok(audio(withMusic),'효과음을 다시 넣으면 배경음악 버전도 다시 만든다');
   }finally{fs.rmSync(dir,{recursive:true,force:true});}
 });
+test('2.5D 표시(img data-depth)는 만들어 둔 프레임을 프레임마다 끼워 찍는다',{skip:!(chrome&&ffmpeg)&&'Chrome·ffmpeg가 필요해요'},async()=>{
+  const {depthJob}=await import(new URL('../tools/motion/depth.mjs',import.meta.url).href);
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'hikary-depth-'));
+  try{
+    const page=path.join(dir,'motion.html'),color=(c,file)=>execFileSync('ffmpeg',['-v','error','-y','-f','lavfi','-i',`color=${c}:s=1080x1920`,'-frames:v','1',file]);
+    color('gray',path.join(dir,'photo.jpg'));
+    fs.writeFileSync(page,'<!doctype html><style>body{margin:0}img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}</style><body data-duration="1"><img src="photo.jpg" data-depth="in" style="--at:0s;--len:1s"></body>');
+    const info={src:'photo.jpg',move:'in',strength:'1',position:'50% 50%',at:'0s',len:'1s',width:1080,height:1920};
+    const job=depthJob(page,info,30);
+    assert.equal(job.frames,30);
+    assert.throws(()=>depthJob(page,{...info,move:'zoom'},30),/data-depth/);
+    assert.throws(()=>depthJob(page,{...info,position:'10px 0px'},30),/object-position/);
+    // Frames made in advance (black, then white) — the depth tool is not needed; the recorder only swaps them in.
+    fs.mkdirSync(job.out,{recursive:true});
+    color('black',path.join(dir,'black.jpg'));color('white',path.join(dir,'white.jpg'));
+    for(let i=0;i<30;i++) fs.copyFileSync(path.join(dir,i<15?'black.jpg':'white.jpg'),path.join(job.out,`${String(i).padStart(4,'0')}.jpg`));
+    execFileSync(process.execPath,[recorder,page],{stdio:'ignore'});
+    const video=path.join(dir,'motion.mp4');
+    assert.ok(luma(video,0)<30,'첫 프레임은 검은 그림');assert.ok(luma(video,29)>220,'마지막 프레임은 흰 그림');
+  }finally{fs.rmSync(dir,{recursive:true,force:true});}
+});
 test('배경음악은 폴더 이름으로 고르고, 같은 이름이면 같은 곡이다',async()=>{
   const {musicSeed,makeMusic}=await import(pathToFileURL(bgm).href);
   assert.equal(musicSeed('contents/261107_서울랜드/motion.html','<body data-duration="25">'),'261107_서울랜드');

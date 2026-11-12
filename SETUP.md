@@ -1,4 +1,4 @@
-# HIKARY 콘텐츠 관리 v3.5.5
+# HIKARY 콘텐츠 관리 v3.5.6
 
 2026-11-06 · GitHub Pages + Google Apps Script + Google Sheets. 콘텐츠는 Claude에서 만든다.
 
@@ -14,6 +14,11 @@
 - `app/`, `worker/`, `db/` 등은 이전 Sites/React 코드입니다. Pages 배포에는 포함하지 않습니다. 백업 태그: `legacy-chatgpt-sites-2026-08-11`.
 
 ## 최초 연결
+
+### v3.5.6 템플릿 5 「투어」가 기본 (2026-11-12, 화면만)
+
+- 요청 창의 영상 템플릿에 5번 **투어**(`tools/motion/template-tour.html` — 숙소를 한 바퀴, 방마다 한 컷, 실내는 2.5D)를 더하고 「기본」을 사진에서 투어로 옮겼습니다. 카드가 다섯 개라 옆으로 넘기고, 창을 열면 기본(또는 보낸 요청의) 카드까지 넘어가 있어요. 미리보기는 No.258 침실 2.5D 장면입니다.
+- 2.5D 장면 녹화: 템플릿에서 `<img data-depth="in">`처럼 표시한 사진은 `tools/motion/record.mjs`가 `tools/motion/depth.py`(Depth Anything V2 Small, `~/.hikary-depth`)로 프레임을 미리 만들어 매 프레임 끼웁니다. 쓰는 법은 `tools/motion/depth.mjs` 맨 위 주석. 서버는 그대로(2.14.0).
 
 ### v3.5.5 기록 칸 닫기는 ✕ (2026-11-12, 화면만)
 
