@@ -369,7 +369,7 @@ body.locked{overflow:hidden}
 dialog.ask{width:min(760px,calc(100vw - 24px))}
 h3.q{font-size:14px;margin:16px 0 10px;display:flex;align-items:center;gap:8px}
 h3.q small{font-weight:400;color:var(--dim);font-size:12px}
-.tpls{display:grid;grid-auto-flow:column;grid-auto-columns:calc((100% - 36px) / 4);gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:4px}
+.tpls{display:grid;grid-auto-flow:column;grid-auto-columns:calc((100% - 48px) / 5);gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:4px}
 .tpl{position:relative;margin:0;border:1px solid var(--line2);border-radius:12px;padding:8px;display:grid;gap:6px;align-content:start;background:#1a1a1a;cursor:pointer;scroll-snap-align:start;color:var(--ink)}
 .tpl input{position:absolute;top:8px;left:8px;width:1px;height:1px;margin:0;opacity:0;pointer-events:none}
 .tpl:has(input:checked){border:2px solid var(--ink);padding:7px;background:#262626}
