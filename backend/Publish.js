@@ -17,8 +17,12 @@ function videoPlaces_(entry) { return PUBLISH_PLATFORMS.filter(function(p) { ret
 function publishProps_() { return PropertiesService.getScriptProperties(); }
 function publishStatus_() {
   var props = publishProps_();
-  return { buffer: !!props.getProperty('BUFFER_API_KEY'), video: !!cloudinary_(), code: !!props.getProperty('PUBLISH_CODE') };
+  return { buffer: !!props.getProperty('BUFFER_API_KEY'), video: !!cloudinary_(), code: !!props.getProperty('PUBLISH_CODE'), limitedAt: bufferLimitedAt_() || '' };
 }
+// v2.14.0: Buffer's free plan answers about 250 calls a day (2026-11). After 「too many」 the server rests an hour — every call
+// in between would be refused and keep the window full — and 「status」 says since when, so the web can tell the owner.
+var BUFFER_REST_SECONDS = 3600;
+function bufferLimitedAt_() { return CacheService.getScriptCache().get('BUFFER_LIMITED'); }
 function q_(value) { return JSON.stringify(String(value)); } // a JSON string is a valid GraphQL string literal
 function kst_(date) { return Utilities.formatDate(date, 'Asia/Seoul', 'yyyy-MM-dd HH:mm'); }
 
@@ -34,17 +38,24 @@ function checkPublishCode_(code) {
   }
 }
 
-function buffer_(query) {
+// partial: return the data even when some parts failed (a batch of posts where one was deleted in Buffer).
+function buffer_(query, partial) {
   var key = publishProps_().getProperty('BUFFER_API_KEY');
   if (!key) throw userError_('스크립트 속성에 BUFFER_API_KEY를 넣어주세요.');
+  var limited = bufferLimitedAt_();
+  if (limited) throw userError_('Buffer 호출 한도에 걸려 ' + limited.slice(11) + '부터 한 시간 쉬는 중이에요. 잠시 후 다시 시도해주세요.');
   var response;
   try { response = UrlFetchApp.fetch('https://api.buffer.com', { method: 'post', contentType: 'application/json', headers: { Authorization: 'Bearer ' + key }, payload: JSON.stringify({ query: query }), muteHttpExceptions: true }); }
   catch (_) { throw userError_('Buffer에 연결하지 못했어요. 잠시 후 다시 시도해주세요.'); }
   var code = response.getResponseCode(); var body = null;
   try { body = JSON.parse(response.getContentText()); } catch (_) {}
   if (code === 401 || code === 403) throw userError_('Buffer가 API 키를 받지 않았어요. BUFFER_API_KEY와 키 권한을 확인해주세요.');
-  if (code === 429) throw userError_('Buffer 요청 한도에 걸렸어요. 잠시 후 다시 시도해주세요.');
-  if (body && body.errors && body.errors.length) {
+  var errors = body && body.errors || [];
+  if (code === 429 || errors.some(function(item) { return item && item.extensions && item.extensions.code === 'RATE_LIMIT_EXCEEDED'; })) {
+    CacheService.getScriptCache().put('BUFFER_LIMITED', kst_(new Date()), BUFFER_REST_SECONDS);
+    throw userError_('Buffer 호출 한도에 걸렸어요. 한 시간쯤 뒤 다시 시도해주세요.');
+  }
+  if (errors.length && !(partial && body.data)) {
     var error = userError_('Buffer 요청 오류: ' + String(body.errors[0].message || '').slice(0, 200));
     error.graphql = true; throw error;
   }
@@ -68,9 +79,20 @@ function bufferChannels_() {
 }
 
 // A Buffer post, or null when Buffer no longer has it (deleted in Buffer). Network trouble throws.
+var POST_FIELDS = ' { status dueAt sentAt externalLink error { message } }';
 function bufferPost_(id) {
-  try { return buffer_('query { post(input: { id: ' + q_(id) + ' }) { status dueAt sentAt externalLink error { message } } }').post || null; }
+  try { return buffer_('query { post(input: { id: ' + q_(id) + ' })' + POST_FIELDS + ' }').post || null; }
   catch (error) { if (error.graphql) return null; throw error; }
+}
+// v2.14.0: several posts in one call (GraphQL aliases p0, p1, …) → { id: post or null }.
+function bufferPosts_(ids) {
+  var data = buffer_('query { ' + ids.map(function(id, i) { return 'p' + i + ': post(input: { id: ' + q_(id) + ' })' + POST_FIELDS; }).join(' ') + ' }', true);
+  var posts = {}; ids.forEach(function(id, i) { posts[id] = data['p' + i] || null; }); return posts;
+}
+// 「2026-11-12 08:45」 (Seoul) → ms; a missing time counts as due.
+function kstTime_(value) {
+  var match = /^(\d{4}-\d{2}-\d{2})(?: (\d{2}:\d{2}))?$/.exec(String(value || ''));
+  return match ? new Date(match[1] + 'T' + (match[2] || '00:00') + ':00+09:00').getTime() : 0;
 }
 
 // One line per place in 「게시 오류」: 「TikTok: …」. An empty message removes that place's line.
@@ -196,24 +218,33 @@ function publish_(input) {
   } finally { lock.releaseLock(); }
 }
 
-// Time trigger, every 10 minutes (Apps Script editor → 트리거 → syncPublishing). Rows with nothing scheduled cost no Buffer call.
+// Time trigger, every 10 minutes (Apps Script editor → 트리거 → syncPublishing).
+// v2.14.0: only places whose scheduled time has passed are asked about, all in one Buffer call. Before, every 예약됨 place
+// was asked about every run, one call each — three products scheduled days ahead used up the free plan's daily calls on
+// 2026-11-11, and the refusals were swallowed, so the ledger silently stopped filling.
 function syncPublishing() {
+  if (bufferLimitedAt_()) return; // resting after Buffer's 「too many」; the first run after the hour catches up
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(30000)) return; // a save is running; the next run catches up
   try {
-    var sheet = getContentSheet_();
-    readSheetRows_(sheet).forEach(function(row, index) {
-      if (!row[0]) return;
-      var entry = rowEntry_(row); var before = JSON.stringify(entry);
-      PUBLISH_PLATFORMS.forEach(function(p) {
-        if (entry[p + 'Status'] !== '예약됨' || !entry[p + 'PostId']) return;
-        var post;
-        try { post = bufferPost_(entry[p + 'PostId']); } catch (_) { return; } // Buffer unreachable or busy: next run
-        if (post) applyPost_(entry, p, post);
+    var sheet = getContentSheet_(); var now = Date.now();
+    var entries = readSheetRows_(sheet).map(function(row) { return row[0] ? rowEntry_(row) : null; });
+    var before = entries.map(function(entry) { return JSON.stringify(entry); });
+    var waiting = function(entry, p) { return entry[p + 'Status'] === '예약됨' && entry[p + 'PostId']; };
+    var due = [];
+    entries.forEach(function(entry) { if (entry) PUBLISH_PLATFORMS.forEach(function(p) { if (waiting(entry, p) && kstTime_(entry[p + 'Date']) <= now) due.push(entry[p + 'PostId']); }); });
+    var posts = null;
+    if (due.length) { try { posts = bufferPosts_(due); } catch (_) {} } // Buffer unreachable, busy or resting: next run
+    entries.forEach(function(entry, index) {
+      if (!entry) return;
+      if (posts) PUBLISH_PLATFORMS.forEach(function(p) {
+        var id = entry[p + 'PostId'];
+        if (!waiting(entry, p) || !Object.prototype.hasOwnProperty.call(posts, id)) return;
+        if (posts[id]) applyPost_(entry, p, posts[id]);
         else { entry[p + 'Status'] = '오류'; setPublishError_(entry, p, 'Buffer에서 예약을 찾지 못했어요. Buffer에서 지웠다면 다시 게시해 주세요.'); }
       });
       if (entry.videoUrl && videoDone_(entry) && deleteVideo_(entry.videoUrl)) { entry.videoUrl = ''; entry.videoDate = ''; }
-      if (JSON.stringify(entry) !== before) writeEntry_(sheet, index + 2, entry);
+      if (JSON.stringify(entry) !== before[index]) writeEntry_(sheet, index + 2, entry);
     });
   } finally { lock.releaseLock(); }
 }

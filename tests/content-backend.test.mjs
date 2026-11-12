@@ -38,7 +38,7 @@ function runtime({ legacy = false } = {}) {
   for (const name of ['Code','Product','Gemini','Coupang','Requests','Publish','Auth']) vm.runInContext(readFileSync(new URL(`../backend/${name}.js`,import.meta.url),'utf8'),context);
   props.set('TOOL_KEY', TOOL);
   const raw = context.doPost; context.doPost = event => { const body = JSON.parse(event.postData.contents); if (!('token' in body)) body.token = TOOL; return raw({ postData: { contents: JSON.stringify(body) } }); };
-  return { context, rows, props, tabs, writes: () => writes, fetches: () => fetches };
+  return { context, rows, props, tabs, cache, writes: () => writes, fetches: () => fetches };
 }
 const sample = () => ({id:randomUUID(),category:'여행',productName:'제주 숙소',sourceUrl:'https://trip.coupang.com/product',affiliateUrl:'',script:'실제 상품정보 기반 대본',youtube:'',instagram:'',tiktok:'',notes:''});
 
@@ -257,12 +257,13 @@ const CODE = 'open-sesame';
 function publishEnv({ fail = {} } = {}) {
   const env = runtime();
   for (const [key, value] of Object.entries({ BUFFER_API_KEY: 'buffer-example', CLOUDINARY_CLOUD_NAME: 'mycloud', CLOUDINARY_API_KEY: '123', CLOUDINARY_API_SECRET: 'cloud-secret', PUBLISH_CODE: CODE })) env.props.set(key, value);
-  const sent = []; const posts = new Map(); let next = 0;
+  const sent = []; const posts = new Map(); let next = 0; const limit = { on: false };
   const reply = (code, body) => ({ getResponseCode: () => code, getContentText: () => JSON.stringify(body) });
   env.context.UrlFetchApp.fetch = (url, options) => {
     sent.push({ url, options });
     if (url.startsWith('https://api.cloudinary.com/')) return reply(200, { result: 'ok' });
     assert.equal(url, 'https://api.buffer.com');
+    if (limit.on) return reply(429, { errors: [{ message: 'Too many requests from this client.', extensions: { code: 'RATE_LIMIT_EXCEEDED', window: '24h' } }] });
     const query = JSON.parse(options.payload).query;
     if (query.includes('account {')) return reply(200, { data: { account: { organizations: [{ id: 'org1' }] } } });
     if (query.includes('channels(')) return reply(200, { data: { channels: [{ id: 'yt1', service: 'youtube', isDisconnected: false }, { id: 'ig1', service: 'instagram', isDisconnected: false }, { id: 'tt1', service: 'tiktok', isDisconnected: false }, { id: 'li1', service: 'linkedin', isDisconnected: false }] } });
@@ -272,8 +273,12 @@ function publishEnv({ fail = {} } = {}) {
       const id = 'post' + (++next); posts.set(id, { status: 'scheduled', dueAt: /dueAt: "([^"]+)"/.exec(query)[1] });
       return reply(200, { data: { createPost: { post: { id } } } });
     }
-    const id = /post\(input: \{ id: "([^"]+)"/.exec(query)[1];
-    return posts.has(id) ? reply(200, { data: { post: posts.get(id) } }) : reply(200, { errors: [{ message: 'Post not found' }] });
+    // One post (`post(…)`) or several under aliases (`p0: post(…) p1: post(…)`, v2.14.0). A missing one is null with an error.
+    const asked = [...query.matchAll(/(?:(p\d+): )?post\(input: \{ id: "([^"]+)" \}\)/g)];
+    if (asked.length === 1 && !asked[0][1]) { const id = asked[0][2]; return posts.has(id) ? reply(200, { data: { post: posts.get(id) } }) : reply(200, { errors: [{ message: 'Post not found' }] }); }
+    const data = {}; const errors = [];
+    for (const [, alias, id] of asked) { data[alias] = posts.get(id) ?? null; if (!posts.has(id)) errors.push({ message: 'Post not found', path: [alias] }); }
+    return reply(200, errors.length ? { data, errors } : { data });
   };
   const input = { ...sample(), youtube: '제목: 여기 어디게? #여행\n\n설명 본문', instagram: '인스타 글', tiktok: '틱톡 글', videoUrl: VIDEO, videoDate: '2026-11-10 17:00' };
   env.context.saveEntry_(input);
@@ -281,7 +286,9 @@ function publishEnv({ fail = {} } = {}) {
   const dueAt = new Date(Date.now() + 3600e3).toISOString();
   const call = payload => JSON.parse(env.context.doPost({ postData: { contents: JSON.stringify({ action: 'publish', payload: { id: input.id, revision: entry().revision, dueAt, code: CODE, ...payload } }) } }).text);
   const mutations = () => sent.filter(item => item.url === 'https://api.buffer.com' && JSON.parse(item.options.payload).query.startsWith('mutation')).map(item => JSON.parse(item.options.payload).query);
-  return { env, sent, posts, call, entry, input, dueAt, mutations };
+  // v2.14.0: the sync asks only about places whose time has passed — move every 예약됨 place's time into the past.
+  const due = () => { const now = entry(); env.context.saveEntry_({ ...now, ...Object.fromEntries(['youtube', 'instagram', 'tiktok'].filter(p => now[p + 'Status'] === '예약됨').map(p => [p + 'Date', '2026-01-02 08:45'])) }); };
+  return { env, sent, posts, call, entry, input, dueAt, mutations, due, limit };
 }
 test('v2.6.0 게시는 비밀번호가 맞아야 하고, 5번 틀리면 1시간 막으며 그동안 Buffer를 부르지 않는다', () => {
   const { env, sent, call } = publishEnv();
@@ -325,8 +332,8 @@ test('v2.6.0 한 곳이 실패해도 나머지는 예약하고, 우리 Cloudinar
   assert.equal(sent.length, before); assert.equal(mutations().length, 2); assert.equal(input.id, entry().id);
 });
 test('v2.6.0 결과 받기: 게시됨은 업로드완료·링크·시간, 실패는 오류, 모두 올라가거나 보류면 Cloudinary 영상을 지운다', () => {
-  const { env, sent, posts, call, entry } = publishEnv();
-  call({ platforms: ['youtube', 'instagram', 'tiktok'] });
+  const { env, sent, posts, call, entry, due } = publishEnv();
+  call({ platforms: ['youtube', 'instagram', 'tiktok'] }); due();
   posts.set('post1', { status: 'sent', sentAt: '2026-11-12T09:00:00.000Z', externalLink: 'https://www.youtube.com/watch?v=abc' });
   posts.set('post2', { status: 'error', error: { message: 'Instagram rejected the video' } });
   env.context.syncPublishing();
@@ -337,7 +344,7 @@ test('v2.6.0 결과 받기: 게시됨은 업로드완료·링크·시간, 실패
   assert.ok(!sent.some(item => item.url.startsWith('https://api.cloudinary.com/')));
   posts.set('post3', { status: 'sent', sentAt: '2026-11-12T09:01:00.000Z', externalLink: 'https://www.tiktok.com/@hikary.vibe/video/1' });
   env.context.saveEntry_({ ...entry(), instagramStatus: '보류' });
-  env.context.syncPublishing();
+  due(); env.context.syncPublishing(); // the fake post3 kept its future dueAt, which the first run wrote back
   saved = entry(); assert.equal(saved.tiktokStatus, '업로드완료'); assert.equal(saved.videoUrl, ''); assert.equal(saved.videoDate, '');
   const destroy = sent.find(item => item.url.startsWith('https://api.cloudinary.com/'));
   assert.equal(destroy.url, 'https://api.cloudinary.com/v1_1/mycloud/video/destroy');
@@ -347,12 +354,12 @@ test('v2.6.0 결과 받기: 게시됨은 업로드완료·링크·시간, 실패
   const count = sent.length; env.context.syncPublishing(); assert.equal(sent.length, count, '기다리는 예약이 없으면 아무도 부르지 않는다');
 });
 test('v2.6.0 손으로 지운 기록이어도 Buffer에 예약이 남아 있으면 두 번 걸지 않고, Buffer에서 지운 예약은 오류로 남긴다', () => {
-  const { env, posts, call, entry, mutations } = publishEnv();
+  const { env, posts, call, entry, mutations, due } = publishEnv();
   call({ platforms: ['youtube'] });
   env.context.saveEntry_({ ...entry(), youtubeStatus: '미업로드', youtubeDate: '' });
   const again = call({ platforms: ['youtube'] }).data.results.youtube;
   assert.equal(again.ok, false); assert.match(again.error, /이미 Buffer에 예약돼/); assert.equal(mutations().length, 1); assert.equal(entry().youtubeStatus, '예약됨');
-  posts.delete('post1'); env.context.syncPublishing();
+  posts.delete('post1'); due(); env.context.syncPublishing();
   assert.equal(entry().youtubeStatus, '오류'); assert.match(entry().publishError, /^YouTube: Buffer에서 예약을 찾지 못했어요/m);
   call({ platforms: ['youtube'] }); assert.equal(mutations().length, 2, '오류였던 곳은 다시 걸 수 있다'); assert.equal(entry().youtubePostId, 'post2');
 });
@@ -456,6 +463,32 @@ test('v2.10.0 인스타 형식은 릴스·캐러셀만 받고, 등록 도구가 
   assert.equal(env.context.readEntries_()[0].instagramType, '캐러셀');
   assert.throws(() => env.context.saveEntry_({ ...sample(), instagramType: '스토리' }), /릴스나 캐러셀/);
 });
+test('v2.14.0 결과 받기는 예약 시각이 지난 곳만 한 번에 묻고, 한도에 걸리면 한 시간 쉬며 status로 알린다', () => {
+  const { env, sent, posts, call, entry, due } = publishEnv();
+  call({ platforms: ['youtube', 'instagram', 'tiktok'] });
+  const asks = list => list.filter(item => item.url === 'https://api.buffer.com' && JSON.parse(item.options.payload).query.includes('post(input')).length;
+  const start = asks(sent);
+  env.context.syncPublishing(); assert.equal(asks(sent), start, '아직 올라갈 시각이 아니면 Buffer에 묻지 않는다');
+  due(); for (const id of ['post1', 'post2', 'post3']) posts.set(id, { status: 'sent', sentAt: '2026-11-12T00:00:00.000Z', externalLink: 'https://example.com/' + id });
+  env.context.syncPublishing(); assert.equal(asks(sent), start + 1, '세 곳을 한 번에 묻는다');
+  assert.deepEqual(['youtube', 'instagram', 'tiktok'].map(p => entry()[p + 'Status']), ['업로드완료', '업로드완료', '업로드완료']);
+  // Buffer says too many: the record stays, the server rests an hour (no calls), 「status」 says since when, 「게시」 says why.
+  const other = publishEnv(); other.call({ platforms: ['youtube'] }); other.due(); other.limit.on = true;
+  const before = other.sent.length;
+  other.env.context.syncPublishing(); assert.equal(other.sent.length, before + 1); assert.equal(other.entry().youtubeStatus, '예약됨');
+  const status = JSON.parse(other.env.context.doPost({ postData: { contents: JSON.stringify({ action: 'status' }) } }).text).data;
+  assert.match(status.publishing.limitedAt, /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
+  other.env.context.syncPublishing(); assert.equal(other.sent.length, before + 1, '쉬는 동안은 부르지 않는다');
+  assert.match(other.call({ platforms: ['tiktok'] }).data.results.tiktok.error, /한도/); assert.equal(other.sent.length, before + 1);
+  other.env.cache.delete('BUFFER_LIMITED'); other.limit.on = false;
+  other.posts.set('post1', { status: 'sent', sentAt: '2026-11-12T00:00:00.000Z', externalLink: 'https://example.com/a' });
+  other.env.context.syncPublishing(); assert.equal(other.entry().youtubeStatus, '업로드완료', '한 시간 뒤 첫 결과 받기가 따라잡는다');
+  // A batch where one post was deleted in Buffer: that place is 오류, the rest still land.
+  const third = publishEnv(); third.call({ platforms: ['youtube', 'tiktok'] }); third.due();
+  third.posts.delete('post1'); third.posts.set('post2', { status: 'sent', sentAt: '2026-11-12T00:00:00.000Z', externalLink: 'https://example.com/b' });
+  third.env.context.syncPublishing();
+  assert.deepEqual([third.entry().youtubeStatus, third.entry().tiktokStatus], ['오류', '업로드완료']);
+});
 test('v2.13.0 인포크 등록일·키티챗 연결일은 날짜만 받고, 등록 도구가 칸 없이 저장해도 지킨다', () => {
   const env = runtime(); const input = sample();
   env.context.saveEntry_({ ...input, inpockLinkedAt: '2026-11-11', kittyLinkedAt: '' });
@@ -483,7 +516,7 @@ test('v2.10.0 캐러셀 상품은 릴스로 예약하지 않고, 게시에서 �
   assert.equal(two.call({ platforms: ['youtube', 'tiktok'] }).ok, true);
   two.posts.set('post1', { status: 'sent', sentAt: '2026-11-12T09:00:00.000Z', externalLink: 'https://www.youtube.com/watch?v=a' });
   two.posts.set('post2', { status: 'sent', sentAt: '2026-11-12T09:00:00.000Z', externalLink: 'https://www.tiktok.com/@a/video/1' });
-  two.env.context.syncPublishing();
+  two.due(); two.env.context.syncPublishing();
   assert.deepEqual([two.entry().instagramStatus, two.entry().videoUrl], ['미업로드', '']);
   assert.ok(two.sent.some(item => item.url.endsWith('/video/destroy')));
   assert.equal(sent.filter(item => item.url.endsWith('/video/destroy')).length, 0); assert.ok(posts);

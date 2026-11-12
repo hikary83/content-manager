@@ -2,6 +2,7 @@
   'use strict';
   // v3.0.0 (2026-11-11): dark YouTube-Studio layout — 대시보드 · 콘텐츠 · 소재 찾기, 바로가기 icons, profile menu.
   // The 「올리기」 dialog is merged into the ✎ detail window (right panel: thumbnail, links, places with an inline record).
+  // v3.5.2 (server 2.14.0): 할 일 says when the server rests after Buffer's 「too many」.
   // v3.5.0 (server 2.13.0): ✎ ticks 「인포크링크에 넣었어요」·「키티챗에 연결했어요」, shown in the list and kept in 할 일 until ticked.
   // v3.4.6: a ring turns in the notice and the pressed button while a job runs; 「게시」 opens on the day after the latest post, 08:45.
   // v3.4.5: new data shows by itself — opening another menu or coming back to the tab reloads quietly (refreshQuietly).
@@ -61,6 +62,7 @@
   let rows = [];
   let requests = [];
   let report = null; // v3.2.0: Coupang Partners report (server `report`, kept 6 hours there)
+  let bufferLimitedAt = ''; // v3.5.2: server 2.14.0 status — since when it rests after Buffer's 「too many」
   let busy = false;
   let filter = '전체';
   let view = 'dashboard';
@@ -174,7 +176,7 @@
   async function refreshQuietly() {
     if (refreshing || busy || !loadedAt || Date.now() - loadedAt < 30000 || !HikaryApi.hasSession() || !$('loginView').hidden || document.querySelector('dialog[open]')) return;
     refreshing = true;
-    try { await Promise.all([load(), loadRequests(), view === 'dashboard' ? loadReport() : null]); } catch {} finally { refreshing = false; }
+    try { await Promise.all([load(), loadRequests(), view === 'dashboard' ? loadReport() : null, view === 'dashboard' ? HikaryApi.request('status').then(useStatus) : null]); } catch {} finally { refreshing = false; }
   }
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') void refreshQuietly(); });
   window.addEventListener('focus', () => void refreshQuietly());
@@ -482,6 +484,7 @@
     const items = [];
     const add = (text, ...actions) => { const line = element('div', 'trow'); line.append(element('span', '', text), ...actions); items.push(line); };
     const tick = (row, key) => button('체크', () => { openDetail(row); showTab(key); });
+    if (bufferLimitedAt) add(`Buffer 호출 한도에 걸려 ${bufferLimitedAt.slice(11)}부터 결과 받기를 쉬는 중 — 올라간 기록이 늦게 채워져요`, link('Buffer ↗', 'https://publish.buffer.com', 'btn sm'));
     for (const row of rows) {
       const no = row.inpockNo ? `No.${row.inpockNo}` : row.productName;
       for (const [key, name] of PUBLISH) if (row[key + 'Status'] === '오류') add(`${no} ${name} 게시 오류`, button('보기', () => openDetail(row, key)));
@@ -715,6 +718,9 @@
       + (usage.nextAt ? ` 다음 1회는 ${hhmm(usage.nextAt)}에 돌아와요.` : '');
   }
   function useStatus(status) {
+    // v3.5.2 (server 2.14.0): since when the server rests after Buffer's 「too many」 — shown in 할 일.
+    const limitedAt = status.publishing?.limitedAt || '';
+    if (limitedAt !== bufferLimitedAt) { bufferLimitedAt = limitedAt; renderDashboard(); }
     coupang = status.coupang || coupang; showQuota();
     if ($('finderSource').options.length || !coupang.categories.length) return;
     $('finderSource').append(new Option('오늘의 특가 (골드박스)', 'goldbox'));

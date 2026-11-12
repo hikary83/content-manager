@@ -1,5 +1,5 @@
 /* HIKARY only. No credentials or endpoints from kic-worktools. */
-var SERVICE_VERSION = '2.13.0';
+var SERVICE_VERSION = '2.14.0';
 // Columns 1-14 are the original ledger. 15-21 (v1.7.0), 22-27 (v2.2.0), 28-30 (v2.3.0), 31-36 (v2.6.0), 37 (v2.9.0), 38 (v2.10.0) and 39-40 (v2.13.0) are appended so existing rows never move.
 // v2.2.0: one row per product. Instagram columns are the reel; the card news (carousel) has its own upload columns.
 // v2.3.0: KittyChat keyword and DM text, and a small Inpock thumbnail as a data URL. 「카드뉴스 문구」 is no longer filled.
@@ -154,7 +154,8 @@ function saveEntry_(input) {
 // Call with the script lock held. Publish.js writes through here too.
 function writeEntry_(sheet, rowNumber, entry) {
   // Upload dates are written as text so Sheets does not turn 「2026-11-10 19:30」 into a date in its own time zone.
-  var output = CONTENT_KEYS.map(function(key) { return /Date$/.test(key) && entry[key] ? "'" + entry[key] : sheetLiteral_(entry[key]); });
+  // v2.14.0: the 2.13.0 tick days (…LinkedAt) too — they were stored as sheet dates.
+  var output = CONTENT_KEYS.map(function(key) { return /Date$|LinkedAt$/.test(key) && entry[key] ? "'" + entry[key] : sheetLiteral_(entry[key]); });
   if (rowNumber > sheet.getMaxRows()) sheet.insertRowsAfter(sheet.getMaxRows(), 100);
   var range = sheet.getRange(rowNumber, 1, 1, CONTENT_HEADERS.length);
   range.setValues([output]);
