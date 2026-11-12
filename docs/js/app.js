@@ -2,6 +2,7 @@
   'use strict';
   // v3.0.0 (2026-11-11): dark YouTube-Studio layout — 대시보드 · 콘텐츠 · 소재 찾기, 바로가기 icons, profile menu.
   // The 「올리기」 dialog is merged into the ✎ detail window (right panel: thumbnail, links, places with an inline record).
+  // v3.5.5: every open record box in 「올린 곳」 closes from ✕ (예약·아직·오류 too).
   // v3.5.4: a posted place in 「올린 곳」 edits from a ✎ icon instead of 「수정」.
   // v3.5.3: ✎ 「예약 …」 opens the record box (hand record when the result check is late); list place icons open the post.
   // v3.5.2 (server 2.14.0): 할 일 says when the server rests after Buffer's 「too many」.
@@ -569,9 +570,12 @@
     if (status === '예약됨') line.append(Object.assign(button(`예약 ${shortDate(date)}`, toggle, `st ${tone} st-btn`), { title: '올라갔으면 눌러서 직접 기록' }));
     else line.append(element('span', `st ${tone}`, status === '업로드완료' ? `● ${shortDate(date) || '올라감'}` : status === '미업로드' ? '아직' : status));
     if (https(row[key + 'Link'])) line.append(Object.assign(link('↗', row[key + 'Link'], 'ibtn'), { title: '게시물 열기' }));
-    // v3.5.4: a posted place edits from a ✎ icon (✕ while open), beside its ↗; the others keep 「기록」·「닫기」.
-    if (status === '업로드완료') { const open = openRecord === key; line.append(Object.assign(button(open ? '✕' : '✎', toggle, 'ibtn'), { title: open ? '닫기' : '기록 고치기', ariaLabel: open ? '닫기' : '기록 고치기' })); }
-    else if (status !== '예약됨' || openRecord === key) line.append(button(openRecord === key ? '닫기' : '기록', toggle));
+    // v3.5.4: a posted place edits from a ✎ icon beside its ↗. v3.5.5: any open box closes from ✕ (예약·아직·오류 too);
+    // 아직·오류 still open from 「기록」, 예약 from its text.
+    const icon = (glyph, label) => Object.assign(button(glyph, toggle, 'ibtn'), { title: label, ariaLabel: label });
+    if (openRecord === key) line.append(icon('✕', '닫기'));
+    else if (status === '업로드완료') line.append(icon('✎', '기록 고치기'));
+    else if (status !== '예약됨') line.append(button('기록', toggle));
     const nodes = [line];
     const error = errorFor(row, key); if (status === '오류' && error) nodes.push(element('div', 'place-err', error));
     if (openRecord === key) nodes.push(recordBox(row, key));
