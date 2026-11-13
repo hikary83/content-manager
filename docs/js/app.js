@@ -102,6 +102,15 @@
   function button(text, onclick, className = 'btn sm') { const node = element('button', className, text); node.type = 'button'; node.onclick = onclick; return node; }
   function link(text, href, className) { const node = element('a', className, text); node.href = href; node.target = '_blank'; node.rel = 'noopener noreferrer'; return node; }
   function emptyBox(title, sub) { const box = element('div', 'empty'); box.append(element('strong', '', title)); if (sub) box.append(element('span', '', sub)); return box; }
+  // v3.6.0 (server 2.15.0): Buffer's numbers per place, read by the server once a day — row.metrics is JSON
+  // { youtube: { views, reactions, … }, …, at: { youtube: Buffer's update time } }. A place without numbers yet has no key.
+  const METRIC_WORDS = [['views', '조회'], ['reactions', '좋아요'], ['comments', '댓글'], ['shares', '공유'], ['saves', '저장'], ['reach', '도달']];
+  const metricsOf = row => { try { return JSON.parse(row.metrics || '{}') || {}; } catch { return {}; } };
+  const metricOf = (row, key) => metricsOf(row)[key] || null;
+  const viewsOf = (row, key) => metricOf(row, key)?.views;
+  const num = n => Number(n).toLocaleString('ko-KR');
+  const totalViews = row => ['youtube', 'instagram', 'tiktok'].reduce((sum, key) => sum + (Number(viewsOf(row, key)) || 0), 0);
+  let bufferQuota = null; // v3.6.0: Buffer's RateLimit header after the server's last call
   const label = (row, prefix = true) => `${prefix && row.inpockNo ? 'No.' + row.inpockNo + ' ' : ''}${row.productName}`;
   // One platform mark; the dot shows the state (green up, orange scheduled, red error, grey on hold, dim not yet).
   // href (v3.5.3, the 콘텐츠 list): a place with a post link opens that post in a new window instead of the ✎ window.
@@ -223,7 +232,7 @@
     if (row.format) name.prepend(element('span', 'pill', row.format)); // rows made before v2.2.0
     text.append(name, element('small', '', `${row.category} · 등록 ${shortDate(row.createdAt)}`)); item.append(thumb(row), text);
     const marks = element('div', 'pfs');
-    for (const [key, name] of placesOf(row)) { const post = https(row[key + 'Link']) ? row[key + 'Link'] : ''; marks.append(placeIcon(row, key, name, () => openDetail(row, key), post)); }
+    for (const [key, name] of placesOf(row)) { const post = https(row[key + 'Link']) ? row[key + 'Link'] : ''; const icon = placeIcon(row, key, name, () => openDetail(row, key), post); const views = viewsOf(row, key); if (views === undefined) marks.append(icon); else { const pair = element('span', 'pfv'); pair.append(icon, element('small', '', num(views))); marks.append(pair); } }
     const actions = element('div', 'acts');
     if (openToPublish(row)) actions.append(button('게시', () => openPublish(row), 'btn sm primary'));
     actions.append(Object.assign(button('✎', () => openDetail(row), 'ibtn'), { title: '보기·수정', ariaLabel: '보기·수정' }));
@@ -438,11 +447,12 @@
     }) : [emptyBox('최근 30일 주문이 없어요')]);
   }
 
-  // ── 대시보드: the ledger plus the Coupang report. Post views come later (Buffer metrics were still 0 on 2026-11-11).
+  // ── 대시보드: the ledger, Buffer's post numbers (v3.6.0) and the Coupang report.
   function renderDashboard() {
     renderCoupang();
     $('statContents').textContent = new Set(rows.map(row => row.sourceUrl || row.productName)).size;
     $('statPosted').textContent = rows.reduce((sum, row) => sum + posted(row), 0);
+    $('statViews').textContent = num(rows.reduce((sum, row) => sum + totalViews(row), 0));
     const week = rows.reduce((sum, row) => sum + recent(row), 0); $('statWeek').textContent = week ? `+${week}` : '0';
     const latest = rows.filter(lastPosted).sort((a, b) => lastPosted(b).localeCompare(lastPosted(a)))[0];
     if (!latest) $('latest').replaceChildren(emptyBox('아직 올린 게시물이 없어요.'));
@@ -463,7 +473,7 @@
       nodes.push(element('p', 'latest-meta', `${shortDate(lastPosted(latest))} 게시 · ${latest.category}`));
       for (const [key, name] of placesOf(latest)) {
         const line = element('div', 'prow'); const status = latest[key + 'Status'] || '미업로드';
-        line.append(placeIcon(latest, key, name), element('span', '', name), element('span', 'st', status === '업로드완료' ? shortDate(latest[key + 'Date']) || '올라감' : status === '미업로드' ? '아직' : status));
+        line.append(placeIcon(latest, key, name), element('span', '', name), element('span', 'st', status === '업로드완료' ? (viewsOf(latest, key) !== undefined ? '조회 ' + num(viewsOf(latest, key)) + ' · ' : '') + (shortDate(latest[key + 'Date']) || '올라감') : status === '미업로드' ? '아직' : status));
         if (https(latest[key + 'Link'])) line.append(Object.assign(link('↗', latest[key + 'Link'], 'ibtn'), { title: '게시물 열기' }));
         nodes.push(line);
       }
@@ -550,6 +560,7 @@
     $('sidePage').textContent = https(row.sourceUrl) ? row.sourceUrl.replace(/^https:\/\//, '') : '—'; $('sidePage').href = https(row.sourceUrl) ? row.sourceUrl : '#';
     $('sideAffiliate').textContent = row.affiliateUrl || '—';
     $('sidePublish').hidden = !openToPublish(row);
+    const at = Object.values(metricsOf(row).at || {}).sort().pop(); $('metricsAt').textContent = at ? '· 지표 ' + shortDate(at) + ' 기준' : '';
     $('places').replaceChildren(...placesOf(row).flatMap(([key, name]) => placeRow(row, key, name)));
     // v3.4.0: the Instagram format, while nothing has gone (or is scheduled) to Instagram.
     const seg = element('span', 'seg sm');
@@ -577,6 +588,14 @@
     else if (status === '업로드완료') line.append(icon('✎', '기록 고치기'));
     else if (status !== '예약됨') line.append(button('기록', toggle));
     const nodes = [line];
+    if (status === '업로드완료' && (metricOf(row, key) || row[key + 'PostId'])) { // a carousel or a hand-posted place has no Buffer numbers
+      const m = metricOf(row, key); const box = element('div', 'place-metrics'); line.classList.add('has-m');
+      if (m) {
+        for (const [type, word] of METRIC_WORDS) if (m[type] !== undefined && !(type === 'reach' && !m[type])) box.append(element('span', '', word + ' ' + num(m[type]))); // TikTok reach is always 0
+        if (m.averageTimeWatched) box.append(element('span', '', '평균 ' + m.averageTimeWatched + '초 시청'));
+      } else box.append(element('span', 'dim', '지표 아직 — Buffer가 하루에 한 번쯤 가져와요'));
+      nodes.push(box);
+    }
     const error = errorFor(row, key); if (status === '오류' && error) nodes.push(element('div', 'place-err', error));
     if (openRecord === key) nodes.push(recordBox(row, key));
     return nodes;
@@ -730,10 +749,23 @@
     $('quotaHint').textContent = `쿠팡은 한 시간에 30번 넘게 부르면 키가 멈춰서 ${usage.limit}번까지만 불러요. 불러온 목록은 6시간 저장해 두고 다시 써요.`
       + (usage.nextAt ? ` 다음 1회는 ${hhmm(usage.nextAt)}에 돌아와요.` : '');
   }
+  // v3.6.0: Buffer's calls left in each window (15분 · 24시간 · 30일) as of the server's last call, orange under 20%.
+  function renderBufferQuota() {
+    if (!bufferQuota?.windows?.length) return;
+    const words = { '15m': '15분', '24h': '24시간', '30d': '30일' };
+    const left = t => { const s = t - (Date.now() - new Date(bufferQuota.at.replace(' ', 'T') + ':00+09:00')) / 1000; return s <= 0 ? '지금은 다시 채워졌어요' : (s >= 86400 ? Math.round(s / 86400) + '일' : s >= 3600 ? Math.round(s / 3600) + '시간' : Math.max(1, Math.round(s / 60)) + '분') + ' 뒤 다시 채워짐'; };
+    $('bufferQuotaAt').textContent = shortDate(bufferQuota.at) + ' 기준';
+    $('bufferQuota').replaceChildren(...bufferQuota.windows.map(w => {
+      const line = element('div', 'qrow' + (w.r / w.q < 0.2 ? ' low' : '')); const bar = element('span', 'qbar'); const fill = element('i'); fill.style.width = Math.round(w.r / w.q * 100) + '%'; bar.append(fill);
+      const right = element('span', 'qn'); right.append(element('b', '', num(w.r) + ' / ' + num(w.q)), element('small', '', left(w.t)));
+      line.append(element('span', 'ql', words[w.name] || w.name), bar, right); return line;
+    }));
+  }
   function useStatus(status) {
     // v3.5.2 (server 2.14.0): since when the server rests after Buffer's 「too many」 — shown in 할 일.
     const limitedAt = status.publishing?.limitedAt || '';
     if (limitedAt !== bufferLimitedAt) { bufferLimitedAt = limitedAt; renderDashboard(); }
+    bufferQuota = status.publishing?.quota || bufferQuota; renderBufferQuota();
     coupang = status.coupang || coupang; showQuota();
     if ($('finderSource').options.length || !coupang.categories.length) return;
     $('finderSource').append(new Option('오늘의 특가 (골드박스)', 'goldbox'));

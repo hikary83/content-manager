@@ -5,7 +5,9 @@
  * v2.10.0: a product goes to Instagram as a reel or as a carousel (「인스타 형식」). A carousel product never sends the reel,
  * and 「게시」 may change the format while nothing has gone to Instagram yet.
  * Script properties: BUFFER_API_KEY, CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET, PUBLISH_CODE.
- * Claude puts the video on Cloudinary at registration (tools/register.mjs video); the server only deletes it. */
+ * Claude puts the video on Cloudinary at registration (tools/register.mjs video); the server only deletes it.
+ * v2.15.0: once a day (after METRICS_HOUR) the same trigger reads every posted place's numbers in one call (「지표」), every
+ * Buffer answer's RateLimit header is kept for the web (BUFFER_QUOTA), and 「too many」 rests as long as Buffer's Retry-After says. */
 var PUBLISH_PLATFORMS = ['youtube', 'instagram', 'tiktok']; // Buffer channel `service` names are the same words
 var PUBLISH_LABELS = { youtube: 'YouTube', instagram: '인스타 릴스', tiktok: 'TikTok' };
 var VIDEO_KEEP_DAYS = 30;
@@ -17,10 +19,12 @@ function videoPlaces_(entry) { return PUBLISH_PLATFORMS.filter(function(p) { ret
 function publishProps_() { return PropertiesService.getScriptProperties(); }
 function publishStatus_() {
   var props = publishProps_();
-  return { buffer: !!props.getProperty('BUFFER_API_KEY'), video: !!cloudinary_(), code: !!props.getProperty('PUBLISH_CODE'), limitedAt: bufferLimitedAt_() || '' };
+  var quota = null; try { quota = JSON.parse(props.getProperty('BUFFER_QUOTA') || 'null'); } catch (_) {}
+  return { buffer: !!props.getProperty('BUFFER_API_KEY'), video: !!cloudinary_(), code: !!props.getProperty('PUBLISH_CODE'), limitedAt: bufferLimitedAt_() || '', limitedUntil: CacheService.getScriptCache().get('BUFFER_LIMITED_UNTIL') || '', quota: quota };
 }
-// v2.14.0: Buffer's free plan answers about 250 calls a day (2026-11). After 「too many」 the server rests an hour — every call
-// in between would be refused and keep the window full — and 「status」 says since when, so the web can tell the owner.
+// v2.14.0: after 「too many」 the server rests — every call in between would be refused — and 「status」 says since when.
+// v2.15.0: as long as Buffer's Retry-After says (an hour when it says nothing; the cache keeps 6 hours at most, then one call
+// asks again). Free plan, Buffer docs 2026-11: 150 calls / 15 min · 600 / 24 h · 1,000 a channel / 30 days.
 var BUFFER_REST_SECONDS = 3600;
 function bufferLimitedAt_() { return CacheService.getScriptCache().get('BUFFER_LIMITED'); }
 function q_(value) { return JSON.stringify(String(value)); } // a JSON string is a valid GraphQL string literal
@@ -43,17 +47,20 @@ function buffer_(query, partial) {
   var key = publishProps_().getProperty('BUFFER_API_KEY');
   if (!key) throw userError_('스크립트 속성에 BUFFER_API_KEY를 넣어주세요.');
   var limited = bufferLimitedAt_();
-  if (limited) throw userError_('Buffer 호출 한도에 걸려 ' + limited.slice(11) + '부터 한 시간 쉬는 중이에요. 잠시 후 다시 시도해주세요.');
+  if (limited) throw userError_('Buffer 호출 한도에 걸려 ' + limited.slice(11) + '부터 쉬는 중이에요 (' + (CacheService.getScriptCache().get('BUFFER_LIMITED_UNTIL') || '').slice(11) + '까지). 잠시 후 다시 시도해주세요.');
   var response;
   try { response = UrlFetchApp.fetch('https://api.buffer.com', { method: 'post', contentType: 'application/json', headers: { Authorization: 'Bearer ' + key }, payload: JSON.stringify({ query: query }), muteHttpExceptions: true }); }
   catch (_) { throw userError_('Buffer에 연결하지 못했어요. 잠시 후 다시 시도해주세요.'); }
-  var code = response.getResponseCode(); var body = null;
+  var code = response.getResponseCode(); var body = null; var headers = responseHeaders_(response);
   try { body = JSON.parse(response.getContentText()); } catch (_) {}
+  var quota = rateLimit_(headers.ratelimit, headers['ratelimit-policy']);
+  if (quota.length) publishProps_().setProperty('BUFFER_QUOTA', JSON.stringify({ at: kst_(new Date()), windows: quota }));
   if (code === 401 || code === 403) throw userError_('Buffer가 API 키를 받지 않았어요. BUFFER_API_KEY와 키 권한을 확인해주세요.');
   var errors = body && body.errors || [];
   if (code === 429 || errors.some(function(item) { return item && item.extensions && item.extensions.code === 'RATE_LIMIT_EXCEEDED'; })) {
-    CacheService.getScriptCache().put('BUFFER_LIMITED', kst_(new Date()), BUFFER_REST_SECONDS);
-    throw userError_('Buffer 호출 한도에 걸렸어요. 한 시간쯤 뒤 다시 시도해주세요.');
+    var rest = Math.min(Math.max(Math.round(Number(headers['retry-after'])) || BUFFER_REST_SECONDS, 60), 21600);
+    var cache = CacheService.getScriptCache(); cache.put('BUFFER_LIMITED', kst_(new Date()), rest); cache.put('BUFFER_LIMITED_UNTIL', kst_(new Date(Date.now() + rest * 1000)), rest);
+    throw userError_('Buffer 호출 한도에 걸렸어요. ' + kst_(new Date(Date.now() + rest * 1000)).slice(11) + ' 뒤에 다시 시도해주세요.');
   }
   if (errors.length && !(partial && body.data)) {
     var error = userError_('Buffer 요청 오류: ' + String(body.errors[0].message || '').slice(0, 200));
@@ -61,6 +68,27 @@ function buffer_(query, partial) {
   }
   if (code !== 200 || !body || !body.data) throw userError_('Buffer 서버가 응답하지 않았어요 (' + code + '). 잠시 후 다시 시도해주세요.');
   return body.data;
+}
+
+// Header names in lower case (Apps Script keeps the server's spelling).
+function responseHeaders_(response) {
+  var all = response.getAllHeaders ? response.getAllHeaders() : {}; var out = {};
+  Object.keys(all || {}).forEach(function(name) { out[name.toLowerCase()] = String(all[name]); });
+  return out;
+}
+// 「"15m"; r=149; t=900, "24h"; r=590; t=80431, …」 + 「"15m"; q=150; w=900, …」 → [{ name: '15m', r: 149, q: 150, t: 900 }, …]
+function rateLimit_(limit, policy) {
+  var parse = function(text) {
+    var windows = {};
+    String(text || '').split(',').forEach(function(part) {
+      var bits = part.split(';'); var name = bits.shift().trim().replace(/"/g, ''); if (!name) return;
+      windows[name] = {}; bits.forEach(function(bit) { var pair = bit.trim().split('='); windows[name][pair[0]] = Number(pair[1]); });
+    });
+    return windows;
+  };
+  var left = parse(limit), size = parse(policy);
+  return Object.keys(left).filter(function(name) { return size[name] && isFinite(left[name].r) && size[name].q > 0; })
+    .map(function(name) { return { name: name, r: left[name].r, q: size[name].q, t: left[name].t || 0 }; });
 }
 
 // The three channels connected in Buffer, looked up by service and kept 6 hours once all three are found.
@@ -244,7 +272,38 @@ function syncPublishing() {
         else { entry[p + 'Status'] = '오류'; setPublishError_(entry, p, 'Buffer에서 예약을 찾지 못했어요. Buffer에서 지웠다면 다시 게시해 주세요.'); }
       });
       if (entry.videoUrl && videoDone_(entry) && deleteVideo_(entry.videoUrl)) { entry.videoUrl = ''; entry.videoDate = ''; }
-      if (JSON.stringify(entry) !== before[index]) writeEntry_(sheet, index + 2, entry);
     });
+    try { syncMetrics_(entries, now); } catch (_) {} // Buffer busy or resting: the next run tries again (the day is not marked)
+    entries.forEach(function(entry, index) { if (entry && JSON.stringify(entry) !== before[index]) writeEntry_(sheet, index + 2, entry); });
   } finally { lock.releaseLock(); }
+}
+
+// v2.15.0 「지표」: Buffer pulls each post's numbers from the network about once a day (2026-11-12 it did so around 14–15 h),
+// so the server reads them once a day after METRICS_HOUR, all posted places of the last 30 days in one call.
+// Stored per place: { youtube: { views, reactions, … }, …, at: { youtube: Buffer's update time, … } }. A read Buffer made
+// within an hour of posting is skipped (it says 0 then), so the web shows 「아직」 instead of 0.
+var METRICS_HOUR = 18, METRICS_DAYS = 30;
+var METRIC_TYPES = ['views', 'reactions', 'comments', 'shares', 'saves', 'reach', 'averageTimeWatched'];
+function parseMetrics_(text) { try { var value = JSON.parse(text || '{}'); return value && typeof value === 'object' ? value : {}; } catch (_) { return {}; } }
+function syncMetrics_(entries, now) {
+  var stamp = kst_(new Date(now)); var day = stamp.slice(0, 10);
+  if (Number(stamp.slice(11, 13)) < METRICS_HOUR || publishProps_().getProperty('METRICS_DAY') === day) return;
+  var asks = [];
+  entries.forEach(function(entry) {
+    if (entry) PUBLISH_PLATFORMS.forEach(function(p) {
+      if (entry[p + 'Status'] === '업로드완료' && entry[p + 'PostId'] && now - kstTime_(entry[p + 'Date']) < METRICS_DAYS * 864e5) asks.push({ entry: entry, p: p, id: entry[p + 'PostId'] });
+    });
+  });
+  // ponytail: one query for every place (about 90 aliases at three posts a day); split it if Buffer ever refuses the size.
+  var data = asks.length ? buffer_('query { ' + asks.map(function(ask, i) { return 'p' + i + ': post(input: { id: ' + q_(ask.id) + ' }) { sentAt metricsUpdatedAt metrics { type value } }'; }).join(' ') + ' }', true) : {};
+  asks.forEach(function(ask, i) {
+    var post = data['p' + i]; if (!post || !post.metrics || !post.metrics.length || !post.metricsUpdatedAt) return;
+    var updated = new Date(post.metricsUpdatedAt).getTime();
+    if (post.sentAt && updated - new Date(post.sentAt).getTime() < 3600e3) return;
+    var numbers = {}; post.metrics.forEach(function(metric) { if (METRIC_TYPES.indexOf(metric.type) >= 0 && isFinite(metric.value)) numbers[metric.type] = Math.round(Number(metric.value) * 100) / 100; });
+    var stored = parseMetrics_(ask.entry.metrics); stored[ask.p] = numbers;
+    stored.at = stored.at && typeof stored.at === 'object' ? stored.at : {}; stored.at[ask.p] = kst_(new Date(updated));
+    ask.entry.metrics = JSON.stringify(stored);
+  });
+  publishProps_().setProperty('METRICS_DAY', day);
 }

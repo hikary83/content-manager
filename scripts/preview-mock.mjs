@@ -13,10 +13,13 @@ const rows = [
   row({ productName: '씨라이프 코엑스 아쿠아리움 입장권', category: '여행', sourceUrl: 'https://trip.coupang.com/tp/products/30000011240405', affiliateUrl: 'https://link.coupang.com/a/example', createdAt: '2026-11-09', inpockNo: '252', inpockTitle: 'No.252 코엑스 아쿠아리움 입장권', coverUrl: 'https://res.cloudinary.com/demo/image/upload/sample.jpg',
     script: '0.15–3.7 주말에 아이랑 어디 가지? 코엑스 아쿠아리움!\n3.85–6.3 쿠팡 구매자 후기, 요약해 봤어요.', carouselScript: '1장: 주말에 아이랑 어디 가지?\n2장: 베스트 후기 4개 중 3개',
     youtube: '제목: 주말에 아이랑 갈 곳, 여기 어디게? #아이와가볼만한곳 #서울나들이 #주말나들이\n\n이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.\n\n주말에 아이랑 어디 가지?', instagram: '이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.\n\n주말에 아이랑 어디 가지? 🐠', tiktok: '이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.', kittyKeyword: '어디', kittyDm: '정답은 씨라이프 코엑스 아쿠아리움이에요! 🐠\n입장권은 여기서 볼 수 있어요 👇\nhttps://link.coupang.com/a/example\n\n이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.', inpockImage: THUMB,
+    metrics: JSON.stringify({ instagram: { views: 166, reactions: 4, comments: 0, shares: 0, saves: 0, reach: 158, averageTimeWatched: 2.82 }, at: { instagram: '2026-11-12 15:14' } }),
     notes: "키티챗 키워드 '어디'\n\n작업 폴더: D:\\Codex\\shopping-shorts\\contents\\261106_코엑스아쿠아리움\\quiz\n최종본: D:\\01.개인자료\\@SNS Contents\\252_20261106_코엑스아쿠아리움", ...done('instagram', '2026-11-10 19:30'),
     // v2.8.0 「게시」: a hosted video, one place scheduled and one failed
     videoUrl: 'https://res.cloudinary.com/demo/video/upload/v1/hikary/example.mp4', videoDate: '2026-11-10 17:00', youtubeStatus: '예약됨', youtubeDate: '2026-11-12 18:00', youtubePostId: 'mock1', tiktokStatus: '오류', publishError: 'TikTok: Buffer 게시 실패 — 예시 오류 문구' }),
-  row({ productName: '접이식 실리콘 밀폐용기 4종 세트', createdAt: '2026-11-04', inpockNo: '251', inpockLinkedAt: '2026-11-04', kittyLinkedAt: '2026-11-05', script: '훅: 냉장고 문 열 때마다 쏟아지죠?\n장점: 접으면 얇아져요', youtube: '냉장고 정리 꿀템 #shorts', ...done('youtube', '2026-11-04'), ...done('instagram', '2026-11-05'), ...done('carousel', '2026-11-05'), ...done('tiktok', '2026-11-06') }),
+  row({ productName: '접이식 실리콘 밀폐용기 4종 세트', createdAt: '2026-11-04', inpockNo: '251', inpockLinkedAt: '2026-11-04', kittyLinkedAt: '2026-11-05', script: '훅: 냉장고 문 열 때마다 쏟아지죠?\n장점: 접으면 얇아져요', youtube: '냉장고 정리 꿀템 #shorts', ...done('youtube', '2026-11-04'), ...done('instagram', '2026-11-05'), ...done('carousel', '2026-11-05'), ...done('tiktok', '2026-11-06'),
+    // v3.6.0 mock: Buffer's numbers as the server 2.15.0 stores them (TikTok's reach is always 0, so the web hides it)
+    metrics: JSON.stringify({ youtube: { views: 284, reactions: 1, comments: 0 }, instagram: { views: 111, reactions: 3, comments: 0, shares: 0, saves: 0, reach: 104, averageTimeWatched: 3.23 }, tiktok: { views: 31, reactions: 1, comments: 0, shares: 0, reach: 0, averageTimeWatched: 3.02 }, at: { youtube: '2026-11-12 15:01', instagram: '2026-11-12 15:14', tiktok: '2026-11-12 14:20' } }) }),
   row({ productName: '제주 오션뷰 호텔 1박 패키지', category: '여행', sourceUrl: 'https://trip.coupang.com/tp/products/2', createdAt: '2026-11-03', script: '제주 바다가 보이는 객실', tiktokStatus: '보류', instagramType: '캐러셀', videoUrl: 'https://res.cloudinary.com/demo/video/upload/v1/hikary/example2.mp4', videoDate: '2026-11-11 09:00' }),
   row({ productName: '무선 미니 청소기 (v2.2.0 전 형식)', category: '가전·디지털', sourceUrl: 'https://www.coupang.com/vp/products/3', format: '캐러셀', createdAt: '2026-11-02', script: '책상 위 먼지, 손바닥 청소기로' })
 ];
@@ -79,7 +82,8 @@ function act({ action, payload, token }) {
     }
     requests[at].status = payload.status; return { request: requests[at] };
   }
-  if (action === 'status') return { version: '2.12.0 (mock)', aiConfigured: false, coupang: { configured: true, usage: usage(), categories: CATEGORIES }, publishing: { buffer: true, video: true, code: true } };
+  if (action === 'status') return { version: '2.15.0 (mock)', aiConfigured: false, coupang: { configured: true, usage: usage(), categories: CATEGORIES }, publishing: { buffer: true, video: true, code: true, limitedAt: '', limitedUntil: '',
+    quota: { at: new Date(Date.now() - 600e3).toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 16), windows: [{ name: '15m', r: 149, q: 150, t: 900 }, { name: '24h', r: 96, q: 600, t: 80431 }, { name: '30d', r: 2086, q: 3000, t: 2358233 }] } } }; // 24h low → orange
   if (action === 'publish') { // v2.8.0 mock: code 「mock」, every chosen place is scheduled
     if (payload.code !== 'mock') throw new Error('게시 비밀번호가 맞지 않아요. (목업 비밀번호: mock)');
     const at = rows.findIndex(item => item.id === payload.id);

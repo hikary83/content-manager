@@ -6,7 +6,7 @@ import { createHash, createHmac, randomUUID } from 'node:crypto';
 
 const LEGACY_HEADERS = ['콘텐츠 ID','등록일','카테고리','상품명','원본 링크','변환 링크','대본','YouTube 게시글','YouTube 상태','Instagram 게시글','Instagram 상태','TikTok 게시글','TikTok 상태','비고'];
 const V17_HEADERS = ['형식','YouTube 업로드일','YouTube 링크','Instagram 업로드일','Instagram 링크','TikTok 업로드일','TikTok 링크'];
-const ADDED_HEADERS = [...V17_HEADERS,'Instagram 캐러셀 상태','Instagram 캐러셀 업로드일','Instagram 캐러셀 링크','카드뉴스 문구','인포크 No.','인포크 타이틀','키티챗 키워드','키티챗 DM 문구','인포크 이미지','영상 주소','영상 올린 날','YouTube 예약 ID','Instagram 예약 ID','TikTok 예약 ID','게시 오류','커버 이미지','인스타 형식','인포크 등록일','키티챗 연결일'];
+const ADDED_HEADERS = [...V17_HEADERS,'Instagram 캐러셀 상태','Instagram 캐러셀 업로드일','Instagram 캐러셀 링크','카드뉴스 문구','인포크 No.','인포크 타이틀','키티챗 키워드','키티챗 DM 문구','인포크 이미지','영상 주소','영상 올린 날','YouTube 예약 ID','Instagram 예약 ID','TikTok 예약 ID','게시 오류','커버 이미지','인스타 형식','인포크 등록일','키티챗 연결일','지표'];
 // v2.7.0: every action needs a session or the tool key. Tests call as the tool unless they send `token` themselves.
 const TOOL = 'tool-key-for-tests-0123456789abcdef0123';
 function runtime({ legacy = false } = {}) {
@@ -77,14 +77,14 @@ test('헤더 불일치·잘못된 업로드 상태를 거부하고 수식을 문
 test('기존 14칸 시트는 오른쪽 빈칸에만 새 머리글을 채우고 다른 내용이 있으면 멈춘다', () => {
   const env=runtime({legacy:true});env.rows.push(['old-id','2026-10-01','여행','기존 상품','https://trip.coupang.com/p','','대본','','미업로드','','미업로드','','미업로드','']);
   const entries=env.context.readEntries_();assert.deepEqual(env.rows[0].slice(14),ADDED_HEADERS);assert.equal(entries[0].productName,'기존 상품');assert.equal(entries[0].format,'');
-  const blocked=runtime({legacy:true});blocked.rows[0][16]='메모';assert.throws(()=>blocked.context.readEntries_(),/15~40/);assert.equal(blocked.writes(),0);
+  const blocked=runtime({legacy:true});blocked.rows[0][16]='메모';assert.throws(()=>blocked.context.readEntries_(),/15~41/);assert.equal(blocked.writes(),0);
 });
 test('v2.2.0 21칸 시트는 22~27번째 빈칸에만 새 머리글을 채우고 기존 줄은 그대로 읽는다', () => {
   const env=runtime({legacy:true});env.rows[0].push(...V17_HEADERS);
   env.rows.push(['old-id','2026-11-09','여행','기존 상품','https://trip.coupang.com/p','','대본','','미업로드','','업로드완료','','미업로드','','쇼츠','','','2026-11-10','https://www.instagram.com/p/a/','','']);
   const [entry]=env.context.readEntries_();
   assert.deepEqual(env.rows[0].slice(14),ADDED_HEADERS);assert.equal(entry.instagramStatus,'업로드완료');assert.equal(entry.carouselStatus,'');assert.equal(entry.inpockNo,'');
-  const blocked=runtime({legacy:true});blocked.rows[0].push(...V17_HEADERS,'다른 내용');assert.throws(()=>blocked.context.readEntries_(),/15~40/);assert.equal(blocked.writes(),0);
+  const blocked=runtime({legacy:true});blocked.rows[0].push(...V17_HEADERS,'다른 내용');assert.throws(()=>blocked.context.readEntries_(),/15~41/);assert.equal(blocked.writes(),0);
 });
 test('v2.4.0 업로드일에 시간을 같이 저장하고, 시간 형식이 틀리면 거절한다', () => {
   const env=runtime();
@@ -257,6 +257,7 @@ const CODE = 'open-sesame';
 function publishEnv({ fail = {} } = {}) {
   const env = runtime();
   for (const [key, value] of Object.entries({ BUFFER_API_KEY: 'buffer-example', CLOUDINARY_CLOUD_NAME: 'mycloud', CLOUDINARY_API_KEY: '123', CLOUDINARY_API_SECRET: 'cloud-secret', PUBLISH_CODE: CODE })) env.props.set(key, value);
+  env.context.METRICS_HOUR = 24; // v2.15.0: no daily metrics read unless a test asks (the real hour would make runs differ)
   const sent = []; const posts = new Map(); let next = 0; const limit = { on: false };
   const reply = (code, body) => ({ getResponseCode: () => code, getContentText: () => JSON.stringify(body) });
   env.context.UrlFetchApp.fetch = (url, options) => {
@@ -488,6 +489,39 @@ test('v2.14.0 결과 받기는 예약 시각이 지난 곳만 한 번에 묻고,
   third.posts.delete('post1'); third.posts.set('post2', { status: 'sent', sentAt: '2026-11-12T00:00:00.000Z', externalLink: 'https://example.com/b' });
   third.env.context.syncPublishing();
   assert.deepEqual([third.entry().youtubeStatus, third.entry().tiktokStatus], ['오류', '업로드완료']);
+});
+test('v2.15.0 지표는 하루 한 번(18시 뒤) 올라간 곳을 한 번에 읽어 남기고, 올린 직후의 0은 건너뛰며, 남은 횟수와 Retry-After를 따른다', () => {
+  const { env, sent, posts, call, entry, due, limit } = publishEnv();
+  // Buffer's RateLimit headers on every answer, Retry-After on 「too many」 (header names as Buffer spells them).
+  const fetch = env.context.UrlFetchApp.fetch;
+  env.context.UrlFetchApp.fetch = (url, options) => ({ ...fetch(url, options), getAllHeaders: () => ({ RateLimit: '"15m"; r=149; t=900, "24h"; r=590; t=80431', 'RateLimit-Policy': '"15m"; q=150; w=900; pk=:abc=:, "24h"; q=600; w=86400', ...(limit.on && { 'Retry-After': '120' }) }) });
+  call({ platforms: ['youtube', 'instagram', 'tiktok'] }); due();
+  const sentAt = new Date(Date.now() - 864e5), later = new Date(sentAt.getTime() + 6 * 3600e3);
+  const up = (id, extra) => posts.set(id, { status: 'sent', sentAt: sentAt.toISOString(), externalLink: 'https://example.com/' + id, ...extra });
+  up('post1', { metricsUpdatedAt: later.toISOString(), metrics: [{ type: 'views', value: 284 }, { type: 'reactions', value: 1 }, { type: 'engagementRate', value: 0.35 }] });
+  up('post2', { metricsUpdatedAt: new Date(sentAt.getTime() + 120e3).toISOString(), metrics: [{ type: 'views', value: 0 }] }); // read right after posting
+  up('post3', { metricsUpdatedAt: later.toISOString(), metrics: [] });
+  const reads = () => sent.filter(item => item.url === 'https://api.buffer.com' && JSON.parse(item.options.payload).query.includes('metricsUpdatedAt')).length;
+  env.context.syncPublishing();
+  assert.equal(entry().youtubeStatus, '업로드완료'); assert.equal(reads(), 0, '18시 전에는 지표를 읽지 않는다');
+  env.context.METRICS_HOUR = 0; env.context.syncPublishing();
+  assert.equal(reads(), 1, '세 곳을 한 번에 읽는다');
+  const metrics = JSON.parse(entry().metrics);
+  assert.deepEqual(metrics.youtube, { views: 284, reactions: 1 }, '쓰는 지표만 남긴다');
+  assert.equal(metrics.at.youtube, later.toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 16));
+  assert.ok(!('instagram' in metrics) && !('tiktok' in metrics), '올린 직후의 0과 빈 지표는 남기지 않는다');
+  env.context.syncPublishing(); assert.equal(reads(), 1, '같은 날에는 다시 읽지 않는다');
+  const status = () => JSON.parse(env.context.doPost({ postData: { contents: JSON.stringify({ action: 'status' }) } }).text).data.publishing;
+  assert.deepEqual(status().quota.windows, [{ name: '15m', r: 149, q: 150, t: 900 }, { name: '24h', r: 590, q: 600, t: 80431 }]);
+  // The register tool saves without the column: the numbers stay. Anything but JSON is refused.
+  env.context.saveEntry_({ ...entry(), metrics: undefined, notes: '도구가 다시 저장' });
+  assert.equal(JSON.parse(entry().metrics).youtube.views, 284);
+  assert.throws(() => env.context.saveEntry_({ ...entry(), metrics: '조회 1000' }), /지표/);
+  // 「too many」: rest as long as Retry-After (2 minutes here), and the day is not marked, so the next run reads again.
+  env.props.delete('METRICS_DAY'); limit.on = true; env.context.syncPublishing();
+  const { limitedAt, limitedUntil } = status(); const minutes = text => new Date(text.replace(' ', 'T') + ':00').getTime() / 60e3;
+  assert.equal(minutes(limitedUntil) - minutes(limitedAt), 2);
+  assert.equal(env.props.get('METRICS_DAY'), undefined);
 });
 test('v2.13.0 인포크 등록일·키티챗 연결일은 날짜만 받고, 등록 도구가 칸 없이 저장해도 지킨다', () => {
   const env = runtime(); const input = sample();
