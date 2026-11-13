@@ -91,3 +91,11 @@ test('나레이션 대본은 「| 시작–끝 | 화면 | 나레이션 |」 줄�
   assert.throws(()=>parseNarration('| 3–1 | a |',25),/나레이션/,'끝이 시작보다 늦어야 한다');
   assert.throws(()=>parseNarration('| 1–3 |  |',25),/나레이션/,'읽을 문장이 있어야 한다');
 });
+test('data-voice는 모델 뒤에 말투 — 없으면 0.6B, 말투는 1.7B만',async()=>{
+  const {voiceOf}=await import(new URL('../tools/motion/voice.mjs',import.meta.url).href);
+  assert.equal(voiceOf('<!-- <body data-voice> --><body data-duration="24">'),null);
+  assert.deepEqual(voiceOf('<body data-duration="24" data-voice="1.7B 밝고 활기차게, 광고처럼">'),{size:'1.7b',instruct:'밝고 활기차게, 광고처럼'});
+  assert.deepEqual(voiceOf('<body data-voice="1.7b">'),{size:'1.7b',instruct:''});
+  assert.throws(()=>voiceOf('<body data-voice="0.6b 밝게">'),/1\.7b만/);
+  assert.throws(()=>voiceOf('<body data-voice="3b">'),/data-voice/);
+});

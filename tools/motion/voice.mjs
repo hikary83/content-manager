@@ -1,8 +1,11 @@
 // Narration for motion videos: Sohee (Qwen3-TTS, see voice.py) reads narration.md next to the page.
 // narration.md is the 나레이션 대본: one table, a row per line — 「| 0.15–3.7 | 화면 | 나레이션 |」. The first cell is
 // when the line may sound (seconds), the last cell is what is said. No narration.md → no voice.
-// Lines are cached in <folder>/voice/ by text + seed + slot, so re-recording only reads new or changed lines.
+// Lines are cached in <folder>/voice/ by text + seed + slot (+ data-voice), so re-recording only reads new or changed lines.
 // The voice runs from ~/.hikary-voice (venv + model, CLAUDE.md §7), never from the repo.
+// <body data-voice="1.7b 밝고 활기차게">: the model, then how to read (1.7B only — 0.6B takes no instruct).
+// No data-voice = 0.6B, as before. The motion templates carry 「1.7b 또렷하고 경쾌하게, 광고 내레이션처럼」 (사람이 골랐다, 2026-11-13),
+// so new videos get it and folders made before keep their 0.6B voice when re-recorded.
 // sfx.mjs mixes the voice into motion.mp4 and bgm.mjs ducks the music under it. To redo only the sound:
 //   node tools/motion/sfx.mjs contents/<folder>/motion.html
 import crypto from 'node:crypto';
@@ -15,8 +18,19 @@ import { run } from '../../scripts/reel/lib.mjs';
 
 const HOME = path.join(os.homedir(), '.hikary-voice');
 const PYTHON = path.join(HOME, 'venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
-const MODEL = path.join(HOME, 'Qwen3-TTS-12Hz-0.6B-CustomVoice');
+const MODELS = { '0.6b': 'Qwen3-TTS-12Hz-0.6B-CustomVoice', '1.7b': 'Qwen3-TTS-12Hz-1.7B-CustomVoice' };
 const SCRIPT = fileURLToPath(new URL('./voice.py', import.meta.url));
+
+// <body data-voice="…"> → { size, instruct }, or null when the page does not say (the 0.6B default).
+export function voiceOf(html) {
+  const value = html.match(/<body[^>]*\sdata-voice="([^"]*)"/)?.[1].trim();
+  if (!value) return null;
+  const [, size, instruct] = value.match(/^(\S+)\s*(.*)$/);
+  if (!MODELS[size.toLowerCase()] || (size.toLowerCase() === '0.6b' && instruct)) {
+    throw new Error(`data-voice="${value}"을 읽지 못했어요. 「1.7b 밝고 활기차게」처럼 모델(0.6b·1.7b) 뒤에 말투를 적어요 — 말투는 1.7b만 받아요.`);
+  }
+  return { size: size.toLowerCase(), instruct };
+}
 
 export function parseNarration(md, seconds) {
   const lines = [];
@@ -37,21 +51,25 @@ export function parseNarration(md, seconds) {
 export function voiceTrack(page) {
   const script = path.join(path.dirname(page), 'narration.md');
   if (!fs.existsSync(script)) return null;
-  const seconds = Number(fs.readFileSync(page, 'utf8').match(/<body[^>]*\sdata-duration="([^"]*)"/)?.[1]);
+  const html = fs.readFileSync(page, 'utf8');
+  const seconds = Number(html.match(/<body[^>]*\sdata-duration="([^"]*)"/)?.[1]);
   if (!(seconds > 0)) throw new Error('<body data-duration="18">처럼 영상 길이를 적어주세요.');
+  const voice = voiceOf(html);
+  const model = path.join(HOME, MODELS[voice?.size || '0.6b']);
   const lines = parseNarration(fs.readFileSync(script, 'utf8'), seconds);
   if (!lines.length) throw new Error('narration.md에 「| 0.15–3.7 | 화면 | 나레이션 |」 줄이 없어요.');
   const dir = path.join(path.dirname(page), 'voice');
   fs.mkdirSync(dir, { recursive: true });
   for (const line of lines) {
-    const key = crypto.createHash('sha1').update(JSON.stringify([line.text, line.seed, (line.end - line.at).toFixed(2)])).digest('hex');
+    // Without data-voice the key is the same as before, so takes made before 2026-11-13 are kept.
+    const key = crypto.createHash('sha1').update(JSON.stringify([line.text, line.seed, (line.end - line.at).toFixed(2), ...(voice ? [voice.size, voice.instruct] : [])])).digest('hex');
     line.file = path.join(dir, `${key.slice(0, 12)}.wav`);
   }
   const todo = lines.filter(line => !fs.existsSync(line.file));
   if (todo.length) {
-    if (!fs.existsSync(PYTHON) || !fs.existsSync(MODEL)) throw new Error(`음성 도구가 없어요 (${HOME}). CLAUDE.md 7장대로 설치해요.`);
+    if (!fs.existsSync(PYTHON) || !fs.existsSync(model)) throw new Error(`음성 도구가 없어요 (${model}). CLAUDE.md 7장대로 설치해요.`);
     const job = path.join(dir, 'job.json');
-    fs.writeFileSync(job, JSON.stringify({ model: MODEL, items: todo.map(({ text, at, end, seed, file }) => ({ text, slot: end - at, seed, out: file })) }));
+    fs.writeFileSync(job, JSON.stringify({ model, instruct: voice?.instruct || '', items: todo.map(({ text, at, end, seed, file }) => ({ text, slot: end - at, seed, out: file })) }));
     console.log(`나레이션 ${todo.length}줄을 읽는 중 (한 줄에 30~50초)`);
     const result = spawnSync(PYTHON, ['-I', SCRIPT, job], { stdio: ['ignore', 'inherit', 'pipe'], encoding: 'utf8', windowsHide: true,
       env: { ...process.env, PYTHONIOENCODING: 'utf-8', TRANSFORMERS_VERBOSITY: 'error' } });
