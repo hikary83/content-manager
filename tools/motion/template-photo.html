@@ -4,12 +4,15 @@
 <style>
 /* 사진 (템플릿 4, 2026-11-09): 실제 사진을 당기고·밀고·옆으로·위로 옮겨 영상처럼 보이게 한다. AI는 쓰지 않는다 (사진을 바꾸지 않는다).
    그 위에 퀴즈(템플릿 3)의 글자를 얹는다 — 고정 질문 제목, 물음표, 후기 카드, 꼬리표, 스티커, 마지막 「?」와 프로필 링크. 25초.
-   훅(0~3.6초): 가장 눈에 띄는 사진 두 장이 두 박자마다 툭 바뀌고, 큰 한 마디(「벌써 / 크리스마스?」)가 부드럽게 올라온 뒤 제목이 내려온다.
+   훅(0~3.6초): 0초부터 질문 제목 전체가 크게(112px) 떠 있고, 화면 가득 가장 센 사진 두 장이 두 박자마다 툭 바뀐다. 2.222초에 블러 없이 세 번째 사진으로 컷하며 제목이 88px로 줄어 영상 내내 남는다.
+   첫 3초 규칙 (2026-11-13): 유튜브 「계속 시청함」 14~36%, 인스타·틱톡 평균 시청 3초 안팎 — 처음 프레임에 무엇인지 안 보이면 넘긴다.
+     ① 0초 프레임부터 질문 전체를 크게 (한 단어씩 쌓지 않는다, 등장 애니메이션 없이 0초 프레임에 이미 떠 있게) ② 첫 장면은 화면 가득 가장 센 사진 (띠·흐린 바탕으로 시작하지 않는다)
+     ③ 첫 3초 안에 블러 전환을 쓰지 않는다 (.shot.cut) ④ 1~1.5초 안에 장면이 한 번 바뀐다 ⑤ 고지 줄은 0초부터 맨 위
    첫 사례: contents/261107_서울랜드/t4/ (그 전 시험 1~5는 같은 폴더 이야기 — 인스타 릴스 레퍼런스에서 「사진을 영상처럼」만 참고했다).
    쓰는 법: contents/<폴더>/motion.html로 복사 → 「…」 자리 글을 확인된 사실로 바꾸고, 사진을 photo-1.jpg…로 옆에 두고 ph 클래스를 뺀다 →
      node tools/motion/record.mjs contents/<폴더>/motion.html   → motion.mp4 (효과음) + motion-bgm.mp4 (배경음악까지)
    사진 자리 (번호는 자리일 뿐 — 같은 사진을 다른 구도로 여러 자리에 써도 된다. 서울랜드는 4K 4장을 일곱 번 썼다):
-     photo-1·2  훅 두 장. 가장 화려한 사진 (밤·불빛·대표 장면). 작아도 된다 → 가로 띠 + 같은 사진을 흐리게 깐 바탕
+     photo-1·2  훅 두 장. 가장 센 사진 (밤·불빛·대표 장면)을 화면 가득. 작은 사진은 훅에 쓰지 않는다 — 띠·흐린 바탕은 3초 뒤부터
      photo-3~6  화면 가득 쓰는 큰 사진. 세로 1920px로 맞춰도 줄지 않는 크기 (가로 사진이면 3840×2160 정도)
      photo-7~9  특징 세 장 (줄 쌓기). 가로 780px 정도까지 괜찮다. 500px보다 작으면 .cam.soft로 흐리게 깔고 .frame 액자로 올린다
    카메라 .cam: 사진을 --w×--h 크기로 놓고 (--x0,--y0,--s0) → (--x1,--y1,--s1)로 움직인다. --o는 당기고 밀 때 가운데 둘 점(사진 안 좌표).
@@ -18,8 +21,8 @@
      작은 사진을 화면 가득 키우면 흐려진다 (2배 넘게 키우지 않는다). 사진에 이름(간판·로고)이 크게 보이면 퀴즈가 깨지니 피한다.
    박자: 훅 컷(1.111초)은 108bpm의 두 박자다. 녹화 끝에 「배경음악 버전 … 108bpm」처럼 나온다 — 다르면 컷을 120 ÷ bpm 초로 고치거나 data-bgm으로 곡을 바꾼다.
    시간: 장면은 --at(시작)·--len(길이), 움직이는 요소는 --at + --d에 시작한다. 움직임은 CSS 애니메이션만 녹화된다.
-   자막: <span class="k">에 글을 쓰고 핵심어는 <em>. 바뀌는 시각은 나레이션 줄(narration.md)과 맞춘다. 훅 나레이션은 0.3초부터 (예: 「벌써, 크리스마스 시작한 곳? 여기 어디게?」).
-   글씨는 x 60~900, y 200~1480 안에. 고지는 첫 장면과 마지막 장면 위쪽(.disc). 제목(.head)은 그 아래 y 330부터.
+   자막: <span class="k">에 글을 쓰고 핵심어는 <em>. 바뀌는 시각은 나레이션 줄(narration.md)과 맞춘다. 훅 나레이션은 0.15초부터, 화면의 제목 질문을 그대로 읽는다 (예: 「벌써 크리스마스, 여기 어디게?」).
+   글씨는 x 60~900, y 200~1480 안에. 고지는 첫 장면과 마지막 장면 위쪽(.disc). 제목(.head)은 그 아래 y 330부터 — 한 줄 7자 안쪽 (처음 2.2초는 112px라 길면 줄이 바뀐다).
    효과음: <body data-sfx>에 「초 소리 [크기]」 목록 (tools/motion/sfx.mjs). 장면 시각을 바꾸면 같이 고친다. */
 /* 색: 상품에 맞춰 이 블록만 바꾼다 (CLAUDE.md §4 · 후보는 node tools/colors.mjs).
    포인트 --point(꼬리표·칩·링크 알약) · --on-point(그 위 글자, 대비 큰 쪽) · --hi(훅·제목·자막 핵심어) · --night(바탕, 어두운 판의 색) */
@@ -64,17 +67,12 @@ em,i{font-style:normal}
 @keyframes stripin{from{transform:translateX(var(--from,0px))}}
 .frame{position:absolute;left:272px;top:var(--ft,38px);width:536px;height:336px;background:var(--img) 50% 50%/cover;border:8px solid #fff;border-radius:10px;box-shadow:0 16px 40px rgba(0,0,0,.5);transform:rotate(-2deg)}
 
-/* 위: 고지 · 훅 한 마디 · 고정 제목 (훅 컷이 끝난 2.222초에 내려와 영상 내내) */
+/* 위: 고지 · 고정 제목 (0초부터 112px로 크게 → 2.222초 컷에 88px로 줄어 영상 내내) */
 .disc{position:absolute;left:60px;width:840px;top:200px;padding:12px 22px 10px;border-radius:18px;background:rgba(0,0,0,.5);color:rgba(255,255,255,.92);font-size:26px;line-height:1.4}
-.hook{position:absolute;left:60px;width:840px;top:320px;text-align:center;opacity:0;animation:show 1.95s linear .27s}
-.hook b{display:block;font-weight:400;font-size:132px;line-height:1.08;text-shadow:5px 5px 0 #000,-5px 5px 0 #000,5px -5px 0 #000,-5px -5px 0 #000,0 7px 0 #000,7px 0 0 #000,-7px 0 0 #000,0 12px 24px rgba(0,0,0,.5);
-  animation:rise .5s cubic-bezier(.2,.8,.2,1) var(--t) both}
-@keyframes rise{from{opacity:0;transform:translateY(36px)}}
-.hook em{color:var(--hi)}
-.head{position:absolute;left:60px;width:840px;top:330px;text-align:center;animation:headin .6s cubic-bezier(.3,1.4,.5,1) 2.222s both}
-.head b{display:block;font-weight:400;font-size:88px;line-height:1.12;text-shadow:0 6px 0 rgba(0,0,0,.45),0 0 30px rgba(0,0,0,.55)}
+.head{position:absolute;left:60px;width:840px;top:330px;text-align:center} /* 0초 프레임부터 그대로 보인다 (등장 애니메이션 없음) */
+.head b{display:block;font-weight:400;font-size:88px;line-height:1.12;text-shadow:0 6px 0 rgba(0,0,0,.45),0 0 30px rgba(0,0,0,.55);animation:headsmall .35s cubic-bezier(.2,.8,.2,1) 2.222s both}
+@keyframes headsmall{from{font-size:112px}}
 .head em{color:var(--hi)}
-@keyframes headin{from{opacity:0;transform:translateY(-60px) scale(.9)}}
 
 /* 아래: 큰 자막. 핵심어는 노랑 */
 .cap{position:absolute;left:60px;width:840px;top:1190px;height:260px;display:flex;align-items:center;justify-content:center;text-align:center;opacity:0;animation:show var(--len) linear var(--at)}
@@ -115,17 +113,15 @@ em,i{font-style:normal}
 .link i{display:grid;place-items:center;width:84px;height:84px;border-radius:50%;background:#fff;color:var(--point);font-size:58px;line-height:1;padding-top:6px}
 .dm{position:absolute;left:60px;width:840px;top:1085px;text-align:center;font-size:34px;color:rgba(255,255,255,.92);text-shadow:0 3px 8px rgba(0,0,0,.8)}
 </style></head>
-<body data-duration="25" data-sfx="0 thud .6, 0.3 pop .35, 0.9 pop .45, 1.111 thud .55, 2.222 whoosh .8, 2.3 pop .45, 2.5 pop .35, 2.7 pop .35, 2.9 pop .35, 3.1 pop .45, 3.6 whoosh .9, 3.85 pop .5, 4.35 ding .5, 5.6 whoosh .5, 7.55 whoosh .6, 7.65 pop .4, 8.15 pop .4, 8.65 pop .4, 10.2 whoosh .9, 10.3 pop .45, 12.2 swoosh .7, 14.15 swoosh .7, 16.1 whoosh .9, 16.2 pop .45, 16.4 pop .55, 17.8 pop .55, 18.4 whoosh .5, 19.2 pop .55, 20.7 whoosh .9, 20.9 pop .6, 22.75 ding .6">
+<body data-duration="25" data-sfx="0 thud .6, 1.111 thud .55, 2.222 thud .5, 2.5 pop .35, 2.7 pop .35, 2.9 pop .35, 3.1 pop .45, 3.6 whoosh .9, 3.85 pop .5, 4.35 ding .5, 5.6 whoosh .5, 7.55 whoosh .6, 7.65 pop .4, 8.15 pop .4, 8.65 pop .4, 10.2 whoosh .9, 10.3 pop .45, 12.2 swoosh .7, 14.15 swoosh .7, 16.1 whoosh .9, 16.2 pop .45, 16.4 pop .55, 17.8 pop .55, 18.4 whoosh .5, 19.2 pop .55, 20.7 whoosh .9, 20.9 pop .6, 22.75 ding .6">
 
 <!-- ── 사진 (아래 숫자는 3840×2160 큰 사진 · 16:9 작은 사진 기준. 사진마다 위 설명대로 고친다) ── -->
 
-<!-- 01 훅 (0~2.222초): 두 박자마다 컷. 작은 사진은 가로 띠(높이 = 1080 × 세로 ÷ 가로, 가운데) + 같은 사진을 흐리게 깐 바탕 -->
-<div class="shot cut" style="--at:0s;--len:1.111s"><div class="cam soft back" style="--at:0s;--len:1.111s;--img:url(photo-1.jpg);--w:3413px;--h:1920px;--x0:-1166px;--x1:-1166px"></div>
-  <div class="strip" style="--at:0s;--d:0s;--top:656px;--sh:608px"><div class="cam punch ph" data-label="훅 사진 1" style="--at:0s;--len:1.111s;--img:url(photo-1.jpg);--w:1080px;--h:608px;--o:540px 304px;--s0:1.25;--s1:1.05"></div></div></div>
-<div class="shot cut" style="--at:1.111s;--len:1.111s"><div class="cam soft back" style="--at:1.111s;--len:1.111s;--img:url(photo-2.jpg);--w:3413px;--h:1920px;--x0:-1166px;--x1:-1166px"></div>
-  <div class="strip" style="--at:1.111s;--d:0s;--top:656px;--sh:608px"><div class="cam punch ph" data-label="훅 사진 2" style="--at:1.111s;--len:1.111s;--img:url(photo-2.jpg);--w:1080px;--h:608px;--o:540px 304px;--s0:1.25;--s1:1.05"></div></div></div>
-<!-- 01 훅 끝 (2.222~3.6초): 큰 사진으로 다가가며 제목이 내려온다 -->
-<div class="shot" style="--at:2.222s;--len:1.378s"><div class="cam ph" data-label="큰 사진 3" style="--at:2.222s;--len:1.378s;--img:url(photo-3.jpg);--w:3413px;--h:1920px;--x0:-1166px;--x1:-1166px;--o:1706px 960px;--s1:1.3"></div><div class="shade"></div></div>
+<!-- 01 훅 (0~2.222초): 두 박자마다 컷. 가장 센 사진 두 장을 화면 가득 (첫 3초 규칙 ②) — 띠·흐린 바탕은 3초 뒤부터 -->
+<div class="shot cut" style="--at:0s;--len:1.111s"><div class="cam punch ph" data-label="훅 사진 1" style="--at:0s;--len:1.111s;--img:url(photo-1.jpg);--w:3413px;--h:1920px;--x0:-1166px;--x1:-1166px;--o:1706px 960px;--s0:1.25;--s1:1.05"></div><div class="shade"></div></div>
+<div class="shot cut" style="--at:1.111s;--len:1.111s"><div class="cam punch ph" data-label="훅 사진 2" style="--at:1.111s;--len:1.111s;--img:url(photo-2.jpg);--w:3413px;--h:1920px;--x0:-1166px;--x1:-1166px;--o:1706px 960px;--s0:1.25;--s1:1.05"></div><div class="shade"></div></div>
+<!-- 01 훅 끝 (2.222~3.6초): 블러 없이 컷 (첫 3초 규칙 ③), 큰 사진으로 다가가며 제목이 88px로 줄어든다 -->
+<div class="shot cut" style="--at:2.222s;--len:1.378s"><div class="cam ph" data-label="큰 사진 3" style="--at:2.222s;--len:1.378s;--img:url(photo-3.jpg);--w:3413px;--h:1920px;--x0:-1166px;--x1:-1166px;--o:1706px 960px;--s1:1.3"></div><div class="shade"></div></div>
 <!-- 02 후기 (3.6~10.2초): 큰 사진 세 장면 — 오른쪽 → 왼쪽 / 당기기 / 왼쪽 → 오른쪽 -->
 <div class="shot" style="--at:3.6s;--len:2s"><div class="cam ph" data-label="큰 사진 4" style="--at:3.6s;--len:2s;--img:url(photo-4.jpg);--w:3413px;--h:1920px;--x0:-1700px;--x1:-800px;--s0:1.06;--s1:1.06"></div><div class="shade"></div></div>
 <div class="shot" style="--at:5.6s;--len:1.95s"><div class="cam ph" data-label="큰 사진 5" style="--at:5.6s;--len:1.95s;--img:url(photo-5.jpg);--w:3413px;--h:1920px;--x0:-1166px;--x1:-1166px;--o:1706px 960px;--s0:1.12;--s1:1.3"></div><div class="shade"></div></div>
@@ -150,10 +146,8 @@ em,i{font-style:normal}
 <section class="scene" style="--at:0s;--len:3.6s"><p class="disc">이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.</p></section>
 <section class="scene" style="--at:20.7s;--len:4.3s"><p class="disc">이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.</p></section>
 
-<!-- 훅 한 마디 (0.3초 · 0.9초에 한 줄씩). 한 줄에 6자 안쪽 -->
-<p class="hook"><b style="--t:.3s">짧은 한 마디</b><b style="--t:.9s"><em>핵심어?</em></b></p>
 
-<!-- 고정 제목 (2.222초부터 영상 내내). 한 줄에 10자 안쪽 -->
+<!-- 고정 제목 = 훅 질문 (0초부터 112px → 2.222초부터 88px로 영상 내내). 한 줄에 7자 안쪽 -->
 <div class="head"><b>보는 사람 상황 한 줄</b><b>여기, <em>어디게?</em></b></div>
 
 <!-- 01 물음표 (제목이 내려온 뒤) -->
@@ -200,7 +194,7 @@ em,i{font-style:normal}
   <p class="dm fade" style="--d:2.4s">인스타는 댓글에 '키워드' 남기면 DM으로 알려 드려요</p>
 </section>
 
-<!-- 자막: 나레이션 줄에 맞춘다 (0~2.3초는 훅 한 마디가 대신한다) -->
+<!-- 자막: 나레이션 줄에 맞춘다 (0~2.3초는 크게 뜬 제목이 대신한다) -->
 <p class="cap" style="--at:2.3s;--len:1.3s"><span class="k">여기 <em>어디게?</em></span></p>
 <p class="cap" style="--at:3.75s;--len:1.85s"><span class="k">쿠팡 구매자 후기<br><em>N개 중 n개</em></span></p>
 <p class="cap" style="--at:5.6s;--len:1.95s"><span class="k"><em>가장 많이 나온 말</em><br>요약</span></p>

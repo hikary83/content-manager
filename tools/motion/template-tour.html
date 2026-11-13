@@ -10,7 +10,8 @@
      node tools/motion/record.mjs contents/<폴더>/motion.html   → motion.mp4 + motion-bgm.mp4 (2.5D 프레임은 <폴더>/depth/에 처음 한 번 만든다)
    대본 틀 (숙소 상품, 24.5초 — 시간과 장면 수는 사진에 맞게 바꾼다. 장면을 더하면 --at·--len, 나레이션 줄, data-sfx를 같이 옮긴다):
      | 시간       | 장면                        | 움직임              | 화면                                   |
-     | 0~2.6      | 외관                        | 2.5D in (세기 .7)   | 질문 하나 (예: 「강아지랑 하룻밤?」), 고지 |
+     | 0~1.3      | 외관 (가장 센 한 장)        | 2.5D in (세기 .7)   | 질문 전체가 0초부터 크게 (예: 「강아지랑 하룻밤?」), 고지 |
+     | 1.3~2.6    | 두 번째로 센 한 장 (photo-8) | CSS 당기기 (실내면 2.5D) | 질문 그대로 |
      | 2.6~5.3    | 거실                        | 2.5D in             | 이름표 + 한 줄 (+ 작은 조건 한 줄)      |
      | 5.3~10.7   | 방마다 한 컷 (침실·주방 …)  | 2.5D, 2.7초씩       | 이름표 + 한 줄                          |
      | 10.7~16.0  | 바깥 시설 (바베큐·계곡 …)   | CSS 밀기·당기기     | 이름표 + 한 줄                          |
@@ -26,7 +27,10 @@
      가운데 f를 보이려면 --x = −(f × 3413 − 540), 범위 0 ≥ --x ≥ −2333.
    글씨는 x 60~900, y 200~1480 안에 (가운데는 x 480). 고지는 첫 장면과 마지막 장면 위쪽(.disc). 이름이 크게 보이는 사진(간판·로고)은 피한다.
    자막(.say)은 나레이션 줄과 같은 시각에 바뀐다. 등장 방식(drop·slide·wipe·zoom·rise)과 자리(가운데·왼쪽·오른쪽)는 장면마다 다르게 한다. 줄을 읽는 동안 화면에도 같은 말이 보이게 짧게 쓴다.
-   효과음: <body data-sfx> — 컷마다 swoosh, 이름표마다 pop. 장면 시각을 바꾸면 같이 고친다. */
+   효과음: <body data-sfx> — 컷마다 swoosh(3초 안은 thud), 이름표마다 pop. 장면 시각을 바꾸면 같이 고친다.
+   첫 3초 규칙 (2026-11-13): 유튜브 「계속 시청함」 14~36%, 인스타·틱톡 평균 시청 3초 안팎이라 처음 프레임에서 승부한다.
+     ① 0초 프레임부터 질문 전체를 크게 (등장 애니메이션 없이 — 0초 프레임에 이미 떠 있게) ② 첫 장면은 화면 가득 가장 센 사진 ③ 첫 3초 안에 블러 전환 없음 (.shot.cut)
+     ④ 1~1.5초 안에 장면이 한 번 바뀐다 (외관 1.3초 → photo-8) ⑤ 고지 줄은 0초부터 맨 위. 나레이션 첫 줄은 0.15초부터 화면의 질문을 그대로 읽는다. */
 /* 색: 상품에 맞춰 이 블록만 바꾼다 (CLAUDE.md §4 · 후보는 node tools/colors.mjs).
    포인트 --point(이름표·링크 알약·후기 칩) · --on-point(그 위 글자) · --hi(자막 핵심어) · --night(바탕) */
 :root{
@@ -51,6 +55,7 @@ em,i{font-style:normal}
 
 /* 컷 하나 = 사진 한 장. 들어올 때 잠깐 흐렸다가 또렷해진다. ::after는 고지(위)·자막(가운데)·플랫폼 글자(아래) 자리만 살짝 어둡게 */
 .shot{position:absolute;inset:0;overflow:hidden;opacity:0;animation:show var(--len) linear var(--at),whip .35s cubic-bezier(.2,.8,.2,1) var(--at) both}
+.shot.cut{animation:show var(--len) linear var(--at)} /* 블러 없이 바로 바뀌는 컷 — 첫 3초는 이것만 */
 .shot::after{content:"";position:absolute;inset:0;background:linear-gradient(rgba(0,0,0,.4),transparent 17%,transparent 36%,rgba(0,0,0,.28) 48%,rgba(0,0,0,.28) 56%,transparent 68%,transparent 84%,rgba(0,0,0,.4))}
 @keyframes whip{from{filter:blur(22px) brightness(1.3)}}
 .depth{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
@@ -65,7 +70,7 @@ em,i{font-style:normal}
 /* 가운데: 질문(첫 장면) · 이름표 + 자막 한 줄 + 작은 조건 */
 .ask,.line,.sub{text-shadow:0 0 3px rgba(0,0,0,.9),0 3px 10px rgba(0,0,0,.7),0 0 30px rgba(0,0,0,.45)}
 .ask{position:absolute;left:60px;width:840px;top:var(--y,760px);text-align:center;font-size:104px;line-height:1.12}
-.ask b{display:block;font-weight:400;animation:up .5s cubic-bezier(.2,.8,.2,1) var(--t) both}
+.ask b{display:block;font-weight:400;animation:up var(--dur,.5s) cubic-bezier(.2,.8,.2,1) var(--t) both}
 .ask em,.line em{color:var(--hi)}
 .say{position:absolute;left:60px;width:840px;top:var(--y,820px);text-align:center}
 .say.left{text-align:left} .say.right{text-align:right}
@@ -106,13 +111,14 @@ em,i{font-style:normal}
 .link i{display:grid;place-items:center;width:80px;height:80px;border-radius:50%;background:#fff;color:var(--point);font-size:56px;line-height:1;padding-top:6px}
 .dm{position:absolute;left:60px;width:840px;top:var(--y,1150px);text-align:center;font-size:34px;color:rgba(255,255,255,.94);text-shadow:0 0 3px rgba(0,0,0,.9),0 3px 10px rgba(0,0,0,.7)}
 </style></head>
-<body data-duration="24.5" data-sfx="0 thud .5, 0.3 pop .3, 2.6 swoosh .45, 2.75 pop .3, 5.3 swoosh .45, 5.45 pop .3, 8 swoosh .45, 8.15 pop .3, 10.7 swoosh .45, 10.85 pop .3, 13.4 swoosh .45, 13.55 pop .3, 16 whoosh .6, 16.2 pop .4, 19.6 whoosh .7, 21.8 ding .55">
+<body data-duration="24.5" data-sfx="0 thud .5, 1.3 thud .45, 2.6 thud .4, 2.75 pop .3, 5.3 swoosh .45, 5.45 pop .3, 8 swoosh .45, 8.15 pop .3, 10.7 swoosh .45, 10.85 pop .3, 13.4 swoosh .45, 13.55 pop .3, 16 whoosh .6, 16.2 pop .4, 19.6 whoosh .7, 21.8 ding .55">
 
 <!-- ── 사진 (컷마다 하나. 실내는 2.5D img, 바깥은 CSS .cam) ── -->
-<!-- 01 외관 (0~2.6초): 2.5D 다가가기. 난간이 앞에 있으면 세기를 줄인다 -->
-<div class="shot" style="--at:0s;--len:2.6s"><img class="depth" src="photo-1.jpg" data-depth="in" data-strength=".7" style="object-position:57% 50%"></div>
+<!-- 01 훅 (0~2.6초): 블러 없는 컷 두 번 (첫 3초 규칙). 외관 2.5D 다가가기 (난간이 앞에 있으면 세기를 줄인다) → 1.3초에 가장 센 다른 한 장 -->
+<div class="shot cut" style="--at:0s;--len:1.3s"><img class="depth" src="photo-1.jpg" data-depth="in" data-strength=".7" style="object-position:57% 50%"></div>
+<div class="shot cut" style="--at:1.3s;--len:1.3s"><div class="cam ph" data-label="훅 두 번째" style="--at:1.3s;--len:1.3s;--img:url(photo-8.jpg);--w:3413px;--h:1920px;--x0:-1166px;--x1:-1166px;--o:1706px 960px;--s0:1.15;--s1:1.03"></div></div>
 <!-- 02~04 실내 (2.6~10.7초): 2.5D, 2.7초씩 -->
-<div class="shot" style="--at:2.6s;--len:2.7s"><img class="depth" src="photo-2.jpg" data-depth="in" style="object-position:40% 50%"></div>
+<div class="shot cut" style="--at:2.6s;--len:2.7s"><img class="depth" src="photo-2.jpg" data-depth="in" style="object-position:40% 50%"></div>
 <div class="shot" style="--at:5.3s;--len:2.7s"><img class="depth" src="photo-3.jpg" data-depth="in" style="object-position:30% 50%"></div>
 <div class="shot" style="--at:8s;--len:2.7s"><img class="depth" src="photo-4.jpg" data-depth="in" style="object-position:70% 50%"></div>
 <!-- 05~06 바깥 (10.7~16초): 난간·나무가 많아 CSS. 옆으로 밀기 / 당기기 -->
@@ -127,8 +133,8 @@ em,i{font-style:normal}
 <section class="scene" style="--at:0s;--len:2.6s"><p class="disc">이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.</p></section>
 <section class="scene" style="--at:19.6s;--len:4.9s"><p class="disc">이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.</p></section>
 
-<!-- 01 질문 하나 (한 줄에 6자 안쪽) -->
-<section class="scene" style="--at:0s;--len:2.6s"><p class="ask"><b style="--t:.3s">보는 사람</b><b style="--t:.8s"><em>상황 질문?</em></b></p></section>
+<!-- 01 질문 하나 (한 줄에 6자 안쪽). 0초 프레임부터 두 줄 모두 (등장 애니메이션 없음) -->
+<section class="scene" style="--at:0s;--len:2.6s"><p class="ask"><b style="--t:0s;--dur:0s">보는 사람</b><b style="--t:0s;--dur:0s"><em>상황 질문?</em></b></p></section>
 
 <!-- 02~06 이름표 + 한 줄 (상품 페이지 사실). 조건이 있으면 .sub 한 줄 (가격·시간은 넣지 않는다) -->
 <section class="scene" style="--at:2.6s;--len:2.7s"><div class="say drop" style="--d:.15s;--e:.75s"><p class="label">✔ 거실</p><p class="line"><span class="w" style="--i:0">사실</span> <span class="w" style="--i:1"><em>한 줄</em></span></p><p class="sub">작은 조건</p></div></section>
