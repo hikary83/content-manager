@@ -251,6 +251,7 @@ function publish_(input) {
 // was asked about every run, one call each — three products scheduled days ahead used up the free plan's daily calls on
 // 2026-11-11, and the refusals were swallowed, so the ledger silently stopped filling.
 function syncPublishing() {
+  try { syncStudy_(); } catch (_) {} // v2.16.0: Slack #스터디 first (Study.js) — nothing to do with Buffer, so it runs while Buffer rests too
   if (bufferLimitedAt_()) return; // resting after Buffer's 「too many」; the first run after the hour catches up
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(30000)) return; // a save is running; the next run catches up

@@ -72,3 +72,22 @@ test('v2.3.0 등록 도구는 옆의 inpock.png를 45,000자 안의 JPEG 데이�
     assert.equal(JSON.parse(fs.readFileSync(file,'utf8')).inpockImage,'inpock.png','파일에는 경로를 남긴다');
   }finally{fs.rmSync(dir,{recursive:true});}
 });
+test('v3.7.0 스터디 결과 파일은 ## 분석·개선 방향·결정을 나눠 보내고, 상태만 줄 수도 있다',async()=>{
+  const {studySections,studyWrite}=await import('../tools/register.mjs');
+  assert.deepEqual(studySections('## 분석\n숙소 릴스 — 질문 훅\n· 컷 1초\n\n## 개선 방향\n컷을 2초로\r\n## 결정\n262에서 시험\n'),{result:'숙소 릴스 — 질문 훅\n· 컷 1초',direction:'컷을 2초로',decision:'262에서 시험'});
+  assert.deepEqual(studySections('## 결정\n보류해요'),{decision:'보류해요'});
+  assert.throws(()=>studySections('제목 없이 쓴 글'),/## 분석/);
+  const sent=[];const send=async(action,payload)=>{sent.push([action,payload]);return {studies:[]};};
+  await studyWrite('S12','적용함',undefined,send);
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'study-'));const file=path.join(dir,'결정.md');fs.writeFileSync(file,'## 결정\n투어 컷 2초로 가요');
+  await studyWrite('S12',file,'적용함',send);
+  assert.deepEqual(sent,[['studyUpdate',{ids:['S12'],status:'적용함'}],['studyUpdate',{ids:['S12'],decision:'투어 컷 2초로 가요',status:'적용함'}]]);
+  await assert.rejects(()=>studyWrite('S12',file,'의견있음',send),/상태는/);
+});
+test('v3.7.0 카톡 「나와의 채팅」 내보내기에서 링크·시각·같이 쓴 말을 뽑는다 (PC·휴대폰 모양)',async()=>{
+  const {kakaoLinks}=await import('../tools/register.mjs');
+  const pc='HIKARY 님과 카카오톡 대화\n저장한 날짜 : 2026-11-14 09:00:00\n\n--------------- 2026년 11월 3일 월요일 ---------------\n[나] [오후 11:02] https://www.instagram.com/reel/AAA/?igsh=x 한옥 컷 구성\n[나] [오후 11:05] 이건 메모만\n[나] [오전 9:10] 둘 https://youtu.be/b1 https://youtu.be/b1\n두 번째 줄 메모\n';
+  assert.deepEqual(kakaoLinks(pc),[{url:'https://www.instagram.com/reel/AAA/?igsh=x',memo:'한옥 컷 구성',savedAt:'2026-11-03 23:02'},{url:'https://youtu.be/b1',memo:'둘\n두 번째 줄 메모',savedAt:'2026-11-03 09:10'}]);
+  const phone='2026년 11월 4일 화요일\n2026년 11월 4일 오후 12:30, 나 : 자막 좋음 https://www.tiktok.com/@a/video/1).\n2026. 11. 5. 오전 7:05, 나 : https://brunch.co.kr/@b/2\n';
+  assert.deepEqual(kakaoLinks(phone),[{url:'https://www.tiktok.com/@a/video/1',memo:'자막 좋음',savedAt:'2026-11-04 12:30'},{url:'https://brunch.co.kr/@b/2',memo:'',savedAt:'2026-11-05 07:05'}]);
+});

@@ -484,7 +484,7 @@ h3.q small{font-weight:400;color:var(--dim);font-size:12px}
   .side{position:fixed;top:56px;left:0;bottom:0;width:260px;height:auto;z-index:36;transform:translateX(-100%);transition:transform .2s}
   body.drawer .side{transform:none}
   .main{padding-bottom:96px}
-  .tabsbar{display:grid;grid-template-columns:repeat(3,1fr);position:fixed;left:0;right:0;bottom:0;z-index:30;border-top:1px solid var(--line);background:#121212;padding:6px 0 10px} /* v3.5.8: no env(safe-area-inset-bottom) — the page has no viewport-fit=cover, so iOS gives 0 anyway, and Samsung Internet gave 48px (the system nav bar) with its own toolbar already below: a thick band under the tabs on a Z Flip7 */
+  .tabsbar{display:grid;grid-template-columns:repeat(4,1fr);position:fixed;left:0;right:0;bottom:0;z-index:30;border-top:1px solid var(--line);background:#121212;padding:6px 0 10px} /* v3.5.8: no env(safe-area-inset-bottom) — the page has no viewport-fit=cover, so iOS gives 0 anyway, and Samsung Internet gave 48px (the system nav bar) with its own toolbar already below: a thick band under the tabs on a Z Flip7 */
   .tabsbar a{display:grid;justify-items:center;gap:1px;font-size:11px;color:var(--muted);text-decoration:none}
   .tabsbar a i{font-style:normal;font-size:18px}
   .tabsbar a.on{color:var(--ink);font-weight:700}
@@ -555,3 +555,41 @@ h3.q small{font-weight:400;color:var(--dim);font-size:12px}
 .qn{text-align:right}.qn b{display:block;font-size:14px;font-weight:800;letter-spacing:0;font-variant-numeric:tabular-nums}.qn small{display:block;color:var(--dim);font-size:10.5px}
 .stats.four4{grid-template-columns:repeat(4,1fr)}
 @media(max-width:640px){.stats.four4{grid-template-columns:1fr 1fr}}
+
+/* v3.7.0 스터디: links to learn from — a paste box, state filters, one row per link, Lumi's analysis in a window */
+.study-add{margin-bottom:16px}
+.study-form{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) auto;gap:8px}
+.tr.st{grid-template-columns:28px minmax(0,1fr) 120px 130px 170px}
+.tr.st>.chk{display:grid;place-items:center;margin:0}
+.tr.st .chk input,#studyAll{width:16px;height:16px;padding:0;accent-color:var(--accent);cursor:pointer}
+.tr.st .item .pf{width:30px;height:30px;border-radius:8px}
+.tr.st .item .pf.lk{color:#ddd}
+.tr.st .item .pf.lk svg{width:70%;height:70%}
+.st-state{display:grid;justify-items:center;gap:3px}
+.st-state small{font-size:11px;color:var(--dim)}
+.tr.st.fresh{background:var(--accent-soft)}
+.tr.st.fresh:hover{background:rgba(255,107,26,.2)}
+.tr.st .acts{display:flex;gap:6px;align-items:center}
+dialog.study-dialog{width:min(720px,calc(100vw - 24px))}
+.study-link{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--raise);margin:6px 0 4px}
+.study-link .pf{width:26px;height:26px;border-radius:7px}
+.study-link code{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;color:var(--muted)}
+.study-text{white-space:pre-wrap;font-size:14px;line-height:1.7;background:var(--raise);border-radius:10px;padding:12px 14px;margin-top:8px}
+.btn.picked{box-shadow:0 0 0 2px var(--accent)}
+@media(max-width:640px){
+  .study-form{grid-template-columns:minmax(0,1fr) auto}
+  .study-form #studyUrl{grid-column:1/-1}
+  .tr.st{grid-template-columns:22px minmax(0,1fr) auto;grid-template-areas:"chk item acts" "chk when st";gap:4px 8px}
+  .tr.st>.chk{grid-area:chk;align-self:start;padding-top:8px}.tr.st>.item{grid-area:item}.tr.st>.acts{grid-area:acts}
+  .tr.st>.when{grid-area:when;text-align:left;padding-left:42px;display:flex;gap:6px;align-items:baseline;font-size:12px;color:var(--muted)}
+  .tr.st>.st-state{grid-area:st;justify-items:end}
+  .tr.st .st-state small{display:none}
+  .tr.st .acts .ibtn{display:none}
+  .tr.st .acts .btn.primary{display:inline-flex}
+}
+.tr.st .acts a.ibtn{text-decoration:none}
+.tr.st.th>span:nth-child(2){text-align:left}
+@media(max-width:640px){dialog.study-dialog{width:100vw}}
+.sno{display:inline-block;margin-right:7px;padding:0 6px;border-radius:5px;background:var(--raise);border:1px solid var(--line2);color:var(--muted);font-size:11px;font-weight:700;line-height:18px;vertical-align:1px;font-variant-numeric:tabular-nums}
+.h-sub.err{color:var(--err)}
+.study-text.decided{border-left:3px solid var(--ok)}

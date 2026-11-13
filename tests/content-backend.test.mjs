@@ -22,8 +22,8 @@ function runtime({ legacy = false } = {}) {
     }; }
   });
   const sheet = makeSheet(rows);
-  // v2.5.0: other tabs (「요청」) live beside the ledger; the ledger tab is the configured SHEET_NAME.
-  const tabs = new Map(); const book = { getSheetByName: name => name === '요청' ? tabs.get(name)?.sheet ?? null : sheet, insertSheet(name) { const tab = { rows: [], sheet: null }; tab.sheet = makeSheet(tab.rows); tabs.set(name, tab); return tab.sheet; } };
+  // v2.5.0: other tabs (「요청」, v2.16.0 「스터디」) live beside the ledger; the ledger tab is the configured SHEET_NAME.
+  const tabs = new Map(); const book = { getSheetByName: name => name === '콘텐츠 관리' ? sheet : tabs.get(name)?.sheet ?? null, insertSheet(name) { const tab = { rows: [], sheet: null }; tab.sheet = makeSheet(tab.rows); tabs.set(name, tab); return tab.sheet; } };
   const validation = { requireValueInList() { return this; }, setAllowInvalid() { return this; }, build() { return {}; } };
   const context = vm.createContext({
     console: { info() {} },
@@ -35,7 +35,7 @@ function runtime({ legacy = false } = {}) {
     UrlFetchApp: { fetch() { fetches++; throw new Error('unexpected network'); } },
     CacheService: { getScriptCache: () => ({ get: key => cache.get(key) ?? null, put: (key, value) => cache.set(key, value) }) }
   });
-  for (const name of ['Code','Product','Gemini','Coupang','Requests','Publish','Auth']) vm.runInContext(readFileSync(new URL(`../backend/${name}.js`,import.meta.url),'utf8'),context);
+  for (const name of ['Code','Product','Gemini','Coupang','Requests','Publish','Auth','Study']) vm.runInContext(readFileSync(new URL(`../backend/${name}.js`,import.meta.url),'utf8'),context);
   props.set('TOOL_KEY', TOOL);
   const raw = context.doPost; context.doPost = event => { const body = JSON.parse(event.postData.contents); if (!('token' in body)) body.token = TOOL; return raw({ postData: { contents: JSON.stringify(body) } }); };
   return { context, rows, props, tabs, cache, writes: () => writes, fetches: () => fetches };
@@ -582,4 +582,108 @@ test('v2.12.0 쿠팡이 바꿔 주지 않는 상품은 알아보기 쉽게 알�
   assert.match(call('https://www.coupang.com/vp/products/1').error, /요청을 받지 않았어요 \(200 · internal error\)/);
   answer = { rCode: '0', data: [{ shortenUrl: 'https://link.coupang.com/a/ok' }] };
   assert.equal(call('https://www.coupang.com/vp/products/1').data.shortenUrl, 'https://link.coupang.com/a/ok');
+});
+
+// v2.16.0 스터디 (Study.js): a fake Slack — #스터디 history in pages (newest first, like Slack) and chat.postMessage.
+function studyEnv({ slack = true } = {}) {
+  const env = runtime();
+  if (slack) { env.props.set('SLACK_BOT_TOKEN', 'xoxb-test-token'); env.props.set('SLACK_STUDY_CHANNEL', 'C0STUDY'); }
+  const sent = []; const fake = { history: [], posted: [], error: '' };
+  env.context.UrlFetchApp.fetch = (url, options) => {
+    const u = new URL(url); sent.push({ url: u, options });
+    assert.equal(options.headers.Authorization, 'Bearer xoxb-test-token');
+    const reply = body => ({ getResponseCode: () => 200, getContentText: () => JSON.stringify(body) });
+    if (fake.error) return reply({ ok: false, error: fake.error });
+    if (u.pathname === '/api/conversations.history') {
+      assert.equal(u.searchParams.get('channel'), 'C0STUDY');
+      const oldest = Number(u.searchParams.get('oldest') || 0);
+      const newer = fake.history.filter(m => Number(m.ts) > oldest).sort((a, b) => Number(b.ts) - Number(a.ts));
+      const start = Number(u.searchParams.get('cursor') || 0); const page = newer.slice(start, start + 2); // two a page, to walk the cursor
+      return reply({ ok: true, messages: page, response_metadata: { next_cursor: start + 2 < newer.length ? String(start + 2) : '' } });
+    }
+    if (u.pathname === '/api/chat.postMessage') { fake.posted.push(JSON.parse(options.payload)); return reply({ ok: true, ts: '9.9' }); }
+    throw new Error('unexpected ' + url);
+  };
+  const call = (action, payload = {}) => JSON.parse(env.context.doPost({ postData: { contents: JSON.stringify({ action, payload }) } }).text);
+  return { env, sent, fake, call, rows: () => env.tabs.get('스터디')?.rows ?? [] };
+}
+const SLACK_MESSAGES = [
+  { ts: '1794400000.000100', user: 'U1', text: '<https://www.instagram.com/reel/AAA/?igsh=x1> 첫 장면에서 멈춤' },
+  { ts: '1794400100.000200', user: 'U1', text: '두 개 &amp; 같이 <https://www.tiktok.com/@a/video/1|tiktok.com/@a/video/1>\n<https://brunch.co.kr/@b/2>' },
+  { ts: '1794400200.000300', user: 'U1', text: '링크 없는 말' },
+  { ts: '1794400300.000400', subtype: 'channel_join', user: 'U2', text: '<@U2>님이 채널에 참여함' },
+  { ts: '1794400400.000500', bot_id: 'B1', text: '✅ S1 루미 분석 도착 <https://hikary83.github.io/content-manager/#study>' }
+];
+
+test('v2.16.0 스터디: 웹에서 붙인 링크는 S번호를 받고, 같은 링크(공유 꼬리만 다른)는 한 줄이며, 지운 번호는 다시 쓰지 않는다', () => {
+  const { call, rows } = studyEnv({ slack: false });
+  const first = call('studyAdd', { items: [{ url: 'https://www.instagram.com/reel/AB1/?igsh=abc', memo: '=첫 장면' }, { url: 'https://youtu.be/xyz?si=q' }] }).data;
+  assert.deepEqual([first.added, first.duplicates], [2, 0]);
+  assert.equal(call('studyAdd', { items: [{ url: 'http://instagram.com/reel/AB1' }] }).data.added, 0, '같은 릴스는 다시 넣지 않는다');
+  let list = call('studies').data;
+  assert.deepEqual(list.studies.map(s => [s.no, s.platform, s.from, s.status]), [['2', '유튜브', '웹', '저장'], ['1', '인스타', '웹', '저장']]);
+  assert.equal(list.studies[1].memo, '=첫 장면'); assert.equal(list.slack, false);
+  assert.match(call('studyAdd', { items: [{ url: 'javascript:alert(1)' }] }).error, /http/);
+  assert.match(call('studyAdd', { items: [] }).error, /1~500개/);
+  call('studyUpdate', { ids: ['S2'], delete: true });
+  call('studyAdd', { items: [{ url: 'https://example.com/a', memo: '' }], from: '카톡' });
+  list = call('studies').data.studies;
+  assert.deepEqual(list.map(s => [s.no, s.from]), [['3', '카톡'], ['1', '웹']], 'S2를 지워도 다음은 S3');
+  assert.ok(rows().length >= 3);
+  assert.equal(call('studySync').data.slack, false, '슬랙 키가 없으면 읽지 않는다');
+});
+
+test('v2.16.0 처음 슬랙을 읽을 때는 채널 전체를, 그 뒤로는 새 메시지만 — 링크마다 한 줄, 봇·입장·링크 없는 말은 건너뛴다', () => {
+  const { call, sent, fake } = studyEnv(); fake.history = SLACK_MESSAGES;
+  const first = call('studySync').data; assert.deepEqual(first, { added: 3, slack: true });
+  const histories = sent.filter(s => s.url.pathname === '/api/conversations.history');
+  assert.equal(histories[0].url.searchParams.get('oldest'), null, '처음에는 oldest 없이 처음부터');
+  assert.equal(histories.length, 3, '두 개씩 세 쪽을 넘겨 다 읽는다');
+  const list = call('studies').data.studies.slice().reverse();
+  assert.deepEqual(list.map(s => [s.no, s.platform, s.from, s.slackTs]), [['1', '인스타', '슬랙', '1794400000.000100'], ['2', '틱톡', '슬랙', '1794400100.000200'], ['3', '기타', '슬랙', '1794400100.000200#2']]);
+  assert.deepEqual(list.map(s => s.memo), ['첫 장면에서 멈춤', '두 개 & 같이', '두 개 & 같이']);
+  assert.match(list[0].savedAt, /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
+  assert.equal(call('studies').data.syncError, '');
+  fake.history = [...SLACK_MESSAGES, { ts: '1794400500.000600', user: 'U1', text: '<https://instagram.com/reel/AAA> 다시 공유' }, { ts: '1794400600.000700', user: 'U1', text: '<https://youtube.com/shorts/NEW>' }];
+  sent.length = 0;
+  assert.deepEqual(call('studySync').data, { added: 1, slack: true }, '같은 릴스를 다시 공유해도 한 줄, 새 쇼츠만 더한다');
+  assert.equal(sent[0].url.searchParams.get('oldest'), '1794400400.000500', '그다음은 마지막으로 본 메시지 뒤부터');
+  assert.equal(call('studyAdd', { items: [{ url: 'https://www.youtube.com/shorts/NEW?si=z' }] }).data.added, 0, '슬랙에서 온 링크를 웹에서 또 넣어도 한 줄');
+});
+
+test('v2.16.0 검토 요청 → 루미 분석은 검토완료로 저장하고 원래 슬랙 메시지에 답변 하나만 단다 · 결정은 댓글 없이', () => {
+  const { env, call, fake } = studyEnv(); fake.history = SLACK_MESSAGES.slice(0, 2); call('studySync');
+  call('studyAdd', { items: [{ url: 'https://example.com/web-only' }] });
+  const asked = call('studyUpdate', { ids: ['S1', 'S4'], status: '검토요청' }).data.studies;
+  assert.deepEqual(asked.map(s => s.status), ['검토요청', '검토요청']); assert.ok(asked[0].askedAt);
+  assert.throws(() => env.context.updateStudies_({ ids: ['S1'], result: '웹에서 쓴 분석' }, 'session'), /루미가 등록 도구로/);
+  const done = call('studyUpdate', { ids: ['S1'], result: '\n## 숙소 릴스 — 0초 질문 훅\n· 컷 1~1.5초', direction: '컷을 2초로 <짧게> & 비교' }).data;
+  assert.equal(done.studies[0].status, '검토완료'); assert.ok(done.studies[0].reviewedAt);
+  assert.deepEqual(done.slack, ['S1 슬랙 댓글을 달았어요']);
+  assert.equal(fake.posted.length, 1);
+  assert.deepEqual(fake.posted[0], { channel: 'C0STUDY', thread_ts: '1794400000.000100', unfurl_links: false, unfurl_media: false,
+    text: '✅ S1 루미 분석 도착\n숙소 릴스 — 0초 질문 훅\n개선 방향: 컷을 2초로 &lt;짧게&gt; &amp; 비교\nhttps://hikary83.github.io/content-manager/#study' });
+  call('studyUpdate', { ids: ['S3'], result: '글 요약', direction: '' });
+  assert.equal(fake.posted[1].thread_ts, '1794400100.000200', '한 메시지의 두 번째 링크도 그 메시지에 단다');
+  call('studyUpdate', { ids: ['S4'], result: '웹에서 넣은 글 분석' });
+  assert.equal(fake.posted.length, 2, '웹·카톡에서 온 줄은 슬랙에 올리지 않는다');
+  const decided = call('studyUpdate', { ids: ['S1'], decision: '투어 컷 2초 버전을 No.262에서 시험', status: '적용함' }).data.studies[0];
+  assert.deepEqual([decided.status, decided.decision], ['적용함', '투어 컷 2초 버전을 No.262에서 시험']);
+  assert.equal(fake.posted.length, 2, '결정은 댓글을 달지 않는다');
+  fake.error = 'not_in_channel';
+  const failed = call('studyUpdate', { ids: ['S2'], result: '틱톡 분석' }).data;
+  assert.equal(failed.studies[0].status, '검토완료', '댓글이 실패해도 분석은 저장한다'); assert.match(failed.slack[0], /S2 슬랙 댓글 실패: .*\/invite @HIKARY/);
+  assert.match(call('studyUpdate', { ids: ['S99'], status: '보류' }).error, /S99/);
+  assert.match(call('studyUpdate', { ids: ['S1'], status: '의견있음' }).error, /상태/);
+});
+
+test('v2.16.0 10분 결과 받기는 Buffer가 쉬는 중에도 슬랙을 먼저 읽고, 읽기 오류는 웹이 볼 수 있게 남긴다', () => {
+  const { env, call, fake, sent } = studyEnv(); fake.history = SLACK_MESSAGES.slice(0, 1);
+  env.cache.set('BUFFER_LIMITED', '2026-11-14 09:00');
+  env.context.syncPublishing();
+  assert.equal(call('studies').data.studies.length, 1);
+  assert.ok(sent.every(s => s.url.hostname === 'slack.com'), 'Buffer는 부르지 않는다');
+  fake.error = 'not_in_channel'; env.props.set('STUDY_SLACK_TS', '');
+  env.context.syncPublishing();
+  assert.match(call('studies').data.syncError, /invite @HIKARY/);
 });

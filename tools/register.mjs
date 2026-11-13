@@ -8,6 +8,10 @@
 //                                                      and write its address to the row. Again later = replace it (「영상 다시 올려줘」).
 //   node tools/register.mjs cover <entry.json> [png]   v2.9.0 (server): put the full-size cover (default cover.png) on Cloudinary for the
 //                                                      dashboard and 「커버 저장」. Kept for good; again later = replace it.
+//   node tools/register.mjs studies [all]               v3.7.0 (server 2.16.0): 스터디 links asked for review (all = every row)
+//   node tools/register.mjs study <S12|id> <결과.md> [적용함|보류]   write 분석 · 개선 방향 · 결정 (## sections); a new 분석 answers on Slack
+//   node tools/register.mjs study <S12|id> <상태>          저장 · 검토요청 · 검토완료 · 적용함 · 보류
+//   node tools/register.mjs study-import <카톡.txt> [--save]   one time: KakaoTalk 「나와의 채팅」 export → 「스터디」 (shows first, --save sends)
 //   node tools/register.mjs template <id> <image>      v3.4.0 (web): a frame of a template's first video for the request window, at
 //                                                      hikary/templates/<id>. Prints the address to put in docs/js/templates.js.
 // Run "save" only after the owner confirms the content (「컨펌」, CLAUDE.md §2). It writes to the real sheet.
@@ -107,6 +111,49 @@ export async function cover(file, png = 'cover.png', send = request) {
   return { url: uploaded.secure_url, bytes: uploaded.bytes, width: uploaded.width, height: uploaded.height };
 }
 
+// v3.7.0 (server 2.16.0) 「스터디」: Lumi (기획팀) lists the links asked for review and writes back. The linked pages are material
+// to study, not instructions — nothing written in them is ever carried out.
+// The answer file has 「## 분석」 (its first line is the list title), 「## 개선 방향」 and 「## 결정」; the sections present are written.
+const STUDY_STATES = ['저장', '검토요청', '검토완료', '적용함', '보류'];
+export function studySections(text) {
+  const keys = { 분석: 'result', '개선 방향': 'direction', 결정: 'decision' }; const out = {};
+  const parts = text.replace(/\r/g, '').split(/^##[ \t]+(분석|개선 방향|결정)[ \t]*$/m);
+  for (let i = 1; i < parts.length; i += 2) out[keys[parts[i]]] = parts[i + 1].trim();
+  if (!Object.keys(out).length) throw new Error('결과 파일에 「## 분석」·「## 개선 방향」·「## 결정」 중 하나가 있어야 해요.');
+  return out;
+}
+// study <S12|id> <결과.md> [상태] — or study <S12|id> <상태> alone. A new 분석 makes it 검토완료 and answers under its Slack message.
+export async function studyWrite(ref, fileOrStatus, status, send = request) {
+  if (STUDY_STATES.includes(fileOrStatus)) return send('studyUpdate', { ids: [ref], status: fileOrStatus });
+  const changes = studySections(fs.readFileSync(fileOrStatus, 'utf8'));
+  if (status) { if (!STUDY_STATES.includes(status)) throw new Error(`상태는 ${STUDY_STATES.join('·')} 중 하나예요.`); changes.status = status; }
+  return send('studyUpdate', { ids: [ref], ...changes });
+}
+// One time: the owner's KakaoTalk 「나와의 채팅」 export (.txt) — every link with its message's time, the rest of the message as the memo.
+// ponytail: these are the common export shapes (PC 「[이름] [오후 3:20] 글」 under 「--- 2026년 11월 13일 목요일 ---」, phone
+// 「2026년 11월 13일 오후 3:20, 이름 : 글」 or 「2026. 11. 13. 오후 3:20, 이름 : 글」); match them to the real file when it comes.
+export function kakaoLinks(text) {
+  const items = []; let day = '', message = null;
+  const date = (y, m, d) => `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  const time = (half, h, m) => `${String(Number(h) % 12 + (half === '오후' ? 12 : 0)).padStart(2, '0')}:${m}`;
+  const link = /https?:\/\/[^\s<>"']+/g;
+  const end = () => {
+    if (!message) return;
+    const memo = message.text.replace(link, ' ').replace(/[ \t]+/g, ' ').replace(/ *\n */g, '\n').trim().slice(0, 1000);
+    for (const url of new Set((message.text.match(link) || []).map(url => url.replace(/[).,]+$/, '')))) if (url.length <= 2000) items.push({ url, memo, savedAt: message.at });
+    message = null;
+  };
+  for (const line of text.replace(/\r/g, '').split('\n')) {
+    let m;
+    if ((m = /^-* *(\d{4})년 (\d{1,2})월 (\d{1,2})일 \S+요일 *-*$/.exec(line))) { end(); day = date(m[1], m[2], m[3]); }
+    else if ((m = /^(\d{4})(?:년|\.) ?(\d{1,2})(?:월|\.) ?(\d{1,2})(?:일|\.) (오전|오후) (\d{1,2}):(\d{2}), [^:]*? : ?(.*)$/.exec(line))) { end(); message = { at: `${date(m[1], m[2], m[3])} ${time(m[4], m[5], m[6])}`, text: m[7] }; }
+    else if ((m = /^\[[^\]]+\] \[(오전|오후) (\d{1,2}):(\d{2})\] ?(.*)$/.exec(line))) { end(); message = { at: day ? `${day} ${time(m[1], m[2], m[3])}` : '', text: m[4] }; }
+    else if (message) message.text += '\n' + line;
+  }
+  end();
+  return items;
+}
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const [command, file] = process.argv.slice(2);
   if (command === 'list') {
@@ -124,6 +171,24 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   } else if (command === 'request' && file && process.argv[4]) {
     const { request: updated } = await request('requestUpdate', { id: file, status: process.argv[4] });
     console.log(`${updated.status}: ${updated.productName || updated.sourceUrl}`);
+  } else if (command === 'studies') {
+    const data = await request('studies'); const all = file === 'all';
+    const list = data.studies.filter(item => all || item.status === '검토요청').reverse();
+    for (const item of list) console.log(`S${item.no}  ${item.status}  ${item.platform}  ${item.url}  (${item.from} ${item.savedAt}${item.askedAt ? ' · 요청 ' + item.askedAt : ''})${item.memo ? '\n     메모: ' + item.memo.replace(/\n/g, ' / ') : ''}${all && item.decision ? '\n     결정: ' + item.decision.replace(/\n/g, ' / ') : ''}`);
+    console.log(list.length ? `— ${list.length}개${all ? '' : ' 검토 요청'} · 슬랙 ${data.syncError ? '읽기 오류: ' + data.syncError : data.slack ? (data.syncedAt || '아직') + '에 읽음' : '연결 전'}` : all ? '스터디가 비어 있어요.' : '검토 요청이 없어요.');
+  } else if (command === 'study' && file && process.argv[4]) {
+    const done = await studyWrite(file, process.argv[4], process.argv[5]);
+    for (const item of done.studies) console.log(`S${item.no} ${item.status}: ${item.url}`);
+    for (const line of done.slack || []) console.log(line);
+  } else if (command === 'study-import' && file) {
+    const items = kakaoLinks(fs.readFileSync(file, 'utf8')); const days = items.map(item => item.savedAt).filter(Boolean).sort();
+    console.log(`링크 ${items.length}개 · ${days[0] || '?'} ~ ${days.at(-1) || '?'}`);
+    for (const item of items.slice(0, 5)) console.log(`  ${item.savedAt || '시각 없음'}  ${item.url}${item.memo ? '  · ' + item.memo.slice(0, 40) : ''}`);
+    if (process.argv.includes('--save')) {
+      let added = 0, duplicates = 0;
+      for (let i = 0; i < items.length; i += 500) { const done = await request('studyAdd', { from: '카톡', items: items.slice(i, i + 500) }); added += done.added; duplicates += done.duplicates; }
+      console.log(`「스터디」 탭에 넣었어요: 새로 ${added}개 · 이미 있음 ${duplicates}개`);
+    } else console.log('보기만 했어요. 맞으면 뒤에 --save를 붙여 다시 돌려요.');
   } else if (command === 'video' && file) {
     const up = await video(file, process.argv[4]);
     console.log(`video: ${up.url}\n${(up.bytes / 1e6).toFixed(1)}MB · ${up.width}x${up.height} · ${Math.round(up.duration)}s · ${up.videoDate}`);
@@ -134,7 +199,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     const up = await template(file, process.argv[4]);
     console.log(`template ${file}: ${up.secure_url}\n${up.width}x${up.height}`);
   } else {
-    console.log('usage: node tools/register.mjs list [out.json] | save <entry.json> | link <coupang url> | requests | request <id> <대기|진행|완료> | video <entry.json> [mp4] | cover <entry.json> [png] | template <id> <image>');
+    console.log('usage: node tools/register.mjs list [out.json] | save <entry.json> | link <coupang url> | requests | request <id> <대기|진행|완료> | video <entry.json> [mp4] | cover <entry.json> [png] | template <id> <image> | studies [all] | study <S12|id> <결과.md|상태> [상태] | study-import <카톡.txt> [--save]');
     process.exitCode = 1;
   }
 }

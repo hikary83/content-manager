@@ -50,6 +50,56 @@ function makeLink({ url }) {
   const result = { url, shortenUrl: 'https://link.coupang.com/a/mock' + saved.size, landingUrl: 'https://www.coupang.com/vp/products/1?lptag=AFFSDP', fetchedAt: new Date().toISOString() };
   saved.set(key, result); return { ...result, fromCache: false, usage: usage() };
 }
+// v3.7.0 mock 「스터디」 (server 2.16.0 Study.js): example links and example analysis text (not real reviews), numbered S1…
+const stamp = ms => new Date(ms).toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 16);
+const ago = (days, hm) => `${new Date(Date.now() - days * 864e5).toLocaleDateString('sv-SE')} ${hm}`;
+const platformOf = url => { const host = new URL(url).hostname; return /(^|\.)instagram\.com$/.test(host) ? '인스타' : /(^|\.)(youtube\.com|youtu\.be)$/.test(host) ? '유튜브' : /(^|\.)tiktok\.com$/.test(host) ? '틱톡' : '기타'; };
+const studyKey = url => { const u = new URL(url); for (const key of [...u.searchParams.keys()]) if (/^(igsh|igshid|si|feature|utm_.*)$/i.test(key)) u.searchParams.delete(key); return u.hostname.replace(/^(www|m)\./, '') + u.pathname.replace(/\/+$/, '') + u.search; };
+let studyNo = 0; const studySlack = { slack: true, syncedAt: stamp(Date.now() - 4 * 60e3), syncError: '' }; let slackNew = true;
+const study = f => ({ id: randomUUID(), no: String(++studyNo), savedAt: ago(1, '09:00'), url: '', platform: '', memo: '', from: '슬랙', status: '저장', askedAt: '', result: '', direction: '', decision: '', reviewedAt: '', slackTs: '', ...f });
+const studies = [
+  study({ savedAt: ago(16, '22:10'), url: 'https://www.instagram.com/reel/MOCKkakao6/', memo: '자막 한 줄짜리 릴스', from: '카톡', status: '적용함', askedAt: ago(5, '09:00'), reviewedAt: ago(4, '15:00'),
+    result: '자막을 한 줄로만 두고 장면마다 자리를 바꾸는 릴스\n· 같은 모양이 되풀이되지 않아 끝까지 보게 돼요', direction: '투어 템플릿 자막을 장면마다 다른 자리·등장 방식으로', decision: '투어 템플릿에 반영했어요 (11-12). 다음 영상부터 그대로 써요.' }),
+  study({ savedAt: ago(9, '23:02'), url: 'https://www.instagram.com/reel/MOCKkakao3/', memo: '카톡에 모아 둔 것 — 한옥 숙소 컷 구성', from: '카톡', status: '검토요청', askedAt: ago(0, '09:30') }),
+  study({ savedAt: ago(6, '18:30'), url: 'https://www.tiktok.com/@mock.account/video/7400000000000000007', memo: 'AI로 사람이 걸어 다니는 숙소 영상', from: '웹', status: '보류', askedAt: ago(5, '09:00'), reviewedAt: ago(4, '15:00'),
+    result: 'AI로 만든 사람이 숙소를 걸어 다니는 영상\n· 사람이 나오는 AI 장면은 공정위 「가상인물」 표시 규정에 걸릴 수 있어요', direction: '지금은 하지 않아요 — 사람 없는 2.5D로 충분해요', decision: '보류 — 표시 규정 원문을 확인한 뒤 다시 봐요.' }),
+  study({ savedAt: ago(2, '19:15'), url: 'https://www.youtube.com/watch?v=MOCKlong05', memo: '숏폼 썸네일 고르는 법 영상', slackTs: '1794300000.000400' }),
+  study({ savedAt: ago(1, '21:40'), url: 'https://youtube.com/shorts/MOCKshort02?si=xyz', memo: '숫자 대신 「몇 명까지」로 끝나는 쇼츠', from: '웹', status: '검토완료', askedAt: ago(1, '22:00'), reviewedAt: ago(0, '11:05'),
+    result: '가격을 말하지 않고 조건(인원·거리)만 말하는 숙소 쇼츠\n· 조건 한 줄이 장면마다 크게 — 우리 투어 템플릿의 조건 줄과 같은 생각이에요\n· 마지막에 「몇 명이서 가요?」를 물어 댓글을 끌어내요', direction: '끝 부탁 앞에 「몇 명이서 가요?」 같은 질문을 한 번 시험해요 — 댓글 수를 지표로 봐요' }),
+  study({ savedAt: ago(0, '07:51'), url: 'https://www.tiktok.com/@mock.account/video/7400000000000000001', memo: '전환이 박자에 딱 맞음', status: '검토요청', askedAt: ago(0, '09:30'), slackTs: '1794490000.000200' }),
+  study({ savedAt: ago(0, '08:12'), url: 'https://www.instagram.com/reel/MOCKreel01/?igsh=abc', memo: '첫 장면에서 바로 멈춰졌던 숙소 릴스', status: '검토완료', askedAt: ago(0, '09:30'), reviewedAt: ago(0, '11:05'), slackTs: '1794500000.000100',
+    result: '숙소 소개 릴스 — 0초부터 큰 질문 한 줄로 멈추게 해요\n· 0초: 화면 가득 객실 사진 + 질문 글자 (우리 「첫 3초 규칙」과 같아요)\n· 컷 길이 1~1.5초, 방마다 한 컷 — 투어 템플릿(2.7초)보다 빨라요\n· 끝: 「저장해 두고 주말에 가 보세요」로 저장을 부탁해요',
+    direction: '① 투어 템플릿 컷을 2초 안팎으로 줄인 버전을 한 번 만들어 「계속 시청함」을 비교해요\n② 끝 부탁에 「저장」 문구를 넣어 보고, Buffer 지표의 저장 수로 확인해요' }),
+  study({ savedAt: ago(0, '10:02'), url: 'https://brunch.co.kr/@mock/123', memo: '릴스 첫 3초 이야기 — 글', from: '웹' }),
+  study({ savedAt: ago(0, '12:20'), url: 'https://www.instagram.com/reel/MOCKreel04/', memo: '', slackTs: '1794510000.000300' })
+].map(item => ({ ...item, platform: platformOf(item.url) }));
+function studyAct(action, payload) {
+  if (action === 'studies') return { studies: [...studies].reverse(), ...studySlack };
+  if (action === 'studyAdd') {
+    let added = 0;
+    for (const item of payload.items || []) {
+      if (!/^https?:\/\/[^\s/?#]+\.\S+$/i.test(item.url || '')) throw new Error('http(s)://로 시작하는 링크를 넣어주세요.');
+      if (studies.some(s => studyKey(s.url) === studyKey(item.url))) continue;
+      studies.push(study({ url: item.url, platform: platformOf(item.url), memo: item.memo || '', from: payload.from === '카톡' ? '카톡' : '웹', savedAt: stamp(Date.now()) })); added++;
+    }
+    return { added, duplicates: (payload.items || []).length - added };
+  }
+  if (action === 'studyUpdate') {
+    const found = (payload.ids || []).map(ref => { const item = studies.find(s => s.id === ref || 'S' + s.no === ref); if (!item) throw new Error(`스터디 ${ref}을(를) 찾지 못했어요. 새로고침해주세요.`); return item; });
+    if (payload.delete) { for (const item of found) studies.splice(studies.indexOf(item), 1); return { deleted: found.length }; }
+    for (const item of found) {
+      if (payload.memo !== undefined) item.memo = payload.memo;
+      if (payload.status) { if (payload.status === '검토요청' && item.status !== '검토요청') item.askedAt = stamp(Date.now()); if (payload.status === '저장') item.askedAt = ''; item.status = payload.status; }
+    }
+    return { studies: found };
+  }
+  if (action === 'studySync') { // the first press brings one link 「just shared from the phone」
+    studySlack.syncedAt = stamp(Date.now());
+    if (!slackNew) return { added: 0, slack: true };
+    slackNew = false; studies.push(study({ url: 'https://www.instagram.com/reel/MOCKnow007/?igsh=new', platform: '인스타', memo: '방금 휴대폰에서 공유한 릴스', savedAt: studySlack.syncedAt, slackTs: '1794520000.000500' }));
+    return { added: 1, slack: true };
+  }
+}
 // v2.9.0 mock login: 아이디 mock / 비밀번호 mock. Every other action needs the session, like the real server 2.7.0.
 const MOCK_SESSION = 'mock-session-0123456789abcdef0123456789abcdef';
 function act({ action, payload, token }) {
@@ -64,6 +114,7 @@ function act({ action, payload, token }) {
     if (!/^https:\/\/trip\.coupang\.com\//.test(payload.url || '')) throw new Error('상품 사이트에서 자동 수집을 차단했거나 페이지를 읽을 수 없어요. 설명과 캡처를 직접 추가해주세요.');
     return new Promise(resolve => setTimeout(() => resolve({ name: '[와우 회원 10% 할인] 가평 남이섬 비바펜션 (목업)', description: '', images: [], sourceUrl: payload.url, extraction: 'coupang-travel-data' }), 1500));
   }
+  if (action.startsWith('stud')) return studyAct(action, payload); // v3.7.0 스터디
   if (action === 'requests') return { requests: [...requests].reverse() };
   if (action === 'request') {
     const same = requests.find(item => item.id === payload.id || (item.sourceUrl === payload.sourceUrl && item.status !== '완료'));
@@ -82,7 +133,7 @@ function act({ action, payload, token }) {
     }
     requests[at].status = payload.status; return { request: requests[at] };
   }
-  if (action === 'status') return { version: '2.15.0 (mock)', aiConfigured: false, coupang: { configured: true, usage: usage(), categories: CATEGORIES }, publishing: { buffer: true, video: true, code: true, limitedAt: '', limitedUntil: '',
+  if (action === 'status') return { version: '2.16.0 (mock)', aiConfigured: false, coupang: { configured: true, usage: usage(), categories: CATEGORIES }, publishing: { buffer: true, video: true, code: true, limitedAt: '', limitedUntil: '',
     quota: { at: new Date(Date.now() - 600e3).toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 16), windows: [{ name: '15m', r: 149, q: 150, t: 900 }, { name: '24h', r: 96, q: 600, t: 80431 }, { name: '30d', r: 2086, q: 3000, t: 2358233 }] } } }; // 24h low → orange
   if (action === 'publish') { // v2.8.0 mock: code 「mock」, every chosen place is scheduled
     if (payload.code !== 'mock') throw new Error('게시 비밀번호가 맞지 않아요. (목업 비밀번호: mock)');

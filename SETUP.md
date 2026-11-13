@@ -1,4 +1,4 @@
-# HIKARY 콘텐츠 관리 v3.6.1
+# HIKARY 콘텐츠 관리 v3.7.0
 
 2026-11-06 · GitHub Pages + Google Apps Script + Google Sheets. 콘텐츠는 Claude에서 만든다.
 
@@ -6,7 +6,7 @@
 
 - 작업 기준은 저장소 맨 위 [CLAUDE.md](CLAUDE.md)(지시서)입니다. 어느 PC에서든 Claude가 이 파일을 먼저 읽습니다.
 - `docs/`: 「기록」(업로드 관리)·「상품 찾기」 두 탭. Pages 설정은 `main` / `/docs`.
-- `backend/`: Apps Script 서버. 웹이 쓰는 동작은 `status` · `list` · `save` · `delete` · `products` · `link` · `request` · `requests` · `requestUpdate` · `publish`, 시간 트리거 `syncPublishing`. Gemini 동작은 되돌리기 대비로 남아 있습니다.
+- `backend/`: Apps Script 서버. 웹이 쓰는 동작은 `status` · `list` · `save` · `delete` · `products` · `link` · `request` · `requests` · `requestUpdate` · `publish` · `studies` · `studyAdd` · `studyUpdate` · `studySync`(v3.7.0, `backend/Study.js`), 시간 트리거 `syncPublishing`. Gemini 동작은 되돌리기 대비로 남아 있습니다.
 - `tools/register.mjs`: Claude가 만든 콘텐츠를 운영대장에 등록, 「게시」할 영상(`video`)과 커버(`cover`)를 Cloudinary에 올림. `tools/carousel/`: 캐러셀 HTML → 1080×1350 PNG.
 - `scripts/preview-mock.mjs`: 가짜 데이터로 웹 확인 (http://127.0.0.1:4175/). `scripts/preview-content.mjs`: 실제 서버로 웹 확인 (http://127.0.0.1:4173/).
 - `scripts/reel/`: 사진 4장 + `video-job.json` → ffmpeg 무자막 MP4.
@@ -14,6 +14,17 @@
 - `app/`, `worker/`, `db/` 등은 이전 Sites/React 코드입니다. Pages 배포에는 포함하지 않습니다. 백업 태그: `legacy-chatgpt-sites-2026-08-11`.
 
 ## 최초 연결
+
+### v3.7.0 스터디 (2026-11-14, 서버 2.16.0)
+
+- 새 메뉴 **「스터디」**: 참고할 릴스·영상·글 링크를 모아 두고 「검토 요청」하면 루미(기획팀)가 분석 · 개선 방향을 그 줄에 남겨요. 줄마다 번호 `S1`, `S2`…(저장 순서, 지운 번호는 다시 쓰지 않음) — 휴대폰 Claude 앱에서 「스터디 S12 얘기하자」처럼 불러요. 그 얘기의 결론은 루미가 「결정」 칸에 적어요. 웹은 분석·개선 방향·결정을 읽기만 해요.
+- 들어오는 길: 휴대폰 「공유 → Slack → #스터디」(서버가 10분마다 읽음, 웹 「↻ 슬랙에서 가져오기」는 바로) · 웹에 붙여넣기 · 카톡 「나와의 채팅」 내보내기(한 번만, `register.mjs study-import`). 같은 링크(공유 꼬리 `igsh`·`si`·`utm_…`만 다른 것)는 한 줄이에요.
+- 운영대장에 「스터디」 탭이 처음 쓸 때 생겨요: 스터디 ID · 번호 · 저장 시각 · 링크 · 플랫폼 · 메모 · 출처 · 상태(저장·검토요청·검토완료·적용함·보류) · 검토 요청 시각 · 분석 · 개선 방향 · 결정 · 분석 시각 · 슬랙 ts. 남의 영상·이미지는 저장하지 않고, 서버는 링크한 페이지를 열지 않아요.
+- 슬랙: 서버가 `syncPublishing`(10분) 맨 앞에서 `conversations.history`로 #스터디를 읽어요 — Buffer가 쉬는 중에도. 처음 읽을 때는 채널 전체(무료 요금제는 최근 90일)를 가져와요. 봇·입장 메시지와 링크 없는 말은 건너뛰고, 한 메시지에 링크가 여럿이면 줄도 여럿(메모는 같은 메시지의 나머지 글). 앱이 쓰는 메시지는 분석이 들어왔을 때 원래 메시지에 다는 댓글 하나뿐이에요 — 「✅ S12 루미 분석 도착 · 한 줄 요약 · 개선 방향 · 웹 링크」. 결정을 적을 때와 웹·카톡에서 온 줄은 댓글이 없어요(웹 「할 일」로 알려요). Events API는 쓰지 않아요(Apps Script가 요청 헤더를 못 읽어 슬랙 서명을 확인할 수 없음).
+- 슬랙 연결(사람): api.slack.com/apps → Create New App(From scratch) → 이름 HIKARY · 워크스페이스 HIKARY → OAuth & Permissions의 Bot Token Scopes `channels:history`·`chat:write` → Install to Workspace → **Bot User OAuth Token(xoxb-…)**을 스크립트 속성 `SLACK_BOT_TOKEN`, #스터디의 채널 ID(C…)를 `SLACK_STUDY_CHANNEL` → #스터디에서 `/invite @HIKARY`. 읽기 오류(앱 초대 안 함 등)는 스터디 화면 오른쪽 위에 빨갛게 나와요.
+- 등록 도구: `studies [all]` · `study <S12|id> <결과.md> [적용함|보류]`(파일의 `## 분석`·`## 개선 방향`·`## 결정`) · `study <S12|id> <상태>` · `study-import <카톡.txt> [--save]`.
+- 대시보드 「할 일」: 「스터디 검토 요청 n개 — Claude에서 「스터디 확인해줘」」·「스터디 분석 n개 도착」. 왼쪽 메뉴 숫자는 분석이 도착한 개수, 휴대폰 아래 탭은 4칸.
+- Apps Script 배포가 필요해요 (서버 2.16.0). 트리거는 그대로 — 새로 추가할 것 없음.
 
 ### v3.6.1 「게시」 기본 시각 07:55 (2026-11-13, 화면만)
 
