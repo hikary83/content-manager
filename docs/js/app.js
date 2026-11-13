@@ -7,7 +7,8 @@
   // v3.5.3: ✎ 「예약 …」 opens the record box (hand record when the result check is late); list place icons open the post.
   // v3.5.2 (server 2.14.0): 할 일 says when the server rests after Buffer's 「too many」.
   // v3.5.0 (server 2.13.0): ✎ ticks 「인포크링크에 넣었어요」·「키티챗에 연결했어요」, shown in the list and kept in 할 일 until ticked.
-  // v3.4.6: a ring turns in the notice and the pressed button while a job runs; 「게시」 opens on the day after the latest post, 08:45.
+  // v3.4.6: a ring turns in the notice and the pressed button while a job runs; 「게시」 opens on the day after the latest post, 08:45
+  // (07:55 since v3.6.1 — POST_TIME, for the morning commute).
   // v3.4.5: new data shows by itself — opening another menu or coming back to the tab reloads quietly (refreshQuietly).
   // v3.4.4: the page notice has ✕, and opening another menu clears what an earlier screen said.
   // v3.4.3: ✕ in the address field clears it and the card below; a refused product says so plainly (server 2.12.0).
@@ -33,6 +34,7 @@
   // v2.8.0 「게시」 (server 2.6.0): the video places go through Buffer; the carousel stays manual.
   // ERROR_LABELS are the line prefixes the server writes into 「게시 오류」 (backend/Publish.js PUBLISH_LABELS).
   const PUBLISH = PLATFORMS.filter(([key]) => key !== 'carousel');
+  const POST_TIME = '07:55'; // v3.6.1: 「게시」's default time (was 08:45) — people watch on the way to work (2026-11-13)
   const ERROR_LABELS = { youtube: 'YouTube', instagram: '인스타 릴스', tiktok: 'TikTok' };
   const STATE = { 업로드완료: 'done', 보류: 'hold', 예약됨: 'sched', 오류: 'err' };
   const errorFor = (row, key) => ERROR_LABELS[key] && (row.publishError || '').split('\n').find(line => line.startsWith(ERROR_LABELS[key] + ': '))?.slice(ERROR_LABELS[key].length + 2) || '';
@@ -272,7 +274,7 @@
   $('search').oninput = () => { if (view !== 'content') go('content'); if (mode !== 'list') setMode('list'); renderList(); };
   $('refresh').onclick = () => void task(async () => { await load(); await loadRequests(); await loadReport(); notice(`${rows.length}건을 불러왔어요.`); });
 
-  // ── v3.1.0 캘린더 (주간 · 월간): posted and scheduled places by day. An empty day's 「＋」 opens 「게시」 for that day at 08:45.
+  // ── v3.1.0 캘린더 (주간 · 월간): posted and scheduled places by day. An empty day's 「＋」 opens 「게시」 for that day at POST_TIME.
   const DOW = ['월', '화', '수', '목', '금', '토', '일'];
   const STATE_WORD = { done: '올라감', sched: '예약됨', err: '오류' };
   const dayKey = date => date.toLocaleDateString('sv-SE');
@@ -377,13 +379,13 @@
   $('calPrev').onclick = () => shift(-1);
   $('calNext').onclick = () => shift(1);
   $('calToday').onclick = () => { anchor = new Date(); selectedDay = today(); renderCalendar(); };
-  // 「＋」 on an empty day: pick something not yet published, then 「게시」 opens with that day at 08:45.
+  // 「＋」 on an empty day: pick something not yet published, then 「게시」 opens with that day at POST_TIME.
   function openPick(day) {
     const date = new Date(day + 'T00:00');
     $('pickTitle').textContent = `${date.getMonth() + 1}월 ${date.getDate()}일에 올릴 콘텐츠`;
     const choices = rows.filter(openToPublish);
     $('pickList').replaceChildren(...(choices.length ? choices.map(row => {
-      const item = button('', () => { $('pickDialog').close(); openPublish(row, { date: day, time: '08:45' }); }, 'pick-item');
+      const item = button('', () => { $('pickDialog').close(); openPublish(row, { date: day, time: POST_TIME }); }, 'pick-item');
       const text = element('span', 'pick-text'); text.append(element('b', '', label(row)), element('small', row.videoUrl ? 'ok' : 'none', row.videoUrl ? '영상 준비됨' : '영상 없음 — 루미에게 「영상 올려줘」'));
       item.append(thumb(row), text); return item;
     }) : [emptyBox('올릴 콘텐츠가 없어요', '모두 올렸거나 예약해 뒀어요.')]));
@@ -684,15 +686,15 @@
       const until = new Date(new Date(row.videoDate.replace(' ', 'T')).getTime() + 30 * 864e5);
       video.className = 'video-box ok'; video.textContent = `영상 준비됨 · ${row.videoDate} 올림 · ${isNaN(until) ? '30일' : monthDay(until)}까지 보관 (그 전에 게시돼야 해요)`;
     } else { video.className = 'video-box none'; video.textContent = `게시할 영상이 아직 없어요. 루미에게 「No.${row.inpockNo || '○○○'} 영상 올려줘」라고 해 주세요.`; }
-    // v3.4.6 default — one post a day at 08:45: the day after the latest day anything is scheduled or posted (or after this
-    // product's registration, if that is later), moved on to a day whose 08:45 is still ahead. A product that already has a
-    // place scheduled ahead keeps that time, so a retried place goes out with the rest. From the calendar: that day at 08:45.
+    // v3.4.6 default — one post a day at POST_TIME: the day after the latest day anything is scheduled or posted (or after this
+    // product's registration, if that is later), moved on to a day whose POST_TIME is still ahead. A product that already has a
+    // place scheduled ahead keeps that time, so a retried place goes out with the rest. From the calendar: that day at POST_TIME.
     const ahead = when => when > Date.now() + 2 * 60000;
     const own = PUBLISH.map(([key]) => row[key + 'Status'] === '예약됨' ? new Date((row[key + 'Date'] || '').replace(' ', 'T')) : null).filter(when => when && ahead(when)).sort((a, b) => a - b)[0];
     const used = rows.flatMap(other => PLATFORMS.filter(([key]) => ['예약됨', '업로드완료'].includes(other[key + 'Status'])).map(([key]) => (other[key + 'Date'] || '').slice(0, 10)));
     const last = [...used, (row.createdAt || '').slice(0, 10)].filter(day => /^\d{4}-\d{2}-\d{2}$/.test(day)).sort().at(-1);
     let at = own;
-    if (!at) { at = last ? new Date(`${last}T08:45`) : new Date(); at.setDate(at.getDate() + 1); at.setHours(8, 45, 0, 0); while (!ahead(at)) at.setDate(at.getDate() + 1); }
+    if (!at) { at = last ? new Date(`${last}T${POST_TIME}`) : new Date(); at.setDate(at.getDate() + 1); at.setHours(...POST_TIME.split(':').map(Number), 0, 0); while (!ahead(at)) at.setDate(at.getDate() + 1); }
     const chosen = preset && new Date(`${preset.date}T${preset.time}`);
     const usePreset = chosen && chosen > Date.now() + 2 * 60000;
     $('publishDate').value = usePreset ? preset.date : at.toLocaleDateString('sv-SE'); $('publishTime').value = usePreset ? preset.time : at.toTimeString().slice(0, 5); $('publishCode').value = '';
