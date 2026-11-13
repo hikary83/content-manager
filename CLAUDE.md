@@ -159,7 +159,8 @@ AI 영상(이미지→영상)은 무조건 안 되는 게 아니다 — **무료
   - 구간 길이에 맞춘다 — 1초에 5음절쯤. 넘치면 빠르게 읽혀(최대 1.5배) 어색하니 문장을 줄인다.
   - 읽는 대로 쓴다: QR → 큐알, K-POP → 케이팝. 쉼표에서 쉰다 (쉬는 시간은 0.25초로 줄여 넣는다).
   - 줄 사이는 0.15초쯤 띄운다. 구간은 앞줄과 겹치거나 영상 길이를 넘으면 안 된다.
-- 목소리는 **소희**다 — Qwen3-TTS 0.6B CustomVoice(Alibaba Qwen, Apache-2.0)의 한국어 여자 목소리. Windows 기본 음성·Supertonic 3·MeloTTS와 비교해 골랐다. `tools/motion/voice.py`가 줄마다 읽고 `tools/motion/voice.mjs`가 시간대에 놓는다.
+- 목소리는 **소희**다 — Qwen3-TTS **1.7B** CustomVoice(Alibaba Qwen, Apache-2.0)의 한국어 여자 목소리에 말투 지시 「또렷하고 경쾌하게, 광고 내레이션처럼」을 준다 (2026-11-13 결정 — 0.6B가 졸리게 들린다고 해서 여섯 버전을 듣고 골랐다. 0.6B는 말투 지시를 받지 않는다). 영상 템플릿 `<body data-voice="1.7b 또렷하고 경쾌하게, 광고 내레이션처럼">`에 들어 있고, 이 값이 없는 폴더(No.252~259)는 다시 녹화해도 0.6B 그대로 읽는다. 첫 말 앞 숨소리는 도구가 뺀다. 처음에는 Windows 기본 음성·Supertonic 3·MeloTTS와 비교해 0.6B를 골랐다 (2026-11-07). `tools/motion/voice.py`가 줄마다 읽고 `tools/motion/voice.mjs`가 시간대에 놓는다.
+- 1.7B는 0.6B보다 11~18% 느리게 읽어 구간을 넘치기 쉽다 — 녹화 로그의 `x1.xx`가 크면 문장을 줄인다. 한 줄 20~45초, 영상 하나(9줄)에 약 4~5분.
 - n번째 줄은 시드 1+100×(n−1)로 읽는다. 고른 샘플(소희 1번)과 같은 규칙이라 같은 문장은 같은 소리가 나온다. 다른 PC에서도 같은 소리가 나는지는 **확인 필요**.
 - 한 번 읽은 줄은 폴더의 `voice/`에 남는다. 다시 녹화하면 새로 쓰거나 고친 줄만 읽는다. 어떤 줄의 억양이 이상하면 그 문장을 조금 고쳐(쉼표·조사) 다시 읽게 한다.
 - 나레이션이 나올 때 배경음악이 줄어들고, 효과음도 조금 낮춘다.
@@ -246,7 +247,7 @@ clasp --auth .clasprc.hikary-personal.json update-deployment AKfycbzN9mw2OKRKHdE
 
 1. Claude 데스크톱 앱 설치 → Code 탭에서 이 저장소를 연다: `git clone https://github.com/hikary83/content-manager.git`
 2. Node.js 22 이상, Chrome(또는 Edge), ffmpeg — 카드뉴스 PNG·모션 영상에 필요.
-   - 나레이션 음성(4장)에는 Python 3.10 이상과 아래 설치가 필요하다. 내려받는 양은 약 3.5GB(모델 2.5GB + 실행 도구)다. `qwen-tts`를 그냥 설치하면 웹 데모(gradio)까지 깔려서 나눠 설치한다. PowerShell:
+   - 나레이션 음성(4장)에는 Python 3.10 이상과 아래 설치가 필요하다. 내려받는 양은 약 8GB(0.6B 모델 2.5GB + 1.7B 모델 4.5GB + 실행 도구)다. 0.6B는 No.252~259를 다시 녹화할 때 쓰니 지우지 않는다. `qwen-tts`를 그냥 설치하면 웹 데모(gradio)까지 깔려서 나눠 설치한다. PowerShell:
 
      ```powershell
      python -m venv $HOME\.hikary-voice\venv
@@ -255,8 +256,9 @@ clasp --auth .clasprc.hikary-personal.json update-deployment AKfycbzN9mw2OKRKHdE
      & $py -m pip install transformers==4.57.3 accelerate==1.12.0 librosa soundfile sox onnxruntime einops
      & $py -m pip install --no-deps qwen-tts==0.1.1
      & $py -c "from huggingface_hub import snapshot_download as d; d('Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice', local_dir=r'$HOME\.hikary-voice\Qwen3-TTS-12Hz-0.6B-CustomVoice')"
+     & $py -c "from huggingface_hub import snapshot_download as d; d('Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice', local_dir=r'$HOME\.hikary-voice\Qwen3-TTS-12Hz-1.7B-CustomVoice')"
      ```
-     「SoX could not be found」·flash-attn 안내는 무시해도 된다. 2026-11-07 이 PC는 torch 2.14.1+cpu로 돌렸다.
+     「SoX could not be found」·flash-attn 안내는 무시해도 된다. 1.7B를 받을 때 나오는 「hf_xet가 없어 HTTP로 받는다」 안내도 무시해도 된다 (이 PC에서 약 5분). 2026-11-07 이 PC는 torch 2.14.1+cpu로 돌렸다.
    - 2.5D 장면(4장)에는 따로 `~/.hikary-depth`가 필요하다 (나레이션 `~/.hikary-voice`와 섞지 않는다). 디스크 약 950MB, 모델(99MB)은 처음 녹화할 때 `~/.hikary-depth\hf`로 저절로 받는다. PowerShell:
 
      ```powershell
