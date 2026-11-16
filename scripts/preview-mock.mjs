@@ -23,6 +23,9 @@ const rows = [
   row({ productName: '제주 오션뷰 호텔 1박 패키지', category: '여행', sourceUrl: 'https://trip.coupang.com/tp/products/2', createdAt: '2026-11-03', script: '제주 바다가 보이는 객실', tiktokStatus: '보류', instagramType: '캐러셀', videoUrl: 'https://res.cloudinary.com/demo/video/upload/v1/hikary/example2.mp4', videoDate: '2026-11-11 09:00' }),
   row({ productName: '무선 미니 청소기 (v2.2.0 전 형식)', category: '가전·디지털', sourceUrl: 'https://www.coupang.com/vp/products/3', format: '캐러셀', createdAt: '2026-11-02', script: '책상 위 먼지, 손바닥 청소기로' })
 ];
+// v3.8.1 mock: older example products so the 콘텐츠 list has two pages (25 rows, 20 a page).
+rows.push(...Array.from({ length: 21 }, (_, i) => row({ productName: `예전 예시 상품 ${i + 1} (목업)`, inpockNo: String(250 - i), createdAt: `2026-10-${String(30 - i).padStart(2, '0')}`,
+  ...(i % 3 ? done('youtube', `2026-10-${String(30 - i).padStart(2, '0')} 07:55`) : {}), ...(i % 3 === 1 ? done('tiktok', `2026-10-${String(30 - i).padStart(2, '0')} 07:55`) : {}) })));
 // Fake product finder: same rolling 20-calls-an-hour budget and 6-hour reuse as backend/Coupang.js, no real Coupang call.
 const CATEGORIES = [[1025, '국내여행'], [1026, '해외여행'], [1012, '식품'], [1014, '생활용품'], [1016, '가전디지털']];
 const calls = []; const saved = new Map();
@@ -51,7 +54,8 @@ function makeLink({ url }) {
   saved.set(key, result); return { ...result, fromCache: false, usage: usage() };
 }
 // v3.7.0 mock 「스터디」 (server 2.16.0 Study.js): example links and example analysis text (not real reviews), numbered S1…
-// v3.8.0 (server 2.17.0): 말머리 on most rows; S2 is a 다시 요청 (검토요청 with the old analysis still there).
+// v3.8.0 (server 2.17.0): 말머리 on most rows; S38 is a 다시 요청 (검토요청 with the old analysis still there).
+// v3.8.1: 36 older links first (S1–S36) so the list has three pages (45 rows, 20 a page).
 const stamp = ms => new Date(ms).toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 16);
 const ago = (days, hm) => `${new Date(Date.now() - days * 864e5).toLocaleDateString('sv-SE')} ${hm}`;
 const platformOf = url => { const host = new URL(url).hostname; return /(^|\.)instagram\.com$/.test(host) ? '인스타' : /(^|\.)(youtube\.com|youtu\.be)$/.test(host) ? '유튜브' : /(^|\.)tiktok\.com$/.test(host) ? '틱톡' : '기타'; };
@@ -59,6 +63,8 @@ const studyKey = url => { const u = new URL(url); for (const key of [...u.search
 let studyNo = 0; const studySlack = { slack: true, syncedAt: stamp(Date.now() - 4 * 60e3), syncError: '' }; let slackNew = true;
 const study = f => ({ id: randomUUID(), no: String(++studyNo), savedAt: ago(1, '09:00'), url: '', platform: '', memo: '', from: '슬랙', status: '저장', askedAt: '', result: '', direction: '', decision: '', reviewedAt: '', slackTs: '', topic: '', ...f });
 const studies = [
+  ...Array.from({ length: 36 }, (_, i) => study({ savedAt: ago(60 - i, '21:00'), url: `https://www.instagram.com/reel/MOCKold${i + 1}/`, memo: `예전에 모아 둔 릴스 ${i + 1}`, from: '카톡',
+    topic: ['콘텐츠', '도구', '운영', '기타', ''][i % 5], ...(i % 6 ? {} : { status: '보류', askedAt: ago(30, '09:00'), reviewedAt: ago(29, '15:00'), result: `예전 릴스 ${i + 1} — 예시 분석`, direction: '지금은 하지 않아요' }) })),
   study({ savedAt: ago(16, '22:10'), url: 'https://www.instagram.com/reel/MOCKkakao6/', memo: '자막 한 줄짜리 릴스', from: '카톡', topic: '콘텐츠', status: '적용함', askedAt: ago(5, '09:00'), reviewedAt: ago(4, '15:00'),
     result: '자막을 한 줄로만 두고 장면마다 자리를 바꾸는 릴스\n· 같은 모양이 되풀이되지 않아 끝까지 보게 돼요', direction: '투어 템플릿 자막을 장면마다 다른 자리·등장 방식으로', decision: '투어 템플릿에 반영했어요 (11-12). 다음 영상부터 그대로 써요.' }),
   study({ savedAt: ago(9, '23:02'), url: 'https://www.instagram.com/reel/MOCKkakao3/', memo: '카톡에 모아 둔 것 — 한옥 숙소 컷 구성', from: '카톡', topic: '도구', status: '검토요청', askedAt: ago(0, '09:30'), reviewedAt: ago(3, '15:00'),

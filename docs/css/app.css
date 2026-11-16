@@ -605,3 +605,8 @@ dialog.study-dialog{width:min(720px,calc(100vw - 24px))}
 .btn.sync{width:30px;height:30px;padding:0;font-size:16px}
 .btn.sync.spinning{font-size:0;gap:0} /* the ring alone while it reads */
 #studyView h1 .right{align-items:center}
+/* v3.8.1 foot pager under the 콘텐츠 and 스터디 lists (YouTube Studio style): 「1–20 / 34  ‹ ›」 bottom right */
+.list-foot{display:flex;justify-content:flex-end;align-items:center;gap:6px;padding:10px 2px 4px;font-size:12.5px;color:var(--muted)}
+.list-foot span{margin-right:10px;font-variant-numeric:tabular-nums}
+.list-foot .ibtn{width:28px;height:28px;font-size:15px}
+.list-foot .ibtn:disabled{opacity:.3;cursor:default}

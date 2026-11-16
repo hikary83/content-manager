@@ -71,7 +71,7 @@
   let report = null; // v3.2.0: Coupang Partners report (server `report`, kept 6 hours there)
   let bufferLimitedAt = ''; // v3.5.2: server 2.14.0 status — since when it rests after Buffer's 「too many」
   let busy = false;
-  let filter = '전체';
+  let filter = '전체', listPage = 0; // listPage: v3.8.1 foot pager
   let view = 'dashboard';
   let current = null;
   let dirty = false;
@@ -150,6 +150,18 @@
     const img = element('img', 'thumb'); img.src = src; img.alt = ''; img.loading = 'lazy'; return img;
   }
 
+  // v3.8.1: YouTube Studio's foot pager on the 콘텐츠 and 스터디 lists — 20 rows a page, 「1–20 / 34  ‹ ›」 bottom right.
+  // The list is whatever the chips and the search left; changing those goes back to page 1 (the callers reset the page).
+  // A reload keeps the page while it still exists (the last page if the list got shorter). No rows: no foot.
+  const PAGE_ROWS = 20;
+  function pageOf(list, page, foot, turn) {
+    const pages = Math.max(1, Math.ceil(list.length / PAGE_ROWS)); const at = Math.max(0, Math.min(page, pages - 1)); const first = at * PAGE_ROWS;
+    foot.hidden = !list.length;
+    foot.replaceChildren(element('span', '', `${first + 1}–${Math.min(first + PAGE_ROWS, list.length)} / ${list.length}`),
+      Object.assign(button('‹', () => turn(at - 1), 'ibtn'), { disabled: at === 0, ariaLabel: '앞 쪽' }), Object.assign(button('›', () => turn(at + 1), 'ibtn'), { disabled: at === pages - 1, ariaLabel: '다음 쪽' }));
+    return [list.slice(first, first + PAGE_ROWS), at];
+  }
+  const toListTop = table => scrollTo({ top: Math.max(0, table.getBoundingClientRect().top + scrollY - 76) }); // under the top bar
   // v3.3.0: long dashboard lists turn pages (●○○, ‹ ›, swipe on a phone) instead of scrolling. Rows per page follow the screen.
   const pages = {};
   const perPage = () => matchMedia('(max-width:640px)').matches ? 3 : innerHeight >= 1000 ? 6 : innerHeight >= 820 ? 5 : 4;
@@ -217,7 +229,8 @@
     for (const node of $('filters').children) node.querySelector('b').textContent = node.dataset.filter === '요청' ? openRequests().length : rows.filter(FILTERS[node.dataset.filter]).length;
     const reqs = ['전체', '요청'].includes(filter) ? openRequests().filter(item => `${item.productName} ${item.sourceUrl}`.toLowerCase().includes(query)) : [];
     const shown = rows.filter(row => FILTERS[filter](row) && `${row.productName} ${row.category} No.${row.inpockNo}`.toLowerCase().includes(query));
-    $('entries').replaceChildren(...reqs.map(requestRow), ...shown.map(entryRow));
+    const [page, at] = pageOf(shown, listPage, $('entriesFoot'), next => { listPage = next; renderList(); toListTop($('entries').parentElement); }); listPage = at;
+    $('entries').replaceChildren(...(at === 0 ? reqs : []).map(requestRow), ...page.map(entryRow));
     if (!reqs.length && !shown.length) $('entries').append(emptyBox(rows.length ? '조건에 맞는 콘텐츠가 없어요.' : '아직 등록된 콘텐츠가 없어요.', rows.length ? '검색어나 보기를 바꿔 보세요.' : '「소재 찾기」에서 루미한테 요청하면 여기에 쌓여요.'));
   }
   function whenCell(row) {
@@ -271,9 +284,9 @@
     if (item.status === '대기') actions.append(button('지우기', () => void task(async () => { await HikaryApi.request('requestUpdate', { id: item.id, delete: true }); await loadRequests(); toast('요청을 지웠어요.'); })));
     tr.append(box, state, hint, element('div', 'links'), element('div', 'clicks'), actions); return tr;
   }
-  function setFilter(next) { filter = next; for (const node of $('filters').children) node.classList.toggle('on', node.dataset.filter === next); renderList(); }
+  function setFilter(next) { filter = next; listPage = 0; for (const node of $('filters').children) node.classList.toggle('on', node.dataset.filter === next); renderList(); }
   for (const node of $('filters').children) node.onclick = () => setFilter(node.dataset.filter);
-  $('search').oninput = () => { if (view !== 'content') go('content'); if (mode !== 'list') setMode('list'); renderList(); };
+  $('search').oninput = () => { if (view !== 'content') go('content'); if (mode !== 'list') setMode('list'); listPage = 0; renderList(); };
   $('refresh').onclick = () => void task(async () => { await load(); await loadRequests(); await loadReport(); notice(`${rows.length}건을 불러왔어요.`); });
 
   // ── v3.1.0 캘린더 (주간 · 월간): posted and scheduled places by day. An empty day's 「＋」 opens 「게시」 for that day at POST_TIME.
@@ -899,7 +912,7 @@
   const STUDY_MARK = { 인스타: 'instagram', 유튜브: 'youtube', 틱톡: 'tiktok' };
   const STUDY_CHIP = { 저장: ['', '저장'], 검토요청: ['req doing', '루미 대기 중'], 검토완료: ['sched', '분석 도착'], 적용함: ['done', '적용함'], 보류: ['', '보류'] };
   const STUDY_TOPIC_CLS = { 콘텐츠: 't-content', 도구: 't-tool', 운영: 't-ops', 기타: 't-etc' };
-  let studyFilter = '전체', studyTopic = '전체', studyCall = 0, studyNow = null; const studyPicked = new Set();
+  let studyFilter = '전체', studyTopic = '전체', studyPage = 0, studyVisible = [], studyCall = 0, studyNow = null; const studyPicked = new Set();
   async function loadStudies() { const call = ++studyCall; const data = await HikaryApi.request('studies'); if (call !== studyCall) return; studies = data.studies; studySlack = data; render(); }
   const studyShort = url => url.replace(/^https?:\/\/(www\.|m\.)?/i, '').replace(/#.*$/, '').replace(/\?(?!v=).*$|&.*$/, '').replace(/\/$/, ''); // keeps YouTube's ?v=
   const studySummary = item => (item.result || '').split('\n').map(line => line.replace(/^[#>*\-·\s]+/, '').trim()).find(Boolean) || ''; // = the server's studySummary_
@@ -912,10 +925,11 @@
     for (const id of [...studyPicked]) if (!studies.some(item => item.id === id && item.status === '저장')) studyPicked.delete(id);
     for (const node of $('studyTopics').querySelectorAll('button')) node.querySelector('b').textContent = node.dataset.topic === '전체' ? studies.length : studies.filter(item => (item.topic || '') === node.dataset.topic).length;
     const shown = studies.filter(item => (studyFilter === '전체' || item.status === studyFilter) && (studyTopic === '전체' || (item.topic || '') === studyTopic));
-    $('studies').replaceChildren(...shown.map(studyRow));
+    const [page, at] = pageOf(shown, studyPage, $('studiesFoot'), next => { studyPage = next; renderStudies(); toListTop($('studies').parentElement); }); studyPage = at; studyVisible = page;
+    $('studies').replaceChildren(...page.map(studyRow));
     if (!shown.length) $('studies').append(emptyBox(studies.length ? '이 상태·말머리의 링크가 없어요.' : '아직 저장한 링크가 없어요.', studies.length ? '' : '위 칸에 붙여넣거나, 휴대폰에서 슬랙 #스터디로 공유해 보세요.'));
     $('studyAsk').hidden = $('studyAskTopic').hidden = !studyPicked.size; $('studyAsk').textContent = `고른 ${studyPicked.size}개 검토 요청`;
-    const open = shown.filter(item => item.status === '저장'); $('studyAll').checked = open.length > 0 && open.every(item => studyPicked.has(item.id)); $('studyAll').disabled = !open.length;
+    const open = page.filter(item => item.status === '저장'); /* v3.8.1: 「모두 고르기」 = this page, as in Studio */ $('studyAll').checked = open.length > 0 && open.every(item => studyPicked.has(item.id)); $('studyAll').disabled = !open.length;
     const arrived = studies.filter(item => item.status === '검토완료').length; $('studyCount').hidden = !arrived; $('studyCount').textContent = arrived;
     const sync = $('studySyncedAt'); sync.classList.toggle('err', !!studySlack.syncError); sync.title = studySlack.syncError || '슬랙 #스터디를 마지막으로 읽은 시각 · 10분마다 읽어요';
     sync.textContent = studySlack.syncError ? `슬랙 읽기 오류 — ${studySlack.syncError.slice(17)}` : !studySlack.slack ? '슬랙 연결 전 · 웹에 붙여넣기만'
@@ -939,10 +953,10 @@
     actions.append(Object.assign(link('↗', item.url, 'ibtn'), { title: '원본 열기 (새 창)' }));
     tr.append(chk, main, from, state, actions); return tr;
   }
-  function setStudyFilter(next) { studyFilter = next; for (const node of $('studyFilters').children) node.classList.toggle('on', node.dataset.filter === next); renderStudies(); }
+  function setStudyFilter(next) { studyFilter = next; studyPage = 0; for (const node of $('studyFilters').children) node.classList.toggle('on', node.dataset.filter === next); renderStudies(); }
   for (const node of $('studyFilters').children) node.onclick = () => setStudyFilter(node.dataset.filter);
-  for (const node of $('studyTopics').querySelectorAll('button')) node.onclick = () => { studyTopic = node.dataset.topic; for (const other of $('studyTopics').querySelectorAll('button')) other.classList.toggle('on', other === node); renderStudies(); };
-  $('studyAll').onchange = () => { for (const item of studies.filter(item => item.status === '저장')) { if ($('studyAll').checked) studyPicked.add(item.id); else studyPicked.delete(item.id); } renderStudies(); };
+  for (const node of $('studyTopics').querySelectorAll('button')) node.onclick = () => { studyTopic = node.dataset.topic; studyPage = 0; for (const other of $('studyTopics').querySelectorAll('button')) other.classList.toggle('on', other === node); renderStudies(); };
+  $('studyAll').onchange = () => { for (const item of studyVisible.filter(item => item.status === '저장')) { if ($('studyAll').checked) studyPicked.add(item.id); else studyPicked.delete(item.id); } renderStudies(); };
   const updateStudy = (ids, changes) => HikaryApi.request('studyUpdate', { ids, ...changes });
   function askStudy(ids, topic = '') {
     void task(async () => { await updateStudy(ids, { status: '검토요청', ...(topic && { topic }) }); studyPicked.clear(); $('studyAskTopic').value = ''; await loadStudies(); toast(`${ids.length}개 검토 요청했어요 — Claude에서 「스터디 확인해줘」`); });
