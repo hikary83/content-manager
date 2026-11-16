@@ -518,7 +518,8 @@
     const waiting = openRequests().length;
     if (waiting) add(`보낸 요청 ${waiting}개 — Claude에서 「요청 확인해줘」`, button('보기', () => { go('content'); setFilter('요청'); }));
     const studyCount = state => studies.filter(item => item.status === state).length;
-    if (studyCount('검토요청')) add(`스터디 검토 요청 ${studyCount('검토요청')}개 — Claude에서 「스터디 확인해줘」`, button('보기', () => { go('study'); setStudyFilter('검토요청'); }));
+    const again = studies.filter(item => item.status === '검토요청' && item.result).length;
+    if (studyCount('검토요청')) add(`스터디 검토 요청 ${studyCount('검토요청')}개${again ? ` (다시 요청 ${again})` : ''} — Claude에서 「스터디 확인해줘」`, button('보기', () => { go('study'); setStudyFilter('검토요청'); }));
     if (studyCount('검토완료')) add(`스터디 분석 ${studyCount('검토완료')}개 도착 — 적용함·보류 고르기`, button('보기', () => { go('study'); setStudyFilter('검토완료'); }));
     if (!items.length) items.push(element('div', 'trow ok-line', '할 일이 없어요'));
     return items;
@@ -893,9 +894,12 @@
   // or are pasted here, numbered S1, S2, … so a talk can name one. 「검토 요청」 marks them for Lumi (기획팀), who writes 분석 · 개선 방향
   // and later the 결정 from the talk in the Claude app with the register tool — the web only shows those. Slack gets one answer under the
   // owner's message when the analysis is in. Only the link and our own words are kept — never the video or picture itself (CLAUDE.md §3).
+  // v3.8.0 (server 2.17.0) 말머리: 콘텐츠 · 도구 · 운영 · 기타 or none (Lumi decides) — a chip before the title, a second filter, a
+  // choice when asking, and 「다시 요청」 in the window (back to 검토요청; the old analysis shows until the new one replaces it).
   const STUDY_MARK = { 인스타: 'instagram', 유튜브: 'youtube', 틱톡: 'tiktok' };
   const STUDY_CHIP = { 저장: ['', '저장'], 검토요청: ['req doing', '루미 대기 중'], 검토완료: ['sched', '분석 도착'], 적용함: ['done', '적용함'], 보류: ['', '보류'] };
-  let studyFilter = '전체', studyCall = 0, studyNow = null; const studyPicked = new Set();
+  const STUDY_TOPIC_CLS = { 콘텐츠: 't-content', 도구: 't-tool', 운영: 't-ops', 기타: 't-etc' };
+  let studyFilter = '전체', studyTopic = '전체', studyCall = 0, studyNow = null; const studyPicked = new Set();
   async function loadStudies() { const call = ++studyCall; const data = await HikaryApi.request('studies'); if (call !== studyCall) return; studies = data.studies; studySlack = data; render(); }
   const studyShort = url => url.replace(/^https?:\/\/(www\.|m\.)?/i, '').replace(/#.*$/, '').replace(/\?(?!v=).*$|&.*$/, '').replace(/\/$/, ''); // keeps YouTube's ?v=
   const studySummary = item => (item.result || '').split('\n').map(line => line.replace(/^[#>*\-·\s]+/, '').trim()).find(Boolean) || ''; // = the server's studySummary_
@@ -906,27 +910,28 @@
   function renderStudies() {
     for (const node of $('studyFilters').children) node.querySelector('b').textContent = node.dataset.filter === '전체' ? studies.length : studies.filter(item => item.status === node.dataset.filter).length;
     for (const id of [...studyPicked]) if (!studies.some(item => item.id === id && item.status === '저장')) studyPicked.delete(id);
-    const shown = studies.filter(item => studyFilter === '전체' || item.status === studyFilter);
+    for (const node of $('studyTopics').querySelectorAll('button')) node.querySelector('b').textContent = node.dataset.topic === '전체' ? studies.length : studies.filter(item => (item.topic || '') === node.dataset.topic).length;
+    const shown = studies.filter(item => (studyFilter === '전체' || item.status === studyFilter) && (studyTopic === '전체' || (item.topic || '') === studyTopic));
     $('studies').replaceChildren(...shown.map(studyRow));
-    if (!shown.length) $('studies').append(emptyBox(studies.length ? '이 상태의 링크가 없어요.' : '아직 저장한 링크가 없어요.', studies.length ? '' : '위 칸에 붙여넣거나, 휴대폰에서 슬랙 #스터디로 공유해 보세요.'));
-    $('studyAsk').hidden = !studyPicked.size; $('studyAsk').textContent = `고른 ${studyPicked.size}개 검토 요청`;
+    if (!shown.length) $('studies').append(emptyBox(studies.length ? '이 상태·말머리의 링크가 없어요.' : '아직 저장한 링크가 없어요.', studies.length ? '' : '위 칸에 붙여넣거나, 휴대폰에서 슬랙 #스터디로 공유해 보세요.'));
+    $('studyAsk').hidden = $('studyAskTopic').hidden = !studyPicked.size; $('studyAsk').textContent = `고른 ${studyPicked.size}개 검토 요청`;
     const open = shown.filter(item => item.status === '저장'); $('studyAll').checked = open.length > 0 && open.every(item => studyPicked.has(item.id)); $('studyAll').disabled = !open.length;
     const arrived = studies.filter(item => item.status === '검토완료').length; $('studyCount').hidden = !arrived; $('studyCount').textContent = arrived;
-    const sync = $('studySyncedAt'); sync.classList.toggle('err', !!studySlack.syncError); sync.title = studySlack.syncError || '';
+    const sync = $('studySyncedAt'); sync.classList.toggle('err', !!studySlack.syncError); sync.title = studySlack.syncError || '슬랙 #스터디를 마지막으로 읽은 시각 · 10분마다 읽어요';
     sync.textContent = studySlack.syncError ? `슬랙 읽기 오류 — ${studySlack.syncError.slice(17)}` : !studySlack.slack ? '슬랙 연결 전 · 웹에 붙여넣기만'
-      : studySlack.syncedAt ? `슬랙 ${shortDate(studySlack.syncedAt)}에 읽음 · 10분마다` : '슬랙 연결됨 · 10분 안에 처음 읽어요';
+      : studySlack.syncedAt ? `${shortDate(studySlack.syncedAt)} 기준` : '슬랙 연결됨 · 10분 안에 처음 읽어요';
   }
   function studyRow(item) {
     const tr = element('div', `tr st row${item.status === '검토완료' ? ' fresh' : ''}`); tr.onclick = event => { if (!event.target.closest('button,a,input,label')) openStudy(item); };
     const chk = element('label', 'chk');
     if (item.status === '저장') { const box = element('input'); box.type = 'checkbox'; box.checked = studyPicked.has(item.id); box.setAttribute('aria-label', '검토 요청할 링크로 고르기'); box.onchange = () => { if (box.checked) studyPicked.add(item.id); else studyPicked.delete(item.id); renderStudies(); }; chk.append(box); }
     const main = element('div', 'item'); const text = element('div'); const summary = studySummary(item);
-    const name = element('b', '', summary || item.memo || `${item.platform || '기타'} 링크 · 메모 없음`); name.prepend(element('span', 'sno', 'S' + item.no));
+    const name = element('b', '', summary || item.memo || `${item.platform || '기타'} 링크 · 메모 없음`); name.prepend(element('span', 'sno', 'S' + item.no)); if (item.topic) name.querySelector('.sno').after(element('span', `topic ${STUDY_TOPIC_CLS[item.topic] || ''}`, item.topic));
     text.append(name, element('small', '', [studyShort(item.url), summary && item.memo].filter(Boolean).join(' · ')));
     main.append(studyMark(item), text);
     const from = element('div', 'when', item.from || '—'); from.append(element('small', '', `${shortDate(item.savedAt)} 저장`));
     const [cls, word] = STUDY_CHIP[item.status] || ['', item.status]; const state = element('div', 'st-state'); state.append(element('span', `chip ${cls}`, word));
-    if (item.status === '검토요청' && item.askedAt) state.append(element('small', '', `${shortDate(item.askedAt)} 요청`));
+    if (item.status === '검토요청' && item.askedAt) state.append(element('small', '', `${shortDate(item.askedAt)} ${item.result ? '다시 ' : ''}요청`));
     if (['검토완료', '적용함', '보류'].includes(item.status) && item.reviewedAt) state.append(element('small', '', `${shortDate(item.reviewedAt)} 분석`));
     const actions = element('div', 'acts');
     if (item.status === '저장') actions.append(button('검토 요청', () => askStudy([item.id])));
@@ -936,12 +941,13 @@
   }
   function setStudyFilter(next) { studyFilter = next; for (const node of $('studyFilters').children) node.classList.toggle('on', node.dataset.filter === next); renderStudies(); }
   for (const node of $('studyFilters').children) node.onclick = () => setStudyFilter(node.dataset.filter);
+  for (const node of $('studyTopics').querySelectorAll('button')) node.onclick = () => { studyTopic = node.dataset.topic; for (const other of $('studyTopics').querySelectorAll('button')) other.classList.toggle('on', other === node); renderStudies(); };
   $('studyAll').onchange = () => { for (const item of studies.filter(item => item.status === '저장')) { if ($('studyAll').checked) studyPicked.add(item.id); else studyPicked.delete(item.id); } renderStudies(); };
   const updateStudy = (ids, changes) => HikaryApi.request('studyUpdate', { ids, ...changes });
-  function askStudy(ids) {
-    void task(async () => { await updateStudy(ids, { status: '검토요청' }); studyPicked.clear(); await loadStudies(); toast(`${ids.length}개 검토 요청했어요 — Claude에서 「스터디 확인해줘」`); });
+  function askStudy(ids, topic = '') {
+    void task(async () => { await updateStudy(ids, { status: '검토요청', ...(topic && { topic }) }); studyPicked.clear(); $('studyAskTopic').value = ''; await loadStudies(); toast(`${ids.length}개 검토 요청했어요 — Claude에서 「스터디 확인해줘」`); });
   }
-  $('studyAsk').onclick = () => askStudy([...studyPicked]);
+  $('studyAsk').onclick = () => askStudy([...studyPicked], $('studyAskTopic').value);
   $('studyForm').onsubmit = event => {
     event.preventDefault();
     void task(async () => {
@@ -956,20 +962,21 @@
     studyNow = item;
     $('studyMeta').textContent = `S${item.no} · ${item.from || ''} · ${shortDate(item.savedAt)} 저장`; $('studyTitle').textContent = studySummary(item) || item.memo || studyShort(item.url);
     $('studyMark').replaceWith(Object.assign(studyMark(item), { id: 'studyMark' }));
-    $('studyLinkText').textContent = studyShort(item.url); $('studyOpen').href = item.url; $('s-memo').value = item.memo || '';
+    $('studyLinkText').textContent = studyShort(item.url); $('studyOpen').href = item.url; $('s-memo').value = item.memo || ''; $('s-topic').value = item.topic || '';
     $('studyReview').hidden = !(item.result || item.direction);
-    $('studyResult').textContent = item.result || ''; $('studyDirection').textContent = item.direction || '—'; $('studyDecision').textContent = item.decision || ''; $('studyDecisionBox').hidden = !item.decision; $('studyReviewedAt').textContent = item.reviewedAt ? `${shortDate(item.reviewedAt)} · 루미` : '';
+    $('studyResult').textContent = item.result || ''; $('studyDirection').textContent = item.direction || '—'; $('studyDecision').textContent = item.decision || ''; $('studyDecisionBox').hidden = !item.decision; $('studyReviewedAt').textContent = item.reviewedAt ? `${shortDate(item.reviewedAt)} · 루미${item.status === '검토요청' ? ' · 다시 요청해서 새 분석이 오면 바뀌어요' : ''}` : '';
     $('studyWaiting').textContent = item.status === '검토요청' ? `${shortDate(item.askedAt)}에 검토 요청했어요. Claude에서 「스터디 확인해줘」라고 하면 루미가 분석을 여기에 남겨요${item.slackTs ? ' — 슬랙 원래 메시지에도 댓글로 알려 드려요' : ''}.` : item.status === '저장' ? '「검토 요청」을 누르면 루미가 볼 목록에 올라가요.' : '';
     $('studyWaiting').hidden = !$('studyWaiting').textContent;
-    const step = (text, changes, done, cls) => button(text, () => void task(async () => { await updateStudy([item.id], { memo: $('s-memo').value.trim(), ...changes }); $('studyDialog').close(); await loadStudies(); toast(done); }), cls);
+    const step = (text, changes, done, cls) => button(text, () => void task(async () => { await updateStudy([item.id], { memo: $('s-memo').value.trim(), topic: $('s-topic').value, ...changes }); $('studyDialog').close(); await loadStudies(); toast(done); }), cls);
     const memo = step('메모 저장', {}, '메모를 저장했어요.', 'btn');
     if (item.status === '저장') $('studyActions').replaceChildren(memo, step('검토 요청', { status: '검토요청' }, '검토 요청했어요 — Claude에서 「스터디 확인해줘」', 'btn primary'));
     else if (item.status === '검토요청') $('studyActions').replaceChildren(step('요청 거두기', { status: '저장' }, '검토 요청을 거뒀어요.', 'btn'), memo);
-    else $('studyActions').replaceChildren(step('보류', { status: '보류' }, '보류로 두었어요.', `btn${item.status === '보류' ? ' picked' : ''}`), step('적용함', { status: '적용함' }, '적용함으로 바꿨어요.', `btn white${item.status === '적용함' ? ' picked' : ''}`));
+    else $('studyActions').replaceChildren(step('다시 요청', { status: '검토요청' }, '다시 요청했어요 — Claude에서 「스터디 확인해줘」', 'btn'), step('보류', { status: '보류' }, '보류로 두었어요.', `btn${item.status === '보류' ? ' picked' : ''}`), step('적용함', { status: '적용함' }, '적용함으로 바꿨어요.', `btn white${item.status === '적용함' ? ' picked' : ''}`));
     $('studyDialog').showModal();
   }
   $('studyClose').onclick = () => $('studyDialog').close();
   $('studyDetailForm').onsubmit = event => event.preventDefault();
+  $('s-topic').onchange = () => void task(async () => { const topic = $('s-topic').value; await updateStudy([studyNow.id], { topic }); studyNow.topic = topic; await loadStudies(); toast(topic ? `말머리를 「${topic}」로 바꿨어요.` : '말머리를 비웠어요.'); });
   $('studyDelete').onclick = () => { if (!confirm('이 링크를 스터디에서 지울까요? 슬랙 메시지는 그대로 남아요.')) return; void task(async () => { await updateStudy([studyNow.id], { delete: true }); $('studyDialog').close(); await loadStudies(); toast('지웠어요.'); }); };
 
   // ── frame: views by hash, ☰ (drawer on a phone, hide the menu on a wide screen), profile menu.

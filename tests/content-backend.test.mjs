@@ -677,6 +677,28 @@ test('v2.16.0 검토 요청 → 루미 분석은 검토완료로 저장하고 �
   assert.match(call('studyUpdate', { ids: ['S1'], status: '의견있음' }).error, /상태/);
 });
 
+test('v2.17.0 말머리: 예전 탭에 칸을 더하고, 웹·도구 모두 바꾸며, 다시 요청은 새 분석이 올 때까지 이전 분석을 남기고 새 분석마다 댓글에 말머리를 단다', () => {
+  const { env, call, fake, rows } = studyEnv();
+  env.context.SpreadsheetApp.openById().insertSheet('스터디'); // the tab as v2.16.0 made it: 14 headers
+  rows().push(['스터디 ID', '번호', '저장 시각', '링크', '플랫폼', '메모', '출처', '상태', '검토 요청 시각', '분석', '개선 방향', '결정', '분석 시각', '슬랙 ts'],
+    ['id-1', 1, '2026-11-14 09:00', 'https://www.instagram.com/reel/OLD/', '인스타', '모션그래픽 릴스', '슬랙', '검토완료', '2026-11-14 09:30', '콘텐츠 관점 분석', '훅을 바꿔요', '', '2026-11-14 11:00', '1794400000.000100']);
+  const before = call('studies').data.studies[0];
+  assert.equal(rows()[0][14], '말머리', '빈 15번째 칸에 「말머리」를 넣는다'); assert.equal(before.topic, '');
+  assert.match(call('studyUpdate', { ids: ['S1'], topic: '개발' }).error, /말머리는/);
+  assert.equal(env.context.updateStudies_({ ids: ['S1'], topic: '콘텐츠' }, 'session').studies[0].topic, '콘텐츠', '웹(세션)도 말머리를 바꾼다');
+  const again = call('studyUpdate', { ids: ['S1'], status: '검토요청', topic: '도구' }).data.studies[0];
+  assert.deepEqual([again.status, again.topic, again.result, again.direction], ['검토요청', '도구', '콘텐츠 관점 분석', '훅을 바꿔요'], '다시 요청해도 이전 분석은 남는다');
+  assert.notEqual(again.askedAt, '2026-11-14 09:30'); assert.equal(fake.posted.length, 0, '다시 요청은 슬랙에 올리지 않는다');
+  const done = call('studyUpdate', { ids: ['S1'], result: '도구 관점 — 모션 템플릿으로', direction: '템플릿에 넣어요' }).data.studies[0];
+  assert.deepEqual([done.status, done.result, done.direction], ['검토완료', '도구 관점 — 모션 템플릿으로', '템플릿에 넣어요'], '새 분석이 덮어쓴다');
+  assert.equal(fake.posted[0].text, '✅ S1 [도구] 루미 분석 도착\n도구 관점 — 모션 템플릿으로\n개선 방향: 템플릿에 넣어요\nhttps://hikary83.github.io/content-manager/#study');
+  call('studyUpdate', { ids: ['S1'], status: '검토요청', topic: '운영' }); call('studyUpdate', { ids: ['S1'], result: '운영 관점', topic: '운영' });
+  assert.equal(fake.posted.length, 2, '다시 분석하면 댓글을 또 단다'); assert.match(fake.posted[1].text, /^✅ S1 \[운영\] 루미 분석 도착\n운영 관점/);
+  assert.equal(call('studyUpdate', { ids: ['S1'], topic: '' }).data.studies[0].topic, '', '비울 수 있다');
+  rows()[0][14] = '누가 쓴 칸';
+  assert.match(call('studies').error, /칸이 예상과 달라요/, '15번째 칸에 다른 내용이 있으면 멈춘다');
+});
+
 test('v2.16.0 10분 결과 받기는 Buffer가 쉬는 중에도 슬랙을 먼저 읽고, 읽기 오류는 웹이 볼 수 있게 남긴다', () => {
   const { env, call, fake, sent } = studyEnv(); fake.history = SLACK_MESSAGES.slice(0, 1);
   env.cache.set('BUFFER_LIMITED', '2026-11-14 09:00');

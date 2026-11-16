@@ -593,3 +593,15 @@ dialog.study-dialog{width:min(720px,calc(100vw - 24px))}
 .sno{display:inline-block;margin-right:7px;padding:0 6px;border-radius:5px;background:var(--raise);border:1px solid var(--line2);color:var(--muted);font-size:11px;font-weight:700;line-height:18px;vertical-align:1px;font-variant-numeric:tabular-nums}
 .h-sub.err{color:var(--err)}
 .study-text.decided{border-left:3px solid var(--ok)}
+/* v3.8.0 말머리: a colored chip before the title, a second filter row, the topic picked when asking */
+.topic{display:inline-block;margin-right:7px;padding:0 7px;border-radius:5px;font-size:11px;font-weight:700;line-height:18px;vertical-align:1px;border:1px solid currentColor;background:color-mix(in srgb,currentColor 14%,transparent)}
+.topic.t-content{color:#ff9d5c}.topic.t-tool{color:#6cb6ff}.topic.t-ops{color:#b99cff}.topic.t-etc{color:#9a9a9a}
+.filter.topics{align-items:center;margin:-4px 0 12px}
+.filter.topics .lbl{font-size:12px;color:var(--dim);margin-right:2px}
+.filter.topics button{padding:3px 10px;font-size:12px}
+.study-ask{display:flex;gap:6px;align-items:center;margin-left:auto}
+.study-ask select{width:auto;padding:5px 10px;font-size:13px;border-radius:8px}
+#s-topic{max-width:260px}
+.btn.sync{width:30px;height:30px;padding:0;font-size:16px}
+.btn.sync.spinning{font-size:0;gap:0} /* the ring alone while it reads */
+#studyView h1 .right{align-items:center}

@@ -7,10 +7,15 @@
 // Slack: syncPublishing (10 minutes) reads #스터디 first (syncStudy_). The app's only message is one answer under the owner's
 // message when the analysis is in (사람: "답변 메세지만 받자", 2026-11-14). The Events API is not used: an Apps Script web app cannot
 // read request headers, so Slack's signature could not be checked on a public address.
+// v2.17.0 말머리 (2026-11-16): which team a link is for — 콘텐츠 (our videos and posts) · 도구 (how we make them) · 운영 (accounts,
+// times, DM, rules) · 기타 — or empty (Lumi decides). Anyone can set it; 「다시 요청」 = back to 검토요청 with a new 말머리, the old
+// analysis stays until the new one replaces it (no history kept). The Slack answer carries it: 「✅ S25 [도구] 루미 분석 도착」.
 var STUDY_SHEET = '스터디';
-var STUDY_HEADERS = ['스터디 ID', '번호', '저장 시각', '링크', '플랫폼', '메모', '출처', '상태', '검토 요청 시각', '분석', '개선 방향', '결정', '분석 시각', '슬랙 ts'];
-var STUDY_KEYS = ['id', 'no', 'savedAt', 'url', 'platform', 'memo', 'from', 'status', 'askedAt', 'result', 'direction', 'decision', 'reviewedAt', 'slackTs'];
+var STUDY_HEADERS = ['스터디 ID', '번호', '저장 시각', '링크', '플랫폼', '메모', '출처', '상태', '검토 요청 시각', '분석', '개선 방향', '결정', '분석 시각', '슬랙 ts', '말머리'];
+var STUDY_KEYS = ['id', 'no', 'savedAt', 'url', 'platform', 'memo', 'from', 'status', 'askedAt', 'result', 'direction', 'decision', 'reviewedAt', 'slackTs', 'topic'];
 var STUDY_STATUSES = ['저장', '검토요청', '검토완료', '적용함', '보류'];
+var STUDY_TOPICS = ['콘텐츠', '도구', '운영', '기타'];
+var STUDY_FIRST_HEADERS = 14; // the tab as v2.16.0 made it; later headers are filled in when their cells are still empty
 var STUDY_WEB = 'https://hikary83.github.io/content-manager/#study';
 var SLACK_ERRORS = {
   not_in_channel: '앱이 #스터디에 없어요. #스터디에서 /invite @HIKARY 해 주세요.',
@@ -32,7 +37,10 @@ function getStudySheet_() {
     sheet.getRange(1, 1, 1, STUDY_HEADERS.length).setValues([STUDY_HEADERS]); sheet.setFrozenRows(1);
     return sheet;
   }
-  if (JSON.stringify(sheet.getRange(1, 1, 1, STUDY_HEADERS.length).getDisplayValues()[0]) !== JSON.stringify(STUDY_HEADERS)) throw userError_('「스터디」 탭의 칸이 예상과 달라요. 데이터를 보호하기 위해 작업을 중단했어요.');
+  if (sheet.getMaxColumns() < STUDY_HEADERS.length) sheet.insertColumnsAfter(sheet.getMaxColumns(), STUDY_HEADERS.length - sheet.getMaxColumns());
+  var headers = sheet.getRange(1, 1, 1, STUDY_HEADERS.length).getDisplayValues()[0];
+  if (headers.some(function(value, index) { return value !== STUDY_HEADERS[index] && !(index >= STUDY_FIRST_HEADERS && value === ''); })) throw userError_('「스터디」 탭의 칸이 예상과 달라요. 데이터를 보호하기 위해 작업을 중단했어요.');
+  if (headers.some(function(value) { return value === ''; })) sheet.getRange(1, 1, 1, STUDY_HEADERS.length).setValues([STUDY_HEADERS]);
   return sheet;
 }
 function studyRows_(sheet) { return sheet.getLastRow() < 2 ? [] : sheet.getRange(2, 1, sheet.getLastRow() - 1, STUDY_HEADERS.length).getValues(); }
@@ -97,7 +105,7 @@ function appendStudies_(sheet, items) {
     if (seen[key] || (item.slackTs && seen['ts:' + item.slackTs])) return;
     seen[key] = true; if (item.slackTs) seen['ts:' + item.slackTs] = true;
     added.push({ id: Utilities.getUuid(), no: String(++no), savedAt: item.savedAt || now, url: item.url, platform: studyPlatform_(item.url), memo: item.memo, from: item.from,
-      status: '저장', askedAt: '', result: '', direction: '', decision: '', reviewedAt: '', slackTs: item.slackTs || '' });
+      status: '저장', askedAt: '', result: '', direction: '', decision: '', reviewedAt: '', slackTs: item.slackTs || '', topic: '' });
   });
   if (!added.length) return added;
   var first = Math.max(2, sheet.getLastRow() + 1);
@@ -117,7 +125,7 @@ function addStudies_(input) {
   return withStudyLock_(function(sheet) { var added = appendStudies_(sheet, list); return { added: added.length, duplicates: list.length - added.length, studies: added }; });
 }
 
-// ids: study ids or numbers (「S12」). The web changes the status and the memo, or deletes; 분석 · 개선 방향 · 결정 come only from
+// ids: study ids or numbers (「S12」). The web changes the status, the memo and the 말머리, or deletes; 분석 · 개선 방향 · 결정 come only from
 // the register tool (Lumi). A new analysis makes the row 검토완료 and is answered under the Slack message it came from.
 function updateStudies_(input, who) {
   var refs = Array.isArray(input.ids) ? input.ids : [];
@@ -126,6 +134,7 @@ function updateStudies_(input, who) {
   ['result', 'direction', 'decision'].forEach(function(key) { if (input[key] !== undefined) text[key] = field_(input[key], 20000); });
   if (Object.keys(text).length && who !== 'tool') throw userError_('분석·결정은 루미가 등록 도구로 써요.');
   if (input.status !== undefined && STUDY_STATUSES.indexOf(input.status) < 0) throw userError_('스터디 상태가 올바르지 않아요.');
+  if (input.topic !== undefined && input.topic !== '' && STUDY_TOPICS.indexOf(input.topic) < 0) throw userError_('말머리는 ' + STUDY_TOPICS.join('·') + ' 중 하나이거나 비워 두세요.');
   var memo = input.memo === undefined ? undefined : field_(input.memo, 1000);
   var answer = [];
   var result = withStudyLock_(function(sheet) {
@@ -148,6 +157,7 @@ function updateStudies_(input, who) {
     var changed = indexes.map(function(index) {
       var entry = entries[index];
       if (memo !== undefined) entry.memo = memo;
+      if (input.topic !== undefined) entry.topic = input.topic;
       Object.keys(text).forEach(function(key) { entry[key] = text[key]; });
       if (text.result) { entry.reviewedAt = now; if (input.status === undefined) entry.status = '검토완료'; }
       if (input.status !== undefined) {
@@ -169,11 +179,12 @@ function updateStudies_(input, who) {
   });
   return result;
 }
-// 「✅ S12 루미 분석 도착 · 한 줄 요약 · 개선 방향 · 웹 링크」 under the owner's own Slack message. Nothing else is posted.
+// 「✅ S12 [도구] 루미 분석 도착 · 한 줄 요약 · 개선 방향 · 웹 링크」 under the owner's own Slack message — once per analysis, so a
+// 다시 요청 is answered again. Nothing else is posted.
 function studyAnswer_(entry) {
   var escape = function(value) { return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); };
   var direction = String(entry.direction || '').trim();
-  var text = '✅ S' + entry.no + ' 루미 분석 도착\n' + escape(studySummary_(entry.result))
+  var text = '✅ S' + entry.no + (entry.topic ? ' [' + entry.topic + ']' : '') + ' 루미 분석 도착\n' + escape(studySummary_(entry.result))
     + (direction ? '\n개선 방향: ' + escape(direction.length > 600 ? direction.slice(0, 600) + '…' : direction) : '') + '\n' + STUDY_WEB;
   slack_('chat.postMessage', { channel: studyProps_().getProperty('SLACK_STUDY_CHANNEL'), thread_ts: entry.slackTs.split('#')[0], text: text, unfurl_links: false, unfurl_media: false }, true);
 }

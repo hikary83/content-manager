@@ -83,6 +83,14 @@ test('v3.7.0 스터디 결과 파일은 ## 분석·개선 방향·결정을 나�
   await studyWrite('S12',file,'적용함',send);
   assert.deepEqual(sent,[['studyUpdate',{ids:['S12'],status:'적용함'}],['studyUpdate',{ids:['S12'],decision:'투어 컷 2초로 가요',status:'적용함'}]]);
   await assert.rejects(()=>studyWrite('S12',file,'의견있음',send),/상태는/);
+  // v3.8.0 말머리: a ## 말머리 section (one word), or the word alone for one or several rows; 없음 empties it; anything else is refused.
+  assert.deepEqual(studySections('## 말머리\n도구\n\n## 분석\n템플릿 쪽으로 다시 봤어요'),{topic:'도구',result:'템플릿 쪽으로 다시 봤어요'});
+  assert.throws(()=>studySections('## 말머리\n개발\n## 분석\n글'),/말머리는/);
+  sent.length=0;
+  await studyWrite('S1, S2','도구',undefined,send); await studyWrite('S3','없음',undefined,send);
+  assert.deepEqual(sent,[['studyUpdate',{ids:['S1','S2'],topic:'도구'}],['studyUpdate',{ids:['S3'],topic:''}]]);
+  await assert.rejects(()=>studyWrite('S1','개발',undefined,send),/말머리는/);
+  fs.rmSync(dir,{recursive:true});
 });
 test('v3.7.0 카톡 「나와의 채팅」 내보내기에서 링크·시각·같이 쓴 말을 뽑는다 (PC·휴대폰 모양)',async()=>{
   const {kakaoLinks}=await import('../tools/register.mjs');

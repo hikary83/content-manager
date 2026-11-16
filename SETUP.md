@@ -1,4 +1,4 @@
-# HIKARY 콘텐츠 관리 v3.7.1
+# HIKARY 콘텐츠 관리 v3.8.0
 
 2026-11-06 · GitHub Pages + Google Apps Script + Google Sheets. 콘텐츠는 Claude에서 만든다.
 
@@ -6,7 +6,7 @@
 
 - 작업 기준은 저장소 맨 위 [CLAUDE.md](CLAUDE.md)(지시서)입니다. 어느 PC에서든 Claude가 이 파일을 먼저 읽습니다.
 - `docs/`: 「기록」(업로드 관리)·「상품 찾기」 두 탭. Pages 설정은 `main` / `/docs`.
-- `backend/`: Apps Script 서버. 웹이 쓰는 동작은 `status` · `list` · `save` · `delete` · `products` · `link` · `request` · `requests` · `requestUpdate` · `publish` · `studies` · `studyAdd` · `studyUpdate` · `studySync`(v3.7.0, `backend/Study.js`), 시간 트리거 `syncPublishing`. Gemini 동작은 되돌리기 대비로 남아 있습니다.
+- `backend/`: Apps Script 서버. 웹이 쓰는 동작은 `status` · `list` · `save` · `delete` · `products` · `link` · `request` · `requests` · `requestUpdate` · `publish` · `studies` · `studyAdd` · `studyUpdate` · `studySync`(v3.7.0, `backend/Study.js` · v3.8.0 말머리), 시간 트리거 `syncPublishing`. Gemini 동작은 되돌리기 대비로 남아 있습니다.
 - `tools/register.mjs`: Claude가 만든 콘텐츠를 운영대장에 등록, 「게시」할 영상(`video`)과 커버(`cover`)를 Cloudinary에 올림. `tools/carousel/`: 캐러셀 HTML → 1080×1350 PNG.
 - `scripts/preview-mock.mjs`: 가짜 데이터로 웹 확인 (http://127.0.0.1:4175/). `scripts/preview-content.mjs`: 실제 서버로 웹 확인 (http://127.0.0.1:4173/).
 - `scripts/reel/`: 사진 4장 + `video-job.json` → ffmpeg 무자막 MP4.
@@ -14,6 +14,16 @@
 - `app/`, `worker/`, `db/` 등은 이전 Sites/React 코드입니다. Pages 배포에는 포함하지 않습니다. 백업 태그: `legacy-chatgpt-sites-2026-08-11`.
 
 ## 최초 연결
+
+### v3.8.0 스터디 말머리 · 다시 요청 (2026-11-16, 서버 2.17.0)
+
+- 스터디 줄마다 **말머리** — 콘텐츠(우리 영상·글: 훅·문구·장면·끝 부탁) · 도구(만드는 기술: 템플릿·AI 영상·음성·효과음·클로드 스킬) · 운영(계정·게시 시간·DM·수익 구조·플랫폼 규정) · 기타(참고만), 또는 빈칸(루미가 정해). 「스터디」 탭 15번 칸 「말머리」 — 서버가 처음 열 때 빈 칸에 머리글을 넣어요 (다른 내용이 있으면 멈춤).
+- 웹: 목록 제목 앞에 말머리 칩, 상태 칩 아래 말머리 칩(전체 · 콘텐츠 · 도구 · 운영 · 기타 · 없음, 상태와 같이 걸러요). 여러 개 골라 「검토 요청」할 때 말머리를 고를 수 있어요 — 기본 「루미가 정해」는 말머리를 보내지 않아 이미 붙은 말머리가 그대로예요. 창에서 말머리를 바꾸면 바로 저장되고, 분석이 온 줄(검토완료·적용함·보류)에는 **「다시 요청」** — 검토요청으로 돌아가고, 이전 분석은 새 분석이 올 때까지 남아요(이력은 쌓지 않고 새 분석이 덮어써요). 「할 일」의 검토 요청 줄에 「다시 요청 n」이 붙어요.
+- 화면: 링크 붙여넣기 칸 아래 안내 문구를 뺐어요. 오른쪽 위는 「11.16 13:44 기준」(슬랙을 마지막으로 읽은 시각, 쿠팡 실적과 같은 모양)과 ↻ 아이콘 하나 — 누르면 바로 읽고 그동안 링이 돌아요. 읽기 오류·연결 전 안내는 그대로예요.
+- 슬랙 댓글: 「✅ S25 [도구] 루미 분석 도착」 — 다시 분석해도 새 분석마다 한 번 달아요.
+- 등록 도구: `studies`가 `[도구]`·`검토요청(다시 요청)`과 이전 분석 첫 줄을 보여 줘요. 결과 파일에 `## 말머리`(한 단어), 말머리만 바꿀 때 `study S12 도구` (`S1,S2,S3`처럼 여러 줄, `없음`은 비우기, 다른 말은 거절).
+- 결정 칸은 다시 요청·새 분석에 그대로예요. 바꾸려면 결과 파일에 `## 결정`을 같이 써요.
+- 배포: 서버 먼저(2.17.0), 그다음 웹. 트리거는 그대로.
 
 ### v3.7.1 캘린더 한 주는 일요일부터 (2026-11-16, 화면만)
 

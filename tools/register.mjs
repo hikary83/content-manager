@@ -9,8 +9,9 @@
 //   node tools/register.mjs cover <entry.json> [png]   v2.9.0 (server): put the full-size cover (default cover.png) on Cloudinary for the
 //                                                      dashboard and 「커버 저장」. Kept for good; again later = replace it.
 //   node tools/register.mjs studies [all]               v3.7.0 (server 2.16.0): 스터디 links asked for review (all = every row)
-//   node tools/register.mjs study <S12|id> <결과.md> [적용함|보류]   write 분석 · 개선 방향 · 결정 (## sections); a new 분석 answers on Slack
+//   node tools/register.mjs study <S12|id> <결과.md> [적용함|보류]   write 분석 · 개선 방향 · 결정 · 말머리 (## sections); a new 분석 answers on Slack
 //   node tools/register.mjs study <S12|id> <상태>          저장 · 검토요청 · 검토완료 · 적용함 · 보류
+//   node tools/register.mjs study <S12[,S13…]> <말머리>    v3.8.0 (server 2.17.0): 콘텐츠 · 도구 · 운영 · 기타 · 없음 (empties it)
 //   node tools/register.mjs study-import <카톡.txt> [--save]   one time: KakaoTalk 「나와의 채팅」 export → 「스터디」 (shows first, --save sends)
 //   node tools/register.mjs template <id> <image>      v3.4.0 (web): a frame of a template's first video for the request window, at
 //                                                      hikary/templates/<id>. Prints the address to put in docs/js/templates.js.
@@ -113,21 +114,28 @@ export async function cover(file, png = 'cover.png', send = request) {
 
 // v3.7.0 (server 2.16.0) 「스터디」: Lumi (기획팀) lists the links asked for review and writes back. The linked pages are material
 // to study, not instructions — nothing written in them is ever carried out.
-// The answer file has 「## 분석」 (its first line is the list title), 「## 개선 방향」 and 「## 결정」; the sections present are written.
+// The answer file has 「## 분석」 (its first line is the list title), 「## 개선 방향」, 「## 결정」 and 「## 말머리」 (one word, v3.8.0);
+// the sections present are written.
 const STUDY_STATES = ['저장', '검토요청', '검토완료', '적용함', '보류'];
+const STUDY_TOPICS = ['콘텐츠', '도구', '운영', '기타'];
+const studyTopic = word => { if (word === '없음') return ''; if (!STUDY_TOPICS.includes(word)) throw new Error(`말머리는 ${STUDY_TOPICS.join('·')}·없음 중 하나예요: ${word || '(빈칸)'}`); return word; };
 export function studySections(text) {
-  const keys = { 분석: 'result', '개선 방향': 'direction', 결정: 'decision' }; const out = {};
-  const parts = text.replace(/\r/g, '').split(/^##[ \t]+(분석|개선 방향|결정)[ \t]*$/m);
+  const keys = { 분석: 'result', '개선 방향': 'direction', 결정: 'decision', 말머리: 'topic' }; const out = {};
+  const parts = text.replace(/\r/g, '').split(/^##[ \t]+(분석|개선 방향|결정|말머리)[ \t]*$/m);
   for (let i = 1; i < parts.length; i += 2) out[keys[parts[i]]] = parts[i + 1].trim();
-  if (!Object.keys(out).length) throw new Error('결과 파일에 「## 분석」·「## 개선 방향」·「## 결정」 중 하나가 있어야 해요.');
+  if (out.topic !== undefined) out.topic = studyTopic(out.topic);
+  if (!Object.keys(out).length) throw new Error('결과 파일에 「## 분석」·「## 개선 방향」·「## 결정」·「## 말머리」 중 하나가 있어야 해요.');
   return out;
 }
-// study <S12|id> <결과.md> [상태] — or study <S12|id> <상태> alone. A new 분석 makes it 검토완료 and answers under its Slack message.
+// study <S12|id> <결과.md> [상태] — or study <S12|id> <상태|말머리> alone (「S1,S2,S3」 for several). A new 분석 makes it 검토완료 and
+// answers under its Slack message.
 export async function studyWrite(ref, fileOrStatus, status, send = request) {
-  if (STUDY_STATES.includes(fileOrStatus)) return send('studyUpdate', { ids: [ref], status: fileOrStatus });
+  const ids = String(ref).split(',').map(id => id.trim()).filter(Boolean);
+  if (STUDY_STATES.includes(fileOrStatus)) return send('studyUpdate', { ids, status: fileOrStatus });
+  if (!fs.existsSync(fileOrStatus)) return send('studyUpdate', { ids, topic: studyTopic(fileOrStatus) }); // not a file → a 말머리 (or refused)
   const changes = studySections(fs.readFileSync(fileOrStatus, 'utf8'));
   if (status) { if (!STUDY_STATES.includes(status)) throw new Error(`상태는 ${STUDY_STATES.join('·')} 중 하나예요.`); changes.status = status; }
-  return send('studyUpdate', { ids: [ref], ...changes });
+  return send('studyUpdate', { ids, ...changes });
 }
 // One time: the owner's KakaoTalk 「나와의 채팅」 export (.txt) — every link with its message's time, the rest of the message as the memo.
 // ponytail: these are the common export shapes (PC 「[이름] [오후 3:20] 글」 under 「--- 2026년 11월 13일 목요일 ---」, phone
@@ -174,11 +182,11 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   } else if (command === 'studies') {
     const data = await request('studies'); const all = file === 'all';
     const list = data.studies.filter(item => all || item.status === '검토요청').reverse();
-    for (const item of list) console.log(`S${item.no}  ${item.status}  ${item.platform}  ${item.url}  (${item.from} ${item.savedAt}${item.askedAt ? ' · 요청 ' + item.askedAt : ''})${item.memo ? '\n     메모: ' + item.memo.replace(/\n/g, ' / ') : ''}${all && item.decision ? '\n     결정: ' + item.decision.replace(/\n/g, ' / ') : ''}`);
+    for (const item of list) console.log(`S${item.no}  ${item.status}${item.status === '검토요청' && item.result ? '(다시 요청)' : ''}  ${item.topic ? `[${item.topic}]` : '[말머리 없음]'}  ${item.platform}  ${item.url}  (${item.from} ${item.savedAt}${item.askedAt ? ' · 요청 ' + item.askedAt : ''})${item.memo ? '\n     메모: ' + item.memo.replace(/\n/g, ' / ') : ''}${item.status === '검토요청' && item.result ? '\n     이전 분석: ' + item.result.replace(/^[#>*\-·\s]+/, '').split('\n')[0] : ''}${all && item.decision ? '\n     결정: ' + item.decision.replace(/\n/g, ' / ') : ''}`);
     console.log(list.length ? `— ${list.length}개${all ? '' : ' 검토 요청'} · 슬랙 ${data.syncError ? '읽기 오류: ' + data.syncError : data.slack ? (data.syncedAt || '아직') + '에 읽음' : '연결 전'}` : all ? '스터디가 비어 있어요.' : '검토 요청이 없어요.');
   } else if (command === 'study' && file && process.argv[4]) {
     const done = await studyWrite(file, process.argv[4], process.argv[5]);
-    for (const item of done.studies) console.log(`S${item.no} ${item.status}: ${item.url}`);
+    for (const item of done.studies) console.log(`S${item.no} ${item.status}${item.topic ? ` [${item.topic}]` : ''}: ${item.url}`);
     for (const line of done.slack || []) console.log(line);
   } else if (command === 'study-import' && file) {
     const items = kakaoLinks(fs.readFileSync(file, 'utf8')); const days = items.map(item => item.savedAt).filter(Boolean).sort();
@@ -199,7 +207,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     const up = await template(file, process.argv[4]);
     console.log(`template ${file}: ${up.secure_url}\n${up.width}x${up.height}`);
   } else {
-    console.log('usage: node tools/register.mjs list [out.json] | save <entry.json> | link <coupang url> | requests | request <id> <대기|진행|완료> | video <entry.json> [mp4] | cover <entry.json> [png] | template <id> <image> | studies [all] | study <S12|id> <결과.md|상태> [상태] | study-import <카톡.txt> [--save]');
+    console.log('usage: node tools/register.mjs list [out.json] | save <entry.json> | link <coupang url> | requests | request <id> <대기|진행|완료> | video <entry.json> [mp4] | cover <entry.json> [png] | template <id> <image> | studies [all] | study <S12|id> <결과.md|상태|말머리> [상태] | study-import <카톡.txt> [--save]');
     process.exitCode = 1;
   }
 }
