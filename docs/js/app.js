@@ -163,13 +163,22 @@
   }
   const toListTop = table => scrollTo({ top: Math.max(0, table.getBoundingClientRect().top + scrollY - 76) }); // under the top bar
   // v3.3.0: long dashboard lists turn pages (●○○, ‹ ›, swipe on a phone) instead of scrolling. Rows per page follow the screen.
+  // v3.8.2: also the request window's template cards (사람: "탬플릿에 좌우 스크롤말고 점점점으로 하자") — size: cards per page by width;
+  // keep: the other pages' cards are hidden, not taken out, so their radios stay in the form (reset, submit). even: the pages share the
+  // cards evenly (7 cards at most 6 a page → 4 + 3), so no page is left with one card; columns stay the size of the fullest page.
   const pages = {};
   const perPage = () => matchMedia('(max-width:640px)').matches ? 3 : innerHeight >= 1000 ? 6 : innerHeight >= 820 ? 5 : 4;
-  function paged(id, nodes) { pages[id] = { nodes, page: pages[id]?.page || 0 }; $(id).style.minHeight = ''; showPage(id); }
+  function paged(id, nodes, opts = {}) { pages[id] = { nodes, page: pages[id]?.page || 0, ...opts }; $(id).style.minHeight = ''; showPage(id); }
+  // Where each page starts (page count → node index), shared by showPage and pageWith.
+  function layout(id) {
+    const { nodes, size: sizeOf = perPage, even } = pages[id]; const size = sizeOf(); const count = Math.max(1, Math.ceil(nodes.length / size));
+    return { size, count, columns: even ? Math.ceil(nodes.length / count) : size, at: i => even ? Math.round(i * nodes.length / count) : Math.min(nodes.length, i * size) };
+  }
+  const pageWith = (id, index) => { const { count, at } = layout(id); let page = 0; while (page < count - 1 && at(page + 1) <= index) page++; return page; };
   function showPage(id, page = pages[id].page) {
-    const { nodes } = pages[id]; const size = perPage(); const count = Math.max(1, Math.ceil(nodes.length / size));
+    const { nodes, keep } = pages[id]; const { size, count, columns, at } = layout(id); pages[id].shownSize = size;
     page = pages[id].page = Math.min(Math.max(0, page), count - 1);
-    const shown = nodes.slice(page * size, page * size + size);
+    const shown = nodes.slice(at(page), at(page + 1));
     if (count > 1) {
       const nav = element('div', 'pager'); const dots = element('span', 'dots');
       if (count <= 8) for (let index = 0; index < count; index++) dots.append(Object.assign(button('', () => flip(id, index - page), index === page ? 'dot on' : 'dot'), { ariaLabel: `${index + 1}쪽` }));
@@ -177,11 +186,12 @@
       nav.append(Object.assign(button('‹', () => flip(id, -1), 'ibtn'), { disabled: page === 0, ariaLabel: '앞 쪽' }), dots, Object.assign(button('›', () => flip(id, 1), 'ibtn'), { disabled: page === count - 1, ariaLabel: '다음 쪽' }));
       shown.push(nav);
     }
-    $(id).replaceChildren(...shown);
+    if (keep) { for (const node of nodes) node.hidden = !shown.includes(node); $(id).style.setProperty('--n', columns); $(id).replaceChildren(...nodes, ...shown.filter(node => !nodes.includes(node))); }
+    else $(id).replaceChildren(...shown);
   }
   // Keep the tallest page's height so the cards below do not jump while turning.
   function flip(id, step) { const box = $(id); box.style.minHeight = `${Math.max(box.offsetHeight, parseFloat(box.style.minHeight) || 0)}px`; showPage(id, pages[id].page + step); }
-  for (const id of ['recentOrders', 'productClicks', 'todo', 'upcoming']) {
+  for (const id of ['recentOrders', 'productClicks', 'todo', 'upcoming', 'askTemplates']) {
     const box = $(id); let start = null; box.classList.add('paged');
     box.addEventListener('touchstart', event => { start = event.touches[0]; }, { passive: true });
     box.addEventListener('touchend', event => {
@@ -190,8 +200,7 @@
       start = null;
     });
   }
-  let pageSize = perPage();
-  addEventListener('resize', () => { if (perPage() === pageSize) return; pageSize = perPage(); for (const id in pages) { $(id).style.minHeight = ''; showPage(id); } });
+  addEventListener('resize', () => { for (const id in pages) if ((pages[id].size || perPage)() !== pages[id].shownSize) { $(id).style.minHeight = ''; showPage(id); } });
 
   // Only the newest call lands: a quiet reload that comes back after a save's own reload must not put older rows back.
   let loadedAt = 0, listCall = 0, requestCall = 0;
@@ -858,13 +867,15 @@
   // so the owner tells Claude 「요청 확인해줘」 and it reads them with tools/register.mjs requests. They show on top of 「콘텐츠」.
   // v3.4.0: a window first — the template (cards from templates.js), the Instagram format and a word to Lumi. Resolves true once sent.
   let asking = null;
-  $('askTemplates').replaceChildren(...TEMPLATES.map((tpl, index) => {
+  const tplPerPage = () => !matchMedia('(max-width:640px)').matches ? 6 : innerWidth < 380 ? 2 : 3; // a computer shows all six on one page
+  const tplCards = TEMPLATES.map((tpl, index) => {
     const card = element('label', 'tpl'); const radio = Object.assign(document.createElement('input'), { type: 'radio', name: 'askTemplate', value: tpl.id, defaultChecked: !!tpl.default });
     const img = element('img'); img.src = /^https:\/\/res\.cloudinary\.com\//.test(tpl.preview) ? tpl.preview.replace('/image/upload/', '/image/upload/w_240,q_auto,f_auto/') : tpl.preview; img.alt = ''; // not lazy: a closed dialog never starts a lazy image
     const name = element('b'); name.append(element('i', '', String(index + 1)), document.createTextNode(tpl.name));
     card.append(radio, img, name, element('span', '', tpl.note)); if (tpl.default) card.append(element('em', 'def', '기본'));
     return card;
-  }));
+  });
+  paged('askTemplates', tplCards, { size: tplPerPage, keep: true, even: true });
   // item: a request already sent — the window shows its choices, saved with requestUpdate while it waits (server 2.11.0).
   function ask(payload, item = null) {
     return new Promise(resolve => {
@@ -881,7 +892,7 @@
       $('askSubmit').textContent = item ? '고친 대로 저장' : '요청하기'; $('askSubmit').hidden = locked; $('askCancel').textContent = locked ? '닫기' : '취소';
       $('askTitle').textContent = (item || payload).productName || payload.sourceUrl.replace(/^https:\/\//, '').split('?')[0];
       $('askDialog').showModal();
-      const picked = form.querySelector('.tpl input:checked')?.closest('.tpl'); $('askTemplates').scrollLeft = picked ? picked.offsetLeft - $('askTemplates').offsetLeft - 8 : 0;
+      const picked = tplCards.findIndex(card => card.querySelector('input').checked); $('askTemplates').style.minHeight = ''; showPage('askTemplates', pageWith('askTemplates', Math.max(0, picked)));
     });
   }
   function closeAsk(sent) { if ($('askDialog').open) $('askDialog').close(); asking?.resolve(sent); asking = null; }

@@ -22,7 +22,7 @@ label>input,label>select,label>textarea{margin-top:6px;font-weight:400;color:var
 .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
 .btn.primary:hover{background:#ff7d36}
 .danger{border:1px solid #5a2a25;border-radius:999px;padding:7px 14px;color:var(--err);font-weight:700;font-size:13px}
-.icon{width:38px;height:38px;border-radius:50%;color:var(--muted);font-size:18px}
+.icon{flex:none;width:38px;height:38px;border-radius:50%;color:var(--muted);font-size:18px} /* v3.8.2: never squeezed by a long title beside it (it was 15×38 on a phone) */
 .icon:hover{background:var(--hover)}
 .ibtn{display:inline-grid;place-items:center;width:32px;height:32px;border-radius:50%;border:1px solid var(--line2);color:var(--ink);font-size:14px;flex:none}
 .ibtn:hover{background:var(--hover)}
@@ -269,7 +269,8 @@ dialog form{display:flex;flex-direction:column;max-height:calc(100dvh - 24px)}
 .dialog-head,.tabs,.dialog-foot{flex:none} /* only the body gives way when a tab is long (SNS squeezed the tabs bar) */
 .dialog-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:18px 22px 8px}
 .dialog-head small{color:var(--accent);font-size:12px;font-weight:700}
-.dialog-head h2{margin:2px 0 0;font-size:20px;letter-spacing:-.4px}
+.dialog-head h2{margin:2px 0 0;font-size:20px;letter-spacing:-.4px;overflow-wrap:anywhere}
+.dialog-head>div{flex:1;min-width:0} /* the title takes the room left and wraps; a long address breaks too */
 .dialog-body{padding:4px 22px 18px;overflow:auto;min-height:0}
 .dialog-foot{display:flex;align-items:center;gap:10px;padding:14px 22px;border-top:1px solid var(--line2)}
 .dialog-foot .r{margin-left:auto;display:flex;gap:8px}
@@ -369,8 +370,9 @@ body.locked{overflow:hidden}
 dialog.ask{width:min(760px,calc(100vw - 24px))}
 h3.q{font-size:14px;margin:16px 0 10px;display:flex;align-items:center;gap:8px}
 h3.q small{font-weight:400;color:var(--dim);font-size:12px}
-.tpls{display:grid;grid-auto-flow:column;grid-auto-columns:calc((100% - 48px) / 5);gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:4px}
-.tpl{position:relative;margin:0;border:1px solid var(--line2);border-radius:12px;padding:8px;display:grid;gap:6px;align-content:start;background:#1a1a1a;cursor:pointer;scroll-snap-align:start;color:var(--ink)}
+.tpls,.tpls.paged{display:grid;grid-template-columns:repeat(var(--n,5),minmax(0,1fr));gap:12px} /* v3.8.2: pages of --n cards (●○○), no sideways scroll */
+.tpls .pager{grid-column:1/-1}
+.tpl{position:relative;margin:0;border:1px solid var(--line2);border-radius:12px;padding:8px;display:grid;gap:6px;align-content:start;background:#1a1a1a;cursor:pointer;color:var(--ink)}
 .tpl input{position:absolute;top:8px;left:8px;width:1px;height:1px;margin:0;opacity:0;pointer-events:none}
 .tpl:has(input:checked){border:2px solid var(--ink);padding:7px;background:#262626}
 .tpl:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
@@ -502,7 +504,6 @@ h3.q small{font-weight:400;color:var(--dim);font-size:12px}
   .search{height:36px;padding:0 12px}
   h1{font-size:22px}
   .latest-hero{aspect-ratio:4/3}
-  .tpls{grid-auto-columns:42%}
   .igs{grid-template-columns:1fr}
   .toast{bottom:84px}
   .legend{display:none}
