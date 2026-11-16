@@ -99,3 +99,14 @@ test('data-voice는 모델 뒤에 말투 — 없으면 0.6B, 말투는 1.7B만',
   assert.throws(()=>voiceOf('<body data-voice="0.6b 밝게">'),/1\.7b만/);
   assert.throws(()=>voiceOf('<body data-voice="3b">'),/data-voice/);
 });
+test('2026-11-16 불빛 반짝임은 사진에 있는 밝은 점에만 — 어두운 바탕의 점 둘은 찾고, 빈 곳에는 찍지 않는다',async()=>{
+  const {findLights,lightsHtml}=await import(pathToFileURL(fileURLToPath(new URL('../tools/motion/lights.mjs',import.meta.url))).href);
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'lights-'));const photo=path.join(dir,'night.png');
+  try{
+    execFileSync('ffmpeg',['-v','error','-y','-f','lavfi','-i','color=c=0x101830:s=1400x1920','-vf','drawbox=x=497:y=497:w=6:h=6:color=white:t=fill,drawbox=x=1097:y=1397:w=6:h=6:color=white:t=fill,drawbox=x=100:y=300:w=4:h=4:color=0xa0a0a0:t=fill','-frames:v','1',photo]);
+    const points=findLights(photo,1400,1920,300,{sky:1000});
+    assert.deepEqual(points.map(p=>[p.kind,Math.round(p.x/10),Math.round(p.y/10)]),[['light',50,50],['light',110,140]],'보이는 부분(300~1380)의 밝은 점 둘만, .cam 좌표로');
+    assert.match(lightsHtml(points),/^<div class="lights"><i style="--x:49\dpx;--y:49\dpx;[^"]*"><\/i><i style="--x:109\dpx;--y:139\dpx;/);
+    assert.equal(findLights(photo,1400,1920,300,{lights:0,stars:5}).length,0,'별은 어두운 하늘의 점만 — 보이는 부분 밖의 회색 점은 안 찍는다');
+  }finally{fs.rmSync(dir,{recursive:true,force:true});}
+});

@@ -15,9 +15,12 @@ import { voiceTrack } from './voice.mjs';
 const UNDER_VOICE = 0.7; // sound-effect level when narration plays too
 
 export const sounds = {
-  whoosh: "anoisesrc=d=0.7:c=pink:a=0.9,bandpass=f=900:width_type=h:w=1600,afade=t=in:d=0.35:curve=qsin,afade=t=out:st=0.35:d=0.35:curve=qsin",
-  swoosh: "anoisesrc=d=1.0:c=pink:a=0.9,bandpass=f=700:width_type=h:w=1200,afade=t=in:d=0.55:curve=qsin,afade=t=out:st=0.55:d=0.45",
-  pop: "aevalsrc='0.8*sin(2*PI*(380+900*exp(-t*45))*t)*exp(-t*28)':d=0.18",
+  // whoosh·swoosh are loudest 0.12·0.15 s after the cue, so a cue on the cut lands on the cut (2026-11-16 — they used to swell for
+  // 0.35·0.55 s and peak that late; earshot timeline caught it). pop's pitch is the integral of its falling frequency
+  // (380 + 900e^-45t Hz) — sin(2π·f(t)·t) dipped below 380 Hz and climbed back 6 semitones, a cheap rising whip (earshot sfx check).
+  whoosh: "anoisesrc=d=0.7:c=pink:a=0.9,bandpass=f=900:width_type=h:w=1600,afade=t=in:d=0.12:curve=qsin,afade=t=out:st=0.12:d=0.58:curve=qsin",
+  swoosh: "anoisesrc=d=1.0:c=pink:a=0.9,bandpass=f=700:width_type=h:w=1200,afade=t=in:d=0.15:curve=qsin,afade=t=out:st=0.15:d=0.85",
+  pop: "aevalsrc='0.8*sin(2*PI*(380*t+20*(1-exp(-t*45))))*exp(-t*28)':d=0.18",
   click: "aevalsrc='0.6*(random(0)*2-1)*exp(-t*260)':d=0.04,highpass=f=1500",
   tick: "aevalsrc='0.5*sin(2*PI*2100*t)*exp(-t*90)':d=0.05",
   thud: "aevalsrc='0.9*sin(2*PI*(55+140*exp(-t*22))*t)*exp(-t*11)':d=0.35",

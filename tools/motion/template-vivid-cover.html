@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><title>HIKARY 썸네일 템플릿 · 생생</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&display=block">
+<style>
+/* 생생(템플릿 6) 영상 썸네일(커버) 1080×1920 (2026-11-16, template-tour-cover.html에서 이름을 바꿨다) — 쇼츠·릴스·틱톡 커버. 모양은 퀴즈 커버(template-quiz-cover.html)와 같고 문구만 다르다
+   (사람: "커버 이미지 느낌은 이전 버전이 좋은데 문구만 개선안이 좋지 않을까?", 2026-11-16). 투어 등 템플릿 1~5 영상은 지금처럼 퀴즈 커버를 쓴다.
+   쓰는 법: contents/<폴더>/cover.html로 복사 → 「…」 자리 글을 바꾸고, 사진은 photo-1.jpg로 옆에 두고 ph 클래스를 뺀다 (영상 첫 장면의 따뜻한 물·김 컷이 좋다) →
+     node tools/carousel/render.mjs contents/<폴더>/cover.html   → cover.png
+   문구: 귀엽고 친근한 한마디 하나를 위아래로 나눈다 (사람: "쫌 귀엽고 친근한건 어때??", 2026-11-16) — 의성어·의태어(뜨끈·퐁당·보글보글)나 말 거는 말투(「~가요」).
+     .head (위 흰 줄) = 한마디 앞부분, 한 줄 9자 안쪽 — 「소나무 아래 온천,」
+     .big (맨 아래 큰 노란 글자) = 한마디 끝 짧은 말 2~5자 — 「뜨끈~」 「퐁당!」 「같이 가요」 (4자를 넘으면 font-size를 210px쯤으로 줄인다)
+     카드 아래 큰 줄 = 「지역 · 종류」 — 「양양 · 온천 리조트」 (프로필 격자에서 어느 숙소인지 이 줄이 알려 준다)
+     카드 아래 작은 줄 = 좋은 점 한 줄 — 「온천 포함 객실도」
+     상품 페이지에 있는 것만 쓴다 — 귀엽게라도 없는 것을 지어내지 않는다 (CLAUDE.md 3장). 업체 이름은 쓰지 않는다 (지역은 쓴다). 퀴즈 말(「어디게?」)·「?」 스티커는 쓰지 않는다.
+   스티커(.emo)는 내용에 맞게 고른다 (온천·스파 ♨️ · 반짝 ✨ · 바다 🌊 · 숲 🌲 · 불멍 🔥). No. 배지(.no)는 카드 왼쪽 위 모서리.
+   인스타·틱톡 프로필 격자는 가운데 3:4(y 240~1680)만 보인다. 글자·카드·배지는 모두 y 260~1560 안에 둔다. 위아래 빈 곳은 일부러 비운다.
+   고지는 맨 위(.disc). 사진: 카드(.ins)와 흐린 바탕(.bg)에 같은 사진을 쓴다. 이름(간판·로고)이 보이는 사진은 피한다.
+   커버는 사람이 앱에서 손으로 바꾼다 (Buffer는 영상 3초 장면을 커버로 쓴다). */
+/* 색: 영상(motion.html)의 :root와 같은 값으로 바꾼다. */
+:root{
+  --point:#e8312f;
+  --on-point:#fff;
+  --hi:#ffe14d;
+  --night:#050a2d;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1080px;height:1920px;overflow:hidden}
+body{position:relative;background:var(--night);font-family:Jua,sans-serif;font-synthesis:none;color:#fff;letter-spacing:-.5px;word-break:keep-all}
+.bg{position:absolute;inset:-60px;background:url(photo-1.jpg) center/cover;filter:blur(26px) brightness(.6);transform:scale(1.2)}
+.shade{position:absolute;inset:0;background:linear-gradient(rgba(5,10,45,.82),rgba(5,10,45,.25) 30%,rgba(5,10,45,.1) 52%,rgba(5,10,45,.55) 72%,rgba(5,10,45,.9))}
+.disc{position:absolute;left:60px;right:60px;top:268px;padding:14px 24px 11px;border-radius:18px;background:rgba(0,0,0,.5);color:rgba(255,255,255,.92);font-size:27px;line-height:1.4;text-align:center}
+.out{text-shadow:5px 5px 0 #000,-5px 5px 0 #000,5px -5px 0 #000,-5px -5px 0 #000,0 7px 0 #000,7px 0 0 #000,-7px 0 0 #000,0 -6px 0 #000}
+.head{position:absolute;left:0;right:0;top:395px;text-align:center;font-size:100px;line-height:1.1}
+.ins{position:absolute;left:90px;top:590px;width:900px;padding:16px 16px 0;border-radius:36px;background:#fff;color:#171717;box-shadow:0 34px 80px rgba(0,0,0,.55);transform:rotate(-3deg)}
+.ins>b{display:block;position:relative;height:500px;border-radius:24px;background:url(photo-1.jpg) var(--x,50%) 50%/cover}
+.ins>p{padding:20px 14px 22px;font-size:50px;line-height:1.1}
+.ins>p small{display:block;margin-top:8px;font-size:32px;color:#8a857c}
+.ph::after{content:attr(data-label) " 자리";position:absolute;inset:0;display:grid;place-items:center;border-radius:inherit;background:rgba(0,0,0,.06);color:rgba(0,0,0,.4);font-size:40px}
+.emo{position:absolute;left:var(--x);top:var(--y);font-size:var(--s);line-height:1;transform:rotate(var(--r))}
+/* No. 배지: 카드 왼쪽 위 모서리에 붙은 스티커 */
+.no{position:absolute;left:40px;top:548px;padding:16px 28px 11px;border-radius:24px;background:var(--point);color:var(--on-point);font-size:50px;line-height:1;text-align:center;box-shadow:0 14px 34px rgba(0,0,0,.45);transform:rotate(-8deg)}
+.no small{display:block;font-size:24px;opacity:.85;margin-bottom:4px}
+.big{position:absolute;left:0;right:0;top:1295px;text-align:center;font-size:270px;line-height:1;color:var(--hi);text-shadow:9px 9px 0 #000,-9px 9px 0 #000,9px -9px 0 #000,-9px -9px 0 #000,0 12px 0 #000,12px 0 0 #000,-12px 0 0 #000,0 -10px 0 #000,0 18px 34px rgba(0,0,0,.5)}
+</style></head>
+<body data-size="1080x1920">
+<div class="bg"></div><div class="shade"></div>
+<p class="disc">이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.</p>
+<p class="head out">한마디 앞부분,</p>
+<div class="ins"><b class="ph" data-label="사진 1"></b><p>지역 · 종류<small>좋은 점 한 줄</small></p></div>
+<p class="no"><small>프로필 링크</small>No.○○○</p>
+<span class="emo" style="--x:850px;--y:520px;--s:150px;--r:8deg">♨️</span>
+<span class="emo" style="--x:900px;--y:1090px;--s:120px;--r:-10deg">✨</span>
+<p class="big">끝말~</p>
+</body></html>
