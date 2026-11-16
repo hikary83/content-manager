@@ -277,12 +277,12 @@
   $('refresh').onclick = () => void task(async () => { await load(); await loadRequests(); await loadReport(); notice(`${rows.length}건을 불러왔어요.`); });
 
   // ── v3.1.0 캘린더 (주간 · 월간): posted and scheduled places by day. An empty day's 「＋」 opens 「게시」 for that day at POST_TIME.
-  const DOW = ['월', '화', '수', '목', '금', '토', '일'];
+  const DOW = ['일', '월', '화', '수', '목', '금', '토']; // v3.7.1: weeks start on Sunday (사람: "일욜로 바꾸자", 2026-11-16) — the order of getDay()
   const STATE_WORD = { done: '올라감', sched: '예약됨', err: '오류' };
   const dayKey = date => date.toLocaleDateString('sv-SE');
   const today = () => dayKey(new Date());
   const addDays = (date, n) => { const day = new Date(date); day.setDate(day.getDate() + n); return day; };
-  const startOfWeek = date => { const day = new Date(date); day.setHours(0, 0, 0, 0); return addDays(day, -((day.getDay() + 6) % 7)); };
+  const startOfWeek = date => { const day = new Date(date); day.setHours(0, 0, 0, 0); return addDays(day, -day.getDay()); };
   let mode = 'list';
   try { if (localStorage.getItem('hikary-content-mode') === 'calendar') mode = 'calendar'; } catch {} // remembered per browser
   let calView = 'week';
@@ -343,7 +343,7 @@
     $('monthGrid').replaceChildren(...cells);
     // The chosen day, then this month in numbers.
     const date = new Date(selectedDay + 'T00:00'); const items = eventsOn(list, selectedDay);
-    const dayCard = element('section', 'card'); const title = element('h2', '', `${date.getMonth() + 1}월 ${date.getDate()}일 (${DOW[(date.getDay() + 6) % 7]})`);
+    const dayCard = element('section', 'card'); const title = element('h2', '', `${date.getMonth() + 1}월 ${date.getDate()}일 (${DOW[date.getDay()]})`);
     if (selectedDay === today()) title.append(element('small', '', '오늘'));
     dayCard.append(title, ...items.map(eventCard));
     if (!items.length) {
