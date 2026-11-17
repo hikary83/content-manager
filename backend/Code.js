@@ -1,5 +1,5 @@
 /* HIKARY only. No credentials or endpoints from kic-worktools. */
-var SERVICE_VERSION = '2.20.0';
+var SERVICE_VERSION = '2.21.0';
 // Columns 1-14 are the original ledger. 15-21 (v1.7.0), 22-27 (v2.2.0), 28-30 (v2.3.0), 31-36 (v2.6.0), 37 (v2.9.0), 38 (v2.10.0), 39-40 (v2.13.0) and 41 (v2.15.0) are appended so existing rows never move.
 // v2.2.0: one row per product. Instagram columns are the reel; the card news (carousel) has its own upload columns.
 // v2.3.0: KittyChat keyword and DM text, and a small Inpock thumbnail as a data URL. 「카드뉴스 문구」 is no longer filled.
@@ -54,7 +54,7 @@ function doPost(event) {
     else if (action === 'report') data = coupangReport_(payload); // v2.8.0: Partners reports for the dashboard (Coupang.js)
     else if (action === 'request') data = addRequest_(payload); // v2.5.0: 루미한테 요청하기 (Requests.js)
     else if (action === 'requests') data = readRequests_();
-    else if (action === 'requestUpdate') data = updateRequest_(payload);
+    else if (action === 'requestUpdate') data = updateRequest_(payload, who); // v2.21.0: a draft only with the tool key
     else if (action === 'studies') data = readStudies_(); // v2.16.0: 스터디 (Study.js)
     else if (action === 'studyAdd') data = addStudies_(payload);
     else if (action === 'studyUpdate') data = updateStudies_(payload, who);

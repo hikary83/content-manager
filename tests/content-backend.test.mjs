@@ -230,7 +230,7 @@ test('요청은 「요청」 탭을 처음 쓸 때 만들고, 같은 주소가 �
   assert.deepEqual(call('requests',{}).data.requests,[]);
   const first=call('request',{productName:'서울랜드',sourceUrl:'https://trip.coupang.com/tp/products/30000001063207',affiliateUrl:'https://link.coupang.com/a/abc',from:'주소로 만들기'});
   assert.equal(first.ok,true);assert.equal(first.data.duplicate,false);assert.equal(first.data.request.status,'대기');
-  assert.deepEqual(env.tabs.get('요청').rows[0],['요청 ID','요청 시각','상태','상품명','쿠팡 주소','파트너스 링크','메모','어디서','템플릿','인스타 형식']);
+  assert.deepEqual(env.tabs.get('요청').rows[0],['요청 ID','요청 시각','상태','상품명','쿠팡 주소','파트너스 링크','메모','어디서','템플릿','인스타 형식','초안 영상','초안 커버','초안 올린 때']);
   assert.deepEqual([first.data.request.template,first.data.request.instagramType],['','릴스'],'고르지 않으면 템플릿은 비우고 인스타는 릴스');
   const again=call('request',{sourceUrl:'https://trip.coupang.com/tp/products/30000001063207'});
   assert.equal(again.data.duplicate,true);assert.equal(again.data.request.id,first.data.request.id);
@@ -451,7 +451,7 @@ test('v2.10.0 요청은 템플릿·인스타 형식·한마디를 남기고, v2.
   env.context.SpreadsheetApp.openById().insertSheet('요청'); const tab=env.tabs.get('요청');
   tab.rows.push(['요청 ID','요청 시각','상태','상품명','쿠팡 주소','파트너스 링크','메모','어디서'],['old-1','2026-11-10 14:05','완료','서울랜드','https://trip.coupang.com/tp/products/1','','','소재 찾기']);
   const made=call('request',{sourceUrl:'https://www.coupang.com/vp/products/9',template:'photo',instagramType:'캐러셀',note:'사우나 장면 꼭'}).data.request;
-  assert.deepEqual(tab.rows[0].slice(8),['템플릿','인스타 형식']); assert.deepEqual(tab.rows[1].slice(0,3),['old-1','2026-11-10 14:05','완료'],'예전 줄은 그대로');
+  assert.deepEqual(tab.rows[0].slice(8),['템플릿','인스타 형식','초안 영상','초안 커버','초안 올린 때']); assert.deepEqual(tab.rows[1].slice(0,3),['old-1','2026-11-10 14:05','완료'],'예전 줄은 그대로');
   assert.deepEqual([made.template,made.instagramType,made.note],['photo','캐러셀','사우나 장면 꼭']);
   const listed=call('requests',{}).data.requests; assert.equal(listed[0].template,'photo'); assert.equal(listed[1].instagramType,'');
   assert.match(call('request',{sourceUrl:'https://www.coupang.com/vp/products/8',instagramType:'스토리'}).error,/릴스나 캐러셀/);
@@ -729,4 +729,66 @@ test('v2.16.0 10분 결과 받기는 Buffer가 쉬는 중에도 슬랙을 먼저
   fake.error = 'not_in_channel'; env.props.set('STUDY_SLACK_TS', '');
   env.context.syncPublishing();
   assert.match(call('studies').data.syncError, /invite @HIKARY/);
+});
+
+// v2.21.0 초안 (Requests.js): Lumi's phone-size draft on the request row — tool key only, under hikary/drafts/ on our Cloudinary,
+// taken off Cloudinary when the request is done or deleted, or 30 days after the upload (syncDrafts_ in the 10-minute trigger).
+const DRAFT = 'https://res.cloudinary.com/mycloud/video/upload/v1794900000/hikary/drafts/REQ.mp4';
+const DRAFT_COVER = 'https://res.cloudinary.com/mycloud/image/upload/v1794900000/hikary/drafts/REQ-cover.png';
+function draftEnv() {
+  const env = runtime();
+  for (const [key, value] of Object.entries({ CLOUDINARY_CLOUD_NAME: 'mycloud', CLOUDINARY_API_KEY: '123', CLOUDINARY_API_SECRET: 'cloud-secret' })) env.props.set(key, value);
+  env.context.METRICS_HOUR = 24;
+  const destroyed = []; const state = { fail: false };
+  env.context.UrlFetchApp.fetch = (url, options) => { destroyed.push({ url, payload: options.payload }); return { getResponseCode: () => state.fail ? 500 : 200, getContentText: () => JSON.stringify({ result: 'ok' }) }; };
+  const call = (action, payload, token) => JSON.parse(env.context.doPost({ postData: { contents: JSON.stringify({ action, payload, ...(token !== undefined && { token }) }) } }).text);
+  const add = n => call('request', { sourceUrl: `https://trip.coupang.com/tp/products/${n}`, productName: '강릉 펜션' }).data.request;
+  const urls = id => ({ draftUrl: DRAFT.replace('REQ', id), draftCover: DRAFT_COVER.replace('REQ', id) });
+  const row = id => env.tabs.get('요청').rows.find(line => line[0] === id);
+  const ids = () => destroyed.map(item => `${item.url.replace('https://api.cloudinary.com/v1_1/mycloud/', '')} ${item.payload.public_id}`);
+  return { env, call, add, urls, row, destroyed, ids, state };
+}
+test('v2.21.0 초안은 도구 키로만 우리 Cloudinary hikary/drafts/ 주소를 요청 줄에 남기고, 올린 때를 적는다', () => {
+  const { env, call, add, urls, row, destroyed } = draftEnv(); const made = add(1);
+  const done = call('requestUpdate', { id: made.id, draft: true, ...urls(made.id) }).data.request;
+  assert.deepEqual([done.draftUrl, done.draftCover], [urls(made.id).draftUrl, urls(made.id).draftCover]); assert.match(done.draftAt, /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
+  assert.deepEqual(row(made.id).slice(10), [done.draftUrl, done.draftCover, done.draftAt]); assert.equal(done.status, '대기', '상태는 그대로');
+  assert.deepEqual(['draftUrl', 'draftCover', 'draftAt'].map(key => call('requests', {}).data.requests[0][key]), [done.draftUrl, done.draftCover, done.draftAt]);
+  env.props.set('LOGIN_ID', 'hikary'); env.props.set('LOGIN_PASSWORD', 'pass-word-123');
+  const token = call('login', { id: 'hikary', password: 'pass-word-123' }, null).data.token;
+  assert.match(call('requestUpdate', { id: made.id, draft: true, ...urls(made.id) }, token).error, /등록 도구로만/, '웹 로그인으로는 못 쓴다');
+  for (const bad of ['https://res.cloudinary.com/mycloud/video/upload/v1/hikary/abc.mp4', 'https://res.cloudinary.com/other/video/upload/v1/hikary/drafts/x.mp4', 'https://evil.invalid/hikary/drafts/x.mp4', ''])
+    assert.match(call('requestUpdate', { id: made.id, draft: true, draftUrl: bad }).error, /초안 영상/);
+  assert.match(call('requestUpdate', { id: made.id, draft: true, draftUrl: urls(made.id).draftUrl, draftCover: 'https://res.cloudinary.com/mycloud/image/upload/v1/hikary/covers/x.png' }).error, /초안 커버/);
+  call('requestUpdate', { id: made.id, edit: true, productName: '고친 이름' }); assert.equal(row(made.id)[10], done.draftUrl, '대기 요청을 고쳐도 초안은 그대로');
+  assert.equal(destroyed.length, 0, '올리기만 해서는 아무것도 지우지 않는다');
+});
+test('v2.21.0 초안은 완료·지우기 하면 Cloudinary에서 지우고, 실패하면 남겼다가 10분 정리에서, 30일 지나면 진행 중이어도 지운다', () => {
+  const { env, call, add, urls, row, destroyed, ids, state } = draftEnv();
+  const a = add(1), b = add(2), c = add(3), d = add(4);
+  for (const item of [a, b, c, d]) call('requestUpdate', { id: item.id, draft: true, ...urls(item.id) });
+  // done → both files go at once (video then cover, signed like the posting video)
+  const done = call('requestUpdate', { id: a.id, status: '완료' }).data.request;
+  assert.deepEqual([done.status, done.draftUrl, done.draftCover, done.draftAt], ['완료', '', '', '']); assert.deepEqual(row(a.id).slice(10), ['', '', '']);
+  assert.deepEqual(ids(), [`video/destroy hikary/drafts/${a.id}`, `image/destroy hikary/drafts/${a.id}-cover`]);
+  const { timestamp, signature } = destroyed[1].payload;
+  assert.equal(signature, createHash('sha1').update(`invalidate=true&public_id=hikary/drafts/${a.id}-cover&timestamp=${timestamp}cloud-secret`).digest('hex'));
+  assert.match(call('requestUpdate', { id: a.id, draft: true, ...urls(a.id) }).error, /등록을 마친 요청/);
+  // Cloudinary failing: done keeps the cells, the 10-minute sweep clears them later (no Buffer key needed)
+  destroyed.length = 0; state.fail = true;
+  assert.equal(call('requestUpdate', { id: b.id, status: '완료' }).data.request.draftUrl, urls(b.id).draftUrl);
+  state.fail = false; destroyed.length = 0; env.context.syncPublishing();
+  assert.deepEqual(ids(), [`video/destroy hikary/drafts/${b.id}`, `image/destroy hikary/drafts/${b.id}-cover`]); assert.deepEqual(row(b.id).slice(10), ['', '', '']);
+  // delete takes the files too
+  destroyed.length = 0; assert.equal(call('requestUpdate', { id: c.id, delete: true }).data.deleted, true);
+  assert.deepEqual(ids(), [`video/destroy hikary/drafts/${c.id}`, `image/destroy hikary/drafts/${c.id}-cover`]); assert.equal(row(c.id), undefined);
+  // still being made: kept, until 30 days after the upload
+  destroyed.length = 0; env.context.syncPublishing(); assert.equal(destroyed.length, 0, '진행 중이고 30일 전이면 그대로');
+  row(d.id)[12] = '2026-01-01 09:00'; env.context.syncPublishing();
+  assert.deepEqual(ids(), [`video/destroy hikary/drafts/${d.id}`, `image/destroy hikary/drafts/${d.id}-cover`]); assert.deepEqual(row(d.id).slice(10), ['', '', '']);
+  destroyed.length = 0; env.context.syncPublishing(); assert.equal(destroyed.length, 0, '지울 초안이 없으면 Cloudinary를 부르지 않는다');
+});
+test('v2.21.0 「요청」 탭이 없으면 10분 정리가 탭을 만들지 않는다', () => {
+  const env = runtime(); env.context.METRICS_HOUR = 24;
+  env.context.syncPublishing(); assert.equal(env.tabs.has('요청'), false);
 });

@@ -158,13 +158,17 @@ function videoPublicId_(url) {
 }
 // true when the video is gone (or was never ours); false keeps the address for the next run.
 function deleteVideo_(url) {
+  if (!cloudinary_()) return false;
+  var id = videoPublicId_(url); return id ? destroyCloudinary_('video', id) : true;
+}
+// One signed destroy (resource 'video' or 'image', v2.21.0 drafts too); invalidate also drops the CDN copies.
+function destroyCloudinary_(resource, id) {
   var config = cloudinary_(); if (!config) return false;
-  var id = videoPublicId_(url); if (!id) return true;
   var timestamp = String(Math.floor(Date.now() / 1000));
   var signature = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_1, 'invalidate=true&public_id=' + id + '&timestamp=' + timestamp + config.secret, Utilities.Charset.UTF_8)
     .map(function(byte) { return ('0' + ((byte + 256) % 256).toString(16)).slice(-2); }).join('');
   try {
-    var response = UrlFetchApp.fetch('https://api.cloudinary.com/v1_1/' + config.cloud + '/video/destroy', { method: 'post', payload: { invalidate: 'true', public_id: id, timestamp: timestamp, api_key: config.key, signature: signature }, muteHttpExceptions: true });
+    var response = UrlFetchApp.fetch('https://api.cloudinary.com/v1_1/' + config.cloud + '/' + resource + '/destroy', { method: 'post', payload: { invalidate: 'true', public_id: id, timestamp: timestamp, api_key: config.key, signature: signature }, muteHttpExceptions: true });
     if (response.getResponseCode() !== 200) return false;
     var result = JSON.parse(response.getContentText()).result;
     return result === 'ok' || result === 'not found';
@@ -252,6 +256,7 @@ function publish_(input) {
 // 2026-11-11, and the refusals were swallowed, so the ledger silently stopped filling.
 function syncPublishing() {
   try { syncStudy_(); } catch (_) {} // v2.16.0: Slack #스터디 first (Study.js) — nothing to do with Buffer, so it runs while Buffer rests too
+  try { syncDrafts_(); } catch (_) {} // v2.21.0: drafts of done or old requests leave Cloudinary (Requests.js) — no Buffer either
   if (bufferLimitedAt_()) return; // resting after Buffer's 「too many」; the first run after the hour catches up
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(30000)) return; // a save is running; the next run catches up
