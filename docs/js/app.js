@@ -437,22 +437,27 @@
   function renderCoupang() {
     const note = $('coupangNote');
     if (!report || report.error) {
-      for (const id of ['coupangTotals', 'coupangBars', 'coupangAxis']) $(id).replaceChildren();
+      for (const id of ['coupangTotals', 'coupangBars', 'coupangAxis', 'monthTotals']) $(id).replaceChildren(); $('monthNote').hidden = true;
       note.textContent = report ? report.error : '불러오는 중…'; note.hidden = false; $('coupangUpdated').textContent = '';
       paged('productClicks', []); paged('recentOrders', []); return;
     }
     // Daily totals come from the commission report (click · order · commission per day); days without a row are zero.
     const byDay = new Map((report.reports.commission || []).map(item => [String(item.date), item]));
     const days = []; for (let day = reportDay(report.startDate); dayKey(day).replaceAll('-', '') <= report.endDate; day = addDays(day, 1)) days.push(dayKey(day).replaceAll('-', ''));
-    // v3.8.5: every Coupang area is the Partners site's 「이번 달」 — the server sends the 1st to yesterday (the same 5 numbers as the site).
-    // On the 1st there is no day yet: zeros and a short note.
+    // v3.8.6: the two cards of the Partners home. 쿠팡 실적 = 「일별 실적」: the 30 days the server asks for (to yesterday).
+    // 이번 달 집계 = the 1st to yesterday, counted inside those days (no extra call); on the 1st it is empty — zeros and a note.
     const tick = day => `${day.slice(4, 6)}.${day.slice(6, 8)}`;
-    const range = `이번 달 · ${tick(report.startDate)}~${days.length ? tick(report.endDate) : ''}`;
-    const sum = key => days.reduce((total, day) => total + (Number(byDay.get(day)?.[key]) || 0), 0);
+    const span = list => `${tick(list[0])}~${tick(list.at(-1))}`;
+    const monthStart = dayKey(addDays(reportDay(report.endDate), 1)).slice(0, 7).replace('-', '') + '01';
+    const month = days.filter(day => day >= monthStart);
     const money = value => `₩${Math.round(value).toLocaleString('ko-KR')}`;
     const box = (value, name, accent) => { const node = element('div', accent ? 'accent' : ''); node.append(element('b', '', value), element('span', '', name)); return node; };
-    $('coupangTotals').replaceChildren(box(String(sum('click')), '클릭'), box(String(sum('order')), '구매'), box(`${(sum('click') ? sum('order') / sum('click') * 100 : 0).toFixed(2)}%`, '전환율'),
-      box(money(sum('gmv')), '합산 금액'), box(money(sum('commission')), '수익', true));
+    const five = list => {
+      const sum = key => list.reduce((total, day) => total + (Number(byDay.get(day)?.[key]) || 0), 0);
+      return [box(String(sum('click')), '클릭'), box(String(sum('order')), '구매'), box(`${(sum('click') ? sum('order') / sum('click') * 100 : 0).toFixed(2)}%`, '전환율'),
+        box(money(sum('gmv')), '합산 금액'), box(money(sum('commission')), '수익', true)];
+    };
+    $('coupangTotals').replaceChildren(...five(days)); $('monthTotals').replaceChildren(...five(month));
     const most = Math.max(1, ...days.map(day => Number(byDay.get(day)?.click) || 0));
     $('coupangBars').replaceChildren(...days.map(day => {
       const item = byDay.get(day) || {}; const click = Number(item.click) || 0; const order = Number(item.order) || 0;
@@ -463,17 +468,19 @@
     const failed = Object.keys(report.errors || {});
     $('coupangUpdated').textContent = `최근 업데이트 ${tick(report.endDate)}`; // v3.8.5: like the site — the last day counted
     $('coupangUpdated').title = `파트너스 계정 전체 · 쿠팡에서 받아 온 시각 ${shortDate(new Date(report.fetchedAt).toLocaleString('sv-SE').slice(0, 16))} · 쿠팡은 하루 한 번 집계해서 오늘 숫자는 내일 들어와요`;
-    $('coupangRange').textContent = range; $('ordersRange').textContent = `${range} · 계정 전체`; $('clicksRange').textContent = `${range} · HIKARY 콘텐츠`;
-    $('clicksHead').textContent = `쿠팡 클릭 · ${Number(report.startDate.slice(4, 6))}월`;
-    note.textContent = failed.length ? `${failed.join('·')} 리포트를 받지 못했어요` : days.length ? '' : '이번 달 집계는 내일부터 보여요'; note.hidden = !note.textContent;
-    // HIKARY products by clicks, then the latest orders of the whole account.
+    // 상품별 클릭 and the list's 쿠팡 클릭 column keep the 30 days too (clicks are not empty at the start of a month).
+    $('coupangRange').textContent = `최근 30일 · ${span(days)}`; $('clicksRange').textContent = `최근 30일 · ${span(days)} · HIKARY 콘텐츠`; $('clicksHead').textContent = '쿠팡 클릭 · 30일';
+    $('ordersRange').textContent = `${month.length ? span(month) : `${tick(monthStart)}~`} · 계정 전체`;
+    $('monthNote').textContent = '이번 달 집계는 내일부터 보여요'; $('monthNote').hidden = !!month.length;
+    note.textContent = failed.length ? `${failed.join('·')} 리포트를 받지 못했어요` : ''; note.hidden = !failed.length;
+    // HIKARY products by clicks (30 days), then this month's orders of the whole account.
     const products = rows.map(row => ({ row, stats: productStats(row) })).filter(item => item.stats).sort((a, b) => b.stats.clicks - a.stats.clicks || b.row.createdAt.localeCompare(a.row.createdAt));
     paged('productClicks', products.length ? products.map(({ row, stats }) => {
       const line = element('div', 'trow'); line.style.cursor = 'pointer'; line.onclick = () => openDetail(row);
       line.append(thumb(row), element('span', '', label(row)), element('b', 'num', `클릭 ${stats.clicks}${stats.orders ? ` · 주문 ${stats.orders} · ${won(stats.commission)}` : ''}`)); return line;
     }) : [emptyBox('상품 주소에서 번호를 찾지 못했어요')]);
     const ids = new Set(rows.map(productId).filter(Boolean));
-    const orders = [...(report.reports.orders || [])].sort((a, b) => String(b.date).localeCompare(String(a.date)));
+    const orders = [...(report.reports.orders || [])].filter(item => String(item.date) >= monthStart).sort((a, b) => String(b.date).localeCompare(String(a.date)));
     paged('recentOrders', orders.length ? orders.map(item => {
       const line = element('div', 'trow'); const text = element('span', 'order-name', String(item.productName || '상품'));
       if (ids.has(String(item.ctag))) text.prepend(element('span', 'chip done', 'HIKARY'));

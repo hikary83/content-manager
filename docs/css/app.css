@@ -352,10 +352,11 @@ body.locked{overflow:hidden}
 .bars i.hi{background:var(--accent)}
 .axis{display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-top:4px}
 .axis:empty{display:none}
-/* v3.8.5: 이번 달 — 클릭 · 구매 · 전환율 on the first row, 합산 금액 · 수익 (wider, for won amounts) on the second */
+/* v3.8.5: five Coupang numbers — 클릭 · 구매 · 전환율 on the first row, 합산 금액 · 수익 (wider, for won amounts) on the second */
 .stats.five{grid-template-columns:repeat(6,1fr)}
 .stats.five div{grid-column:span 2}
 .stats.five div:nth-child(n+4){grid-column:span 3}
+.month-orders{margin-top:12px} /* v3.8.6: this month's orders under its five numbers */
 .trow .num{margin-left:auto;font-size:12.5px;white-space:nowrap}
 .trow .thumb{width:48px;height:27px;font-size:10px}
 .order-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}

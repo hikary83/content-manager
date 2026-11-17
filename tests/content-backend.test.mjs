@@ -425,14 +425,12 @@ test('v2.8.0 쿠팡 리포트는 클릭·주문·수익을 서명해 부르고, 
   };
   const call = payload => JSON.parse(env.context.doPost({ postData: { contents: JSON.stringify({ action: 'report', payload }) } }).text);
   const clock = iso => vm.runInContext(`Date.now = () => ${Date.parse(iso)}`, env.context);
-  clock('2026-12-01T03:00:00Z'); const firstDay = call({});
-  assert.deepEqual([firstDay.data.startDate, firstDay.data.endDate, firstDay.data.reports.commission, sent.length], ['20261201', '20261130', [], 0], 'v2.19.0: 매달 1일에는 받을 날이 없어 부르지 않는다');
   clock('2026-11-17T03:00:00Z'); const first = call({});
   assert.equal(first.ok, true); assert.equal(sent.length, 3);
   assert.deepEqual(sent.map(item => item.url.split('?')[0].split('/').pop()), ['clicks', 'orders', 'commission']);
   for (const item of sent) { assert.match(item.url, /\/reports\/\w+\?startDate=[\d-]+&endDate=[\d-]+$/); assert.match(item.options.headers.Authorization, /^CEA algorithm=HmacSHA256, access-key=access-example/); assert.equal(item.options.method, 'get'); }
-  assert.deepEqual([first.data.startDate, first.data.endDate], ['20261101', '20261116'], 'v2.19.0: 쿠팡 사이트 「이번 달」처럼 1일~어제');
-  for (const item of sent) assert.match(item.url, /\?startDate=20261101&endDate=20261116$/);
+  assert.deepEqual([first.data.startDate, first.data.endDate], ['20261018', '20261116'], 'v2.20.0: 쿠팡 홈 「일별 실적」처럼 어제까지 30일 (양 끝 포함)');
+  for (const item of sent) assert.match(item.url, /\?startDate=20261018&endDate=20261116$/);
   assert.deepEqual(first.data.reports.clicks, [{ date: '20261111', click: 3 }]); assert.equal(first.data.reports.orders, undefined);
   assert.match(first.data.errors.orders, /요청을 받지 않았어요/); assert.equal(first.data.usage.remaining, 17);
   const again = call({}); assert.equal(again.data.fromCache, true); assert.equal(sent.length, 3, '6시간 안에는 다시 부르지 않는다');
