@@ -191,8 +191,9 @@ h1 .right{margin-left:auto;display:flex;gap:8px}
 .legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;background:#555}
 .legend i.ok{background:var(--ok)}.legend i.sched{background:var(--accent)}.legend i.err{background:var(--err)}
 .table{border-top:1px solid var(--line)}
-.tr{display:grid;grid-template-columns:minmax(0,2.2fr) 200px minmax(0,1fr) 96px 76px 150px;align-items:center;gap:14px;padding:11px 8px;border-bottom:1px solid var(--line)}
+.tr{display:grid;grid-template-columns:minmax(0,2.2fr) 200px minmax(0,1fr) 96px 100px 150px;align-items:center;gap:14px;padding:11px 8px;border-bottom:1px solid var(--line)}
 .tr.th{font-size:12px;color:var(--muted);font-weight:600;padding:9px 8px;position:sticky;top:56px;z-index:5;background:var(--bg)} /* v3.8.4: stays under the top bar while the list scrolls (Studio) — phones hide it */
+.tr.th>span{white-space:nowrap} /* v3.8.7: one line each (「쿠팡 클릭 · 30일」 broke into two in a 76px column, 사람: "줄바꿈 안되게") */
 .tr.row{cursor:pointer;border-radius:8px}
 .tr.row:hover{background:var(--hover)}
 .item{display:flex;align-items:center;gap:12px;min-width:0}
