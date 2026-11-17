@@ -120,7 +120,7 @@ em,i{font-style:normal}
    AI 없이 CSS로만 — 사진 픽셀은 그대로 두고 위에 겹친다. **사진에 실제로 찍힌 것 위에만** 그것에 맞는 효과를 쓴다:
      | 사진에 찍힌 것                          | 효과                                   | 하지 말 것                                                  |
      | 따뜻한 물 (온천·노천탕·스파·온수풀)      | 김 .steam + 물결 빛 .shimmer            | 차가운 물(수영장·바다)에 김 · 탕을 덮어 윤곽을 가리기        |
-     | 물 (밝지 않은 수면)                      | 물결 빛 .shimmer                        | 물 밖(돌턱·바닥)으로 번지게 (--clip으로 자른다) · 거품 많은 밝은 물(안 보임) |
+     | 물 (수영장·풀빌라 풀·탕의 수면)          | 물결 빛 .shimmer                        | 물 밖(돌턱·바닥)·물 위에 뜬 물건으로 번지게 (--clip으로 자른다) · 거품 많은 흰 물(안 보임) |
      | 밤의 별·창문·조명                        | 반짝임 .lights (lights.mjs가 찾은 자리만) | 손으로 점 찍기 · 없는 별·불빛                                |
      | 불 (불멍·화로·바베큐 숯불)              | 불꽃 일렁임 .fire                        | 불이 안 붙은 화로·그릴 · 불을 키우거나 번지게                  |
      | 나중에 더할 것 — 그 상품이 올 때         | 분수·폭포 물 흐름 · 바다 윤슬 등          |                                                              |
@@ -133,8 +133,10 @@ em,i{font-style:normal}
           세기 --k (기본 .55 · .35 ~ .7). 줄기마다 크기·빠르기·흔들림·진하기가 달라 똑같이 되풀이되지 않고, 0초 프레임에도 이미 올라가고 있다.
           흰 김이라 어두운 물·벽·나무 앞에서 잘 보이고, 햇빛 든 밝은 실내(흰 벽·밝은 물) 앞에서는 거의 안 보인다 — 그런 컷은 물결이 움직임을 맡는다.
      물결 <div class="shimmer" style="--x:0px;--y:1150px;--w:1080px;--h:770px;--clip:polygon(0 0,100% 0,100% 100%,0 100%)"></div>
-          물 영역 상자 + 물 모양을 따라 자를 --clip (상자 기준 %). 빛 무늬는 멀수록(위로 갈수록) 작아지고, 두 겹이 다른 길로 흘러가며 번갈아 밝아진다.
-          세기 --k (기본 .55). 거품이 많은 밝은 물에는 안 보이니 쓰지 않는다 (김만).
+          상자 = 사진 속 물 전체 (위 끝 = 물의 먼 쪽 끝). 빛 무늬가 상자 전체에 깔리고 위 30%는 흐려지며 끝나니, 상자 위 끝을 물 끝보다 조금 위에 둬도 된다.
+          물 모양·물 위에 뜬 튜브 같은 물건은 --clip으로 잘라 낸다 (상자 기준 %). 무늬는 멀수록(위로 갈수록) 작아지고, 두 겹이 다른 쪽으로 쉬지 않고
+          흘러가며 번갈아 밝아져서 1.4초 컷에서도 움직임이 보인다. 상자 크기와 상관없이 같은 모양이다 (.cam 안의 사진 좌표 상자도).
+          세기 --k (기본 .55). 밝은 파란 타일 물에서도 보인다 — 더 또렷하게 하려면 .6까지. 거품이 많은 흰 물에는 안 보이니 쓰지 않는다 (김만).
      불빛 <div class="lights"><i style="--x:612px;--y:1180px"></i><i style="--x:700px;--y:1210px;--s:44px;--t:3.1s;--dl:-1.2s"></i>…</div>
           사진에 찍혀 있는 불빛·별 자리마다 <i> 하나 (.cam 안이면 .cam 좌표). 크기 --s(기본 36px) · 깜빡임 길이 --t(기본 2.4초) · 시작 --dl을
           점마다 다르게 해서 같은 박자로 깜빡이지 않게 한다. 세기 --k (기본 .85). 자리는 손으로 찍지 않고
@@ -168,16 +170,21 @@ em,i{font-style:normal}
 .steam i:nth-child(7){--l:90%;--s:140px;--t:3.9s;--dl:-2.9s;--dx1:18px;--dx2:28px;--b:6%;--a:.85;--r:8deg}
 .steam i:nth-child(8){--l:44%;--s:120px;--t:3.3s;--dl:-1.1s;--dx1:-10px;--dx2:20px;--b:30%;--a:.6;--r:-9deg}
 .steam i:nth-child(9){--l:70%;--s:125px;--t:3.8s;--dl:-3.5s;--dx1:12px;--dx2:-16px;--b:2%;--a:1;--r:5deg}
-/* 물결: 노이즈 등고선(이음매 없는 SVG 타일) 두 겹. 원근으로 위가 작게, 다른 길로 흘러가며 번갈아 밝아진다 */
-.shimmer{overflow:hidden;clip-path:var(--clip,none);mix-blend-mode:screen;
-  -webkit-mask-image:radial-gradient(closest-side,#000 66%,transparent);mask-image:radial-gradient(closest-side,#000 66%,transparent)}
-.shimmer::before,.shimmer::after{content:"";position:absolute;left:-30%;right:-30%;top:-40%;bottom:-10%;transform-origin:50% 100%;
-  transform:perspective(900px) rotateX(52deg);
+/* 물결: 노이즈 등고선(이음매 없는 SVG 타일) 두 겹을 물 위에 눕혀 깐다 — 위(먼 쪽)로 갈수록 작다. 두 겹이 다른 쪽으로 흘러가며 번갈아 밝아진다.
+   2026-11-17 고침: 52도로 눕힌 판이 상자 맨 아래 띠(200~350px)에만 그려지고 위 끝이 직선으로 끊겼다 · 9~12초 주기라 1.4초 컷에서 멈춰 보였다.
+   이제 판의 원근(perspective)과 높이를 상자 높이(cqh)에 맞춰서 상자가 크든 작든(.cam 안의 큰 상자도) 상자 전체에 깔리고,
+   위 30%는 흐려지며 끝나고 양옆 6%도 흐려진다. 흐름은 멈추지 않는 등속(6초·8초에 한 바퀴), 밝기는 1.7초·2.3초 박자로 번갈아 바뀐다. */
+.shimmer{overflow:hidden;clip-path:var(--clip,none);mix-blend-mode:screen;container-type:size;
+  -webkit-mask-image:linear-gradient(transparent,#000 30%),linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent);-webkit-mask-composite:source-in;
+  mask-image:linear-gradient(transparent,#000 30%),linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent);mask-composite:intersect}
+/* 판 높이 2.8 × 상자(위로 −170%, 아래로 −10%)를 40도로 눕히고 원근 250cqh로 보면 상자 위 끝보다 조금 더 올라가고, 위 끝에서도 판 너비(2배)가 상자보다 넓다 */
+.shimmer::before,.shimmer::after{content:"";position:absolute;left:-50%;right:-50%;top:-170%;bottom:-10%;transform-origin:50% 100%;
+  transform:perspective(250cqh) rotateX(40deg);
   background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='320'%3E%3Cfilter id='c' x='0' y='0' width='1' height='1'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.016' numOctaves='2' seed='5' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 1 0 0 0 0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='table' tableValues='0 0 0 0 0 0 0 0 .95 0 0 0 .95 0 0 0 0 0 0 0 0'/%3E%3C/feComponentTransfer%3E%3CfeGaussianBlur stdDeviation='1.1'/%3E%3C/filter%3E%3Crect width='320' height='320' filter='url(%23c)'/%3E%3C/svg%3E") 0 0/420px 420px;
-  opacity:var(--k,.55);animation:flow1 9s ease-in-out infinite alternate,breathe1 5.2s ease-in-out infinite alternate}
-.shimmer::after{background-size:560px 560px;animation:flow2 12s ease-in-out -4s infinite alternate,breathe2 5.2s ease-in-out infinite alternate}
-@keyframes flow1{0%{background-position:0 0}35%{background-position:90px 60px}70%{background-position:40px 150px}100%{background-position:150px 210px}}
-@keyframes flow2{0%{background-position:0 0}40%{background-position:-120px 50px}100%{background-position:-60px 190px}}
+  opacity:var(--k,.55);animation:flow1 6s linear infinite,breathe1 1.7s ease-in-out infinite alternate}
+.shimmer::after{background-size:560px 560px;animation:flow2 8s linear -3s infinite,breathe2 2.3s ease-in-out -.8s infinite alternate}
+@keyframes flow1{to{background-position:420px 420px}}
+@keyframes flow2{to{background-position:-560px 560px}}
 @keyframes breathe1{from{opacity:calc(var(--k,.55) * .45)}to{opacity:var(--k,.55)}}
 @keyframes breathe2{from{opacity:var(--k,.55)}to{opacity:calc(var(--k,.55) * .4)}}
 /* 불빛·별: 사진에 찍힌 밝은 점 위에서만 은은하게 깜빡인다 (점마다 길이·시작이 달라 박자가 맞지 않게) */
