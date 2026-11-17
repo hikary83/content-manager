@@ -430,7 +430,7 @@
     return { clicks, orders: orders.length, commission: orders.reduce((sum, item) => sum + (Number(item.commission) || 0), 0) };
   }
   async function loadReport() {
-    try { report = await HikaryApi.request('report', { days: 30 }); if (report.usage) { coupang.usage = report.usage; showQuota(); } }
+    try { report = await HikaryApi.request('report', {}); if (report.usage) { coupang.usage = report.usage; showQuota(); } }
     catch (error) { if (error.auth) return; report = { error: error.message }; }
     renderDashboard(); renderList();
   }
@@ -444,20 +444,28 @@
     // Daily totals come from the commission report (click · order · commission per day); days without a row are zero.
     const byDay = new Map((report.reports.commission || []).map(item => [String(item.date), item]));
     const days = []; for (let day = reportDay(report.startDate); dayKey(day).replaceAll('-', '') <= report.endDate; day = addDays(day, 1)) days.push(dayKey(day).replaceAll('-', ''));
-    const total = key => [...byDay.values()].reduce((sum, item) => sum + (Number(item[key]) || 0), 0);
+    // v3.8.5: every Coupang area is the Partners site's 「이번 달」 — the server sends the 1st to yesterday (the same 5 numbers as the site).
+    // On the 1st there is no day yet: zeros and a short note.
+    const tick = day => `${day.slice(4, 6)}.${day.slice(6, 8)}`;
+    const range = `이번 달 · ${tick(report.startDate)}~${days.length ? tick(report.endDate) : ''}`;
+    const sum = key => days.reduce((total, day) => total + (Number(byDay.get(day)?.[key]) || 0), 0);
+    const money = value => `₩${Math.round(value).toLocaleString('ko-KR')}`;
     const box = (value, name, accent) => { const node = element('div', accent ? 'accent' : ''); node.append(element('b', '', value), element('span', '', name)); return node; };
-    $('coupangTotals').replaceChildren(box(String(total('click')), '클릭'), box(String(total('order')), '주문'), box(Math.round(total('commission')).toLocaleString('ko-KR'), '수익 (원)', true));
+    $('coupangTotals').replaceChildren(box(String(sum('click')), '클릭'), box(String(sum('order')), '구매'), box(`${(sum('click') ? sum('order') / sum('click') * 100 : 0).toFixed(2)}%`, '전환율'),
+      box(money(sum('gmv')), '합산 금액'), box(money(sum('commission')), '수익', true));
     const most = Math.max(1, ...days.map(day => Number(byDay.get(day)?.click) || 0));
     $('coupangBars').replaceChildren(...days.map(day => {
       const item = byDay.get(day) || {}; const click = Number(item.click) || 0; const order = Number(item.order) || 0;
       const bar = element('i', order ? 'hi' : ''); bar.style.height = `${Math.max(2, click / most * 100)}%`;
       bar.title = `${day.slice(4, 6)}.${day.slice(6, 8)} 클릭 ${click}${order ? ` · 주문 ${order} · ${won(Number(item.commission) || 0)}` : ''}`; return bar;
     }));
-    const tick = day => `${day.slice(4, 6)}.${day.slice(6, 8)}`;
-    $('coupangAxis').replaceChildren(element('span', '', tick(days[0])), element('span', '', tick(days[Math.floor(days.length / 2)])), element('span', '', tick(days.at(-1))));
+    $('coupangAxis').replaceChildren(...(days.length ? [days[0], days[Math.floor(days.length / 2)], days.at(-1)].map(day => element('span', '', tick(day))) : []));
     const failed = Object.keys(report.errors || {});
-    $('coupangUpdated').textContent = `${shortDate(new Date(report.fetchedAt).toLocaleString('sv-SE').slice(0, 16))} 기준`; // v3.3.2: only the time; the rest is in its tooltip
-    note.textContent = failed.length ? `${failed.join('·')} 리포트를 받지 못했어요` : ''; note.hidden = !failed.length;
+    $('coupangUpdated').textContent = `최근 업데이트 ${tick(report.endDate)}`; // v3.8.5: like the site — the last day counted
+    $('coupangUpdated').title = `파트너스 계정 전체 · 쿠팡에서 받아 온 시각 ${shortDate(new Date(report.fetchedAt).toLocaleString('sv-SE').slice(0, 16))} · 쿠팡은 하루 한 번 집계해서 오늘 숫자는 내일 들어와요`;
+    $('coupangRange').textContent = range; $('ordersRange').textContent = `${range} · 계정 전체`; $('clicksRange').textContent = `${range} · HIKARY 콘텐츠`;
+    $('clicksHead').textContent = `쿠팡 클릭 · ${Number(report.startDate.slice(4, 6))}월`;
+    note.textContent = failed.length ? `${failed.join('·')} 리포트를 받지 못했어요` : days.length ? '' : '이번 달 집계는 내일부터 보여요'; note.hidden = !note.textContent;
     // HIKARY products by clicks, then the latest orders of the whole account.
     const products = rows.map(row => ({ row, stats: productStats(row) })).filter(item => item.stats).sort((a, b) => b.stats.clicks - a.stats.clicks || b.row.createdAt.localeCompare(a.row.createdAt));
     paged('productClicks', products.length ? products.map(({ row, stats }) => {
@@ -470,7 +478,7 @@
       const line = element('div', 'trow'); const text = element('span', 'order-name', String(item.productName || '상품'));
       if (ids.has(String(item.ctag))) text.prepend(element('span', 'chip done', 'HIKARY'));
       line.append(element('b', '', tick(String(item.date))), text, element('b', 'num', won(Number(item.commission) || 0))); return line;
-    }) : [emptyBox('최근 30일 주문이 없어요')]);
+    }) : [emptyBox('이번 달 주문이 없어요')]);
   }
 
   // ── 대시보드: the ledger, Buffer's post numbers (v3.6.0) and the Coupang report.

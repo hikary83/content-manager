@@ -92,14 +92,16 @@ function findProducts_(payload) {
 }
 
 // v2.8.0 (2026-11-11): Partners reports for the dashboard — clicks, orders and commission over the last days (30 at most).
+// v2.19.0 (2026-11-17): this month so far, like the Partners site's 「이번 달」 — the 1st to yesterday (Coupang counts once a day,
+// so today is always empty). On the 1st there is no day yet: no call, empty reports (the dashboard shows 0, like the site).
 // Three calls from the hourly budget; the answer is kept 6 hours. One report failing does not stop the others.
 // The rows go back as Coupang sends them (first 300) until the dashboard is shaped on the real fields.
 var COUPANG_REPORTS = ['clicks', 'orders', 'commission'];
 function coupangReport_(payload) {
   if (!coupangConfigured_()) throw userError_('쿠팡 파트너스 API 키가 없어요. 스크립트 속성에 COUPANG_ACCESS_KEY·COUPANG_SECRET_KEY를 넣어주세요.');
-  var days = Math.min(30, Math.max(1, Math.floor(Number(payload.days) || 30)));
   var day = function(date) { return Utilities.formatDate(date, 'Asia/Seoul', 'yyyyMMdd'); };
-  var endDate = day(new Date()); var startDate = day(new Date(Date.now() - (days - 1) * 864e5));
+  var now = Date.now(); var endDate = day(new Date(now - 864e5)); var startDate = day(new Date(now)).slice(0, 6) + '01';
+  if (endDate < startDate) return { startDate: startDate, endDate: endDate, fetchedAt: new Date(now).toISOString(), reports: { clicks: [], orders: [], commission: [] }, errors: {}, fromCache: false, usage: coupangUsage_() };
   var query = 'startDate=' + startDate + '&endDate=' + endDate;
   var cache = CacheService.getScriptCache(); var key = 'coupang:' + hash_('reports?' + query);
   var saved = cache.get(key);

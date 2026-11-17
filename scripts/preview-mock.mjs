@@ -163,12 +163,15 @@ function act({ action, payload, token }) {
   if (action === 'products') return products(payload);
   if (action === 'report') { // v3.2.0 mock: the same shape as the real Partners report (ctag = product number of the link)
     const day = n => new Date(Date.now() - n * 864e5).toLocaleDateString('sv-SE').replaceAll('-', '');
-    return { startDate: day(29), endDate: day(0), fetchedAt: new Date().toISOString(), fromCache: true, usage: usage(), errors: {}, reports: {
-      clicks: [{ date: day(2), ctag: '30000011240405', click: 2 }, { date: day(1), ctag: '30000011240405', click: 1 }, { date: day(1), ctag: '1', click: 3 }, { date: day(12), ctag: '9267215146', click: 2 }],
-      orders: [{ date: day(1), ctag: '30000011240405', productId: 30000011240405, productName: '씨라이프 코엑스 아쿠아리움 입장권 (목업)', quantity: 2, gmv: 39800, commission: 1194 }, { date: day(12), ctag: '9267215146', productId: 9289426304, productName: '예전 링크로 산 다른 상품 (목업)', quantity: 1, gmv: 23000, commission: 690 },
-        ...[3, 5, 8, 15, 20, 26].map(n => ({ date: day(n), ctag: '9267215146', productId: 9289426304, productName: `넘김 확인용 주문 ${n}일 전 (목업)`, quantity: 1, gmv: 10000, commission: 300 }))],
-      commission: [{ date: day(12), click: 2, order: 1, commission: 690, gmv: 23000 }, { date: day(2), click: 2, commission: 0 }, { date: day(1), click: 4, order: 1, commission: 1194, gmv: 39800 }]
-    } };
+    // v3.8.5: this month to yesterday like the server (nothing on the 1st); made-up numbers (the real ones stay out of this public repo). commission = the day sums of the two lists.
+    const start = day(0).slice(0, 6) + '01', inMonth = item => item.date >= start && item.date <= day(1);
+    const clicks = [{ date: day(2), ctag: '30000011240405', click: 2 }, { date: day(1), ctag: '30000011240405', click: 1 }, { date: day(12), ctag: '9267215146', click: 2 }, { date: day(1), ctag: '1', click: 3 },
+      ...Array.from({ length: 30 }, (_, i) => ({ date: day(i + 1), ctag: '0', click: (i * 7) % 5 })).filter(item => item.click)];
+    const orders = [{ date: day(1), ctag: '30000011240405', productId: 30000011240405, productName: '씨라이프 코엑스 아쿠아리움 입장권 (목업)', quantity: 2, gmv: 39800, commission: 1194 }, { date: day(12), ctag: '9267215146', productId: 9289426304, productName: '예전 링크로 산 다른 상품 (목업)', quantity: 1, gmv: 23000, commission: 690 },
+        ...[3, 5, 8, 15, 20, 26].map(n => ({ date: day(n), ctag: '9267215146', productId: 9289426304, productName: `넘김 확인용 주문 ${n}일 전 (목업)`, quantity: 1, gmv: 10000, commission: 300 }))];
+    const monthClicks = clicks.filter(inMonth), monthOrders = orders.filter(inMonth);
+    const sums = {}; for (const item of [...monthClicks, ...monthOrders.map(order => ({ ...order, order: 1 }))]) { const d = sums[item.date] ||= { date: item.date, click: 0, order: 0, gmv: 0, commission: 0 }; for (const key of ['click', 'order', 'gmv', 'commission']) d[key] += item[key] || 0; }
+    return { startDate: start, endDate: day(1), fetchedAt: new Date().toISOString(), fromCache: true, usage: usage(), errors: {}, reports: { clicks: monthClicks, orders: monthOrders, commission: Object.values(sums) } };
   }
   if (action === 'list') return { entries: rows };
   const index = rows.findIndex(item => item.id === payload.id);

@@ -28,7 +28,7 @@ function runtime({ legacy = false } = {}) {
   const context = vm.createContext({
     console: { info() {} },
     PropertiesService: { getScriptProperties: () => ({ getProperty: key => props.get(key) || null, setProperty: (key,value) => props.set(key,value) }) },
-    Utilities: { getUuid: randomUUID, DigestAlgorithm: { SHA_256:'sha256', SHA_1:'sha1' }, Charset:{ UTF_8:'utf8' }, computeDigest: (algorithm,value) => [...createHash(algorithm).update(value).digest()], formatDate: (date, zone, format) => format.includes("'T'") ? '261108T012345Z' : format === 'yyyy-MM-dd HH:mm' ? new Date(date).toLocaleString('sv-SE', { timeZone: zone }).slice(0, 16) : '2026-10-28', computeHmacSha256Signature: (value, key) => [...createHmac('sha256', key).update(value).digest()].map(byte => byte > 127 ? byte - 256 : byte), base64Encode: value => Buffer.from(value).toString('base64'), base64Decode: value => [...Buffer.from(value,'base64')] },
+    Utilities: { getUuid: randomUUID, DigestAlgorithm: { SHA_256:'sha256', SHA_1:'sha1' }, Charset:{ UTF_8:'utf8' }, computeDigest: (algorithm,value) => [...createHash(algorithm).update(value).digest()], formatDate: (date, zone, format) => format.includes("'T'") ? '261108T012345Z' : format === 'yyyy-MM-dd HH:mm' ? new Date(date).toLocaleString('sv-SE', { timeZone: zone }).slice(0, 16) : format === 'yyyyMMdd' ? new Date(date).toLocaleDateString('sv-SE', { timeZone: zone }).replaceAll('-', '') : '2026-10-28', computeHmacSha256Signature: (value, key) => [...createHmac('sha256', key).update(value).digest()].map(byte => byte > 127 ? byte - 256 : byte), base64Encode: value => Buffer.from(value).toString('base64'), base64Decode: value => [...Buffer.from(value,'base64')] },
     LockService: { getScriptLock: () => ({ tryLock: () => true, releaseLock() {} }) },
     SpreadsheetApp: { openById: () => book, newDataValidation: () => validation, flush() {} },
     ContentService: { MimeType:{JSON:'application/json'},createTextOutput: text => ({text,setMimeType() {return this;}}) },
@@ -424,13 +424,18 @@ test('v2.8.0 쿠팡 리포트는 클릭·주문·수익을 서명해 부르고, 
     return { getResponseCode: () => 200, getContentText: () => JSON.stringify({ rCode: '0', data: [{ date: '20261111', click: 3 }] }) };
   };
   const call = payload => JSON.parse(env.context.doPost({ postData: { contents: JSON.stringify({ action: 'report', payload }) } }).text);
-  const first = call({ days: 30 });
+  const clock = iso => vm.runInContext(`Date.now = () => ${Date.parse(iso)}`, env.context);
+  clock('2026-12-01T03:00:00Z'); const firstDay = call({});
+  assert.deepEqual([firstDay.data.startDate, firstDay.data.endDate, firstDay.data.reports.commission, sent.length], ['20261201', '20261130', [], 0], 'v2.19.0: 매달 1일에는 받을 날이 없어 부르지 않는다');
+  clock('2026-11-17T03:00:00Z'); const first = call({});
   assert.equal(first.ok, true); assert.equal(sent.length, 3);
   assert.deepEqual(sent.map(item => item.url.split('?')[0].split('/').pop()), ['clicks', 'orders', 'commission']);
   for (const item of sent) { assert.match(item.url, /\/reports\/\w+\?startDate=[\d-]+&endDate=[\d-]+$/); assert.match(item.options.headers.Authorization, /^CEA algorithm=HmacSHA256, access-key=access-example/); assert.equal(item.options.method, 'get'); }
+  assert.deepEqual([first.data.startDate, first.data.endDate], ['20261101', '20261116'], 'v2.19.0: 쿠팡 사이트 「이번 달」처럼 1일~어제');
+  for (const item of sent) assert.match(item.url, /\?startDate=20261101&endDate=20261116$/);
   assert.deepEqual(first.data.reports.clicks, [{ date: '20261111', click: 3 }]); assert.equal(first.data.reports.orders, undefined);
   assert.match(first.data.errors.orders, /요청을 받지 않았어요/); assert.equal(first.data.usage.remaining, 17);
-  const again = call({ days: 30 }); assert.equal(again.data.fromCache, true); assert.equal(sent.length, 3, '6시간 안에는 다시 부르지 않는다');
+  const again = call({}); assert.equal(again.data.fromCache, true); assert.equal(sent.length, 3, '6시간 안에는 다시 부르지 않는다');
   assert.equal(JSON.parse(runtime().context.doPost({ postData: { contents: JSON.stringify({ action: 'report', payload: {} }) } }).text).ok, false, '키가 없으면 거절');
 });
 
