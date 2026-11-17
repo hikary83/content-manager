@@ -1,19 +1,19 @@
 <!doctype html>
-<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0f0f0f"><title>HIKARY 콘텐츠 관리</title><link rel="icon" type="image/png" href="assets/favicon.png?v=3.8.7"><link rel="apple-touch-icon" href="assets/apple-touch-icon.png?v=3.8.7"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css"><link rel="stylesheet" href="css/app.css?v=3.8.7"></head>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0f0f0f"><title>HIKARY 콘텐츠 관리</title><link rel="icon" type="image/png" href="assets/favicon.png?v=3.9.0"><link rel="apple-touch-icon" href="assets/apple-touch-icon.png?v=3.9.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css"><link rel="stylesheet" href="css/app.css?v=3.9.0"></head>
 <body>
 <div class="app">
 <header class="top">
  <button id="menuButton" type="button" class="burger" aria-label="메뉴 열기·닫기"><i></i></button>
- <a class="brand" href="#dashboard"><img class="brand-word" src="assets/logo-word.png?v=3.8.7" alt="HIKARY"><span class="ver">v3.8.7</span></a>
+ <a class="brand" href="#dashboard"><img class="brand-word" src="assets/logo-word.png?v=3.9.0" alt="HIKARY"><span class="ver">v3.9.0</span></a>
  <label class="search"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="콘텐츠 검색 (상품명·카테고리·No.)" aria-label="콘텐츠 검색"></label>
  <div class="top-right"><span id="connectionState" class="conn">연결 확인 중…</span>
-  <div class="account"><button id="accountButton" type="button" class="avatar" aria-haspopup="true" aria-expanded="false" aria-label="계정 메뉴"><img src="assets/logo-mascot.png?v=3.8.7" alt=""></button>
-   <div id="accountMenu" class="account-menu" hidden><div class="who"><img src="assets/logo-mascot.png?v=3.8.7" alt=""><div><b>HIKARY</b><small>이 기기에서 로그인 중</small></div></div>
+  <div class="account"><button id="accountButton" type="button" class="avatar" aria-haspopup="true" aria-expanded="false" aria-label="계정 메뉴"><img src="assets/logo-mascot.png?v=3.9.0" alt=""></button>
+   <div id="accountMenu" class="account-menu" hidden><div class="who"><img src="assets/logo-mascot.png?v=3.9.0" alt=""><div><b>HIKARY</b><small>이 기기에서 로그인 중</small></div></div>
     <button id="logoutHere" type="button"><i>⎋</i>로그아웃</button><button id="logoutAll" type="button"><i>⊘</i>모든 기기에서 로그아웃</button><small class="sub">휴대폰·다른 PC에 남은 로그인도 끝내요</small></div></div>
  </div>
 </header>
 <aside id="side" class="side">
- <div class="me" title="내 채널 · HikaryVibe"><img src="assets/logo-mascot.png?v=3.8.7" alt=""><b>내 채널</b><small>HikaryVibe</small></div>
+ <div class="me" title="내 채널 · HikaryVibe"><img src="assets/logo-mascot.png?v=3.9.0" alt=""><b>내 채널</b><small>HikaryVibe</small></div>
  <nav class="nav" aria-label="메뉴"><a href="#dashboard" data-view="dashboard" title="대시보드"><i>▦</i><span class="lbl">대시보드</span></a><a href="#content" data-view="content" title="콘텐츠"><i>▶</i><span class="lbl">콘텐츠</span><span id="requestCount" class="count" hidden title="루미가 기다리는 요청"></span></a><a href="#find" data-view="find" title="소재 찾기"><i>◎</i><span class="lbl">소재 찾기</span></a><a href="#study" data-view="study" title="스터디"><i>✦</i><span class="lbl">스터디</span><span id="studyCount" class="count" hidden title="루미 분석이 도착한 링크"></span></a></nav>
  <div class="shortcuts"><small>바로가기</small><div class="sc">
   <a class="s" href="https://docs.google.com/spreadsheets/d/1ZSB7FBZTWdT_eLlo3kpom-u2yM5UwHitG059Zci6TUc/edit" target="_blank" rel="noopener noreferrer" aria-label="운영대장 (새 창)"><span aria-hidden="true">▦</span><em>운영대장</em></a>
@@ -136,7 +136,7 @@
 </section></div>
 <aside class="detail-side">
  <div class="media">
-  <div class="shot tall"><img id="d-coverImage" alt="커버"><span id="d-coverNone" class="none">커버 없음</span><a id="d-coverSave" class="dl" download title="커버 저장" aria-label="커버 저장"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m-5-5 5 5 5-5M5 20h14"/></svg></a></div>
+  <div class="shot tall"><img id="d-coverImage" alt="커버"><button id="d-coverPlay" type="button" class="play" aria-label="게시할 영상 보기" hidden>▶</button><span id="d-coverNone" class="none">커버 없음</span><a id="d-coverSave" class="dl" download title="커버 저장" aria-label="커버 저장"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m-5-5 5 5 5-5M5 20h14"/></svg></a></div>
   <div class="shot"><img id="d-inpockImage" alt="인포크 이미지"><span id="d-inpockNone" class="none">인포크 이미지 없음</span><a id="d-inpockSave" class="dl" download="inpock.jpg" title="인포크 이미지 저장" aria-label="인포크 이미지 저장"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m-5-5 5 5 5-5M5 20h14"/></svg></a></div>
  </div>
  <div class="kv"><small>인포크링크</small><div class="v"><b id="sideNo"></b><span id="sideTitle"></span></div></div>
@@ -161,6 +161,7 @@
 
 <dialog id="askDialog" class="ask"><form id="askForm"><div class="dialog-head"><div><small id="askMode">루미한테 요청하기</small><h2 id="askTitle"></h2></div><button id="askClose" type="button" class="icon" aria-label="닫기">✕</button></div>
 <div class="dialog-body">
+<section id="askDraft" class="draft-box" hidden><video id="askDraftVideo" controls playsinline preload="none"></video><div class="draft-info"><b>루미가 만든 초안</b><small id="askDraftAt"></small><p>소리도 같이 나와요. 고칠 곳은 지금처럼 채팅으로 말해 주세요 — 웹은 보기만 해요.</p><p class="dim">다시 녹화하면 이 자리의 초안이 바뀌어요 · 등록하면 초안은 지워지고 ✎ 창 커버에서 봐요</p></div></section>
 <h3 class="q">상품 이름 <small>선택 · 루미가 알아보기 쉽게</small></h3>
 <input id="askName" maxlength="200" placeholder="예: 서울랜드 파크이용권" aria-label="상품 이름">
 <h3 class="q">영상 템플릿 <small>유튜브 쇼츠 · 틱톡 · 인스타 릴스에 같이 써요</small></h3>
@@ -191,11 +192,11 @@
 
 <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 <section id="loginView" class="login-view" hidden><form id="loginForm" class="login-card">
-<img class="login-mascot" src="assets/logo-mascot.png?v=3.8.7" alt=""><img class="login-word" src="assets/logo-word.png?v=3.8.7" alt="HIKARY"><p class="login-sub">콘텐츠 관리</p>
+<img class="login-mascot" src="assets/logo-mascot.png?v=3.9.0" alt=""><img class="login-word" src="assets/logo-word.png?v=3.9.0" alt="HIKARY"><p class="login-sub">콘텐츠 관리</p>
 <label class="login-field">아이디<input id="loginId" autocomplete="username" autocapitalize="off" spellcheck="false" required maxlength="100"></label>
 <label class="login-field">비밀번호<input id="loginPassword" type="password" autocomplete="current-password" required maxlength="200"></label>
 <label class="login-keep"><input id="loginKeep" type="checkbox" checked>이 기기에서 로그인 유지</label>
 <button id="loginSubmit" type="submit">로그인</button>
 <p id="loginMessage" class="login-message" role="alert" hidden></p>
 <p class="login-foot">5번 틀리면 1시간 동안 로그인을 막아요</p></form></section>
-<script src="js/config.js?v=3.8.7"></script><script src="js/templates.js?v=3.8.7"></script><script src="js/app.js?v=3.8.7"></script></body></html>
+<script src="js/config.js?v=3.9.0"></script><script src="js/templates.js?v=3.9.0"></script><script src="js/app.js?v=3.9.0"></script></body></html>

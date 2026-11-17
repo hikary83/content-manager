@@ -59,6 +59,13 @@
   const coverAt = (url, how) => url.replace('/image/upload/', `/image/upload/${how}/`);
   const coverSmall = url => coverAt(url, 'w_360,q_auto,f_auto');
   const coverFile = (url, row) => coverAt(url, `fl_attachment:${/^\d+$/.test(row.inpockNo || '') ? `No${row.inpockNo}_` : ''}cover`);
+  // v3.9.0 (server 2.21.0): videos to watch in the page — mp4s on Cloudinary only: Lumi's draft on a request row, and the video waiting
+  // to be posted (「영상 주소」). That one is 1080×1920 for Buffer, so the page plays a 720-wide copy Cloudinary makes (q_auto).
+  const playable = value => /^https:\/\/res\.cloudinary\.com\/[a-z0-9_-]+\/video\/upload\/[A-Za-z0-9_/.,-]+\.mp4$/.test(value || '') ? value : '';
+  // c_limit: never larger than the source. Cloudinary makes the copy on the first ▶ (about 4.6 s, then cached) and counts it once —
+  // HD video is 4 transformations a second, so about 80 (0.08 credit) for a 20-second video (2026-11-17 check, free plan 25 credits/30 days).
+  const videoSmall = url => url.replace('/video/upload/', '/video/upload/q_auto,w_720,c_limit/');
+  const posterOf = cover => cover ? coverAt(cover, 'w_720,q_auto,f_auto') : '';
   const shortDate = value => (value || '').slice(5).replace('-', '.'); // 2026-11-11 08:45 → 11.11 08:45
   const posted = row => PLATFORMS.filter(([key]) => row[key + 'Status'] === '업로드완료').length;
   // 「보류」 is a place the owner chose to skip, so it counts as done for 「다 올림」.
@@ -278,9 +285,17 @@
     const picked = [tplIndex >= 0 ? `템플릿 ${tplIndex + 1} ${TEMPLATES[tplIndex].name}` : '', item.instagramType ? `인스타 ${item.instagramType}` : ''].filter(Boolean).join(' · ');
     text.append(element('b', '', item.productName || item.sourceUrl.replace(/^https:\/\//, '').split('?')[0]), element('small', '', `${shortDate(item.requestedAt)} 요청 · ${picked || item.from || '루미한테 요청'}`));
     text.title = [item.from, item.note && `루미에게: ${item.note}`].filter(Boolean).join('\n');
-    box.append(element('span', 'thumb', '⋯'), text);
-    const state = element('div', 'pfs'); state.append(element('span', `chip req${item.status === '진행' ? ' doing' : ''}`, item.status === '진행' ? '루미가 만드는 중' : '루미 대기 중'));
-    const hint = element('div', 'when'); hint.append(element('small', '', 'Claude에서 「요청 확인해줘」'));
+    // v3.9.0: Lumi's draft — its cover with ▶ instead of 「⋯」; ▶ opens the request window playing it (the rest of the row only opens it).
+    const draft = playable(item.draftUrl);
+    if (draft) {
+      const th = element('button', 'thumb draft-th'); th.type = 'button'; th.setAttribute('aria-label', '초안 영상 보기');
+      const cover = coverUrl(item.draftCover); if (cover) th.style.backgroundImage = `url("${coverSmall(cover)}")`;
+      th.append(element('i', 'play-badge', '▶')); th.onclick = () => void ask({ sourceUrl: item.sourceUrl }, item, true);
+      box.append(th, text);
+    } else box.append(element('span', 'thumb', '⋯'), text);
+    const state = element('div', 'pfs');
+    state.append(draft ? element('span', 'chip draft', `● 초안 도착 · ${shortDate(item.draftAt)}`) : element('span', `chip req${item.status === '진행' ? ' doing' : ''}`, item.status === '진행' ? '루미가 만드는 중' : '루미 대기 중'));
+    const hint = element('div', 'when'); hint.append(element('small', '', draft ? '▶ 눌러 보기 · 컨펌은 채팅으로' : 'Claude에서 「요청 확인해줘」'));
     const actions = element('div', 'acts');
     if (item.affiliateUrl) {
       const copy = button('링크 복사', async () => {
@@ -598,6 +613,7 @@
     // v3.3.3: both images side by side with a download icon inside, no captions.
     $('d-coverImage').hidden = $('d-coverSave').hidden = !cover; $('d-coverNone').hidden = !!cover;
     if (cover) { $('d-coverImage').src = coverSmall(cover); $('d-coverSave').href = coverFile(cover, row); } else $('d-coverImage').removeAttribute('src');
+    stopSideVideo(); $('d-coverPlay').hidden = !playable(row.videoUrl); // v3.9.0: ▶ while the video waits to be posted
     $('d-inpockImage').hidden = $('d-inpockSave').hidden = !image; $('d-inpockNone').hidden = !!image;
     $('d-inpockImage').src = image; $('d-inpockSave').href = image || '#';
     $('d-inpockSave').download = `inpock-${row.inpockNo || 'image'}.${image.startsWith('data:image/png') ? 'png' : 'jpg'}`;
@@ -615,6 +631,20 @@
     const allUp = publishOf(row).every(([key]) => settledPlace(row[key + 'Status']));
     $('detailVideo').textContent = row.videoUrl ? `게시할 영상 있음 · ${row.videoDate} 올림` : allUp ? '영상은 다 올라가서 지웠어요' : '게시할 영상 없음 — 루미에게 「영상 올려줘」';
   }
+  // v3.9.0: ▶ on the ✎ cover plays the video waiting to be posted right there — the cover and the inpock image make way for it.
+  // Once every place is up the server deletes the video, 「영상 주소」 empties and the ▶ goes; the 「올린 곳」 links stay.
+  function stopSideVideo() {
+    const media = $('d-coverPlay').closest('.media'); media.classList.remove('playing');
+    for (const node of media.querySelectorAll('video, .vclose')) { node.pause?.(); node.remove(); }
+  }
+  $('d-coverPlay').onclick = () => {
+    const src = playable(current?.videoUrl); if (!src) return;
+    const media = $('d-coverPlay').closest('.media'); const video = element('video'); const poster = posterOf(coverUrl(current.coverUrl));
+    Object.assign(video, { src: videoSmall(src), controls: true, autoplay: true, playsInline: true }); video.setAttribute('playsinline', '');
+    if (poster) video.poster = poster;
+    media.append(button('✕ 닫기', stopSideVideo, 'btn sm vclose'), video); media.classList.add('playing');
+  };
+  // Stopped where the window closes (closeDetail · save · delete), not on its close event — the app's preview browser never fired it (2026-11-17).
   function placeRow(row, key, name) {
     const status = row[key + 'Status'] || '미업로드'; const date = row[key + 'Date'] || '';
     const line = element('div', `place-row${focusPlace === key ? ' focus' : ''}`);
@@ -680,7 +710,7 @@
       current = rows.find(row => row.id === current.id) || current; renderSide();
     });
   }
-  function closeDetail() { if (!dirty || confirm('고친 내용을 저장하지 않고 닫을까요?')) { dirty = false; $('detailDialog').close(); } }
+  function closeDetail() { if (!dirty || confirm('고친 내용을 저장하지 않고 닫을까요?')) { dirty = false; stopSideVideo(); $('detailDialog').close(); } }
   $('detailForm').oninput = event => { if (event.target.closest('[data-record]')) return; dirty = true; if (event.target.id === 'd-youtubeTitle') titleCount(); };
   $('detailClose').onclick = $('detailCancel').onclick = closeDetail;
   $('detailDialog').addEventListener('cancel', event => { event.preventDefault(); closeDetail(); });
@@ -689,11 +719,11 @@
     const changes = Object.fromEntries(TEXT_KEYS.map(key => [key, $('d-' + key).value.trim()]));
     changes.youtube = joinYoutube($('d-youtubeTitle').value.replace(/\s+/g, ' ').trim(), $('d-youtubeBody').value.trim()); // the title is one line
     for (const [key] of LINKS) changes[key + 'LinkedAt'] = $('d-' + key + 'Linked').checked ? current[key + 'LinkedAt'] || today() : ''; // a tick keeps its first day
-    void task(async () => { await save(changes, '저장했어요.'); dirty = false; $('detailDialog').close(); });
+    void task(async () => { await save(changes, '저장했어요.'); dirty = false; stopSideVideo(); $('detailDialog').close(); });
   };
   $('detailDelete').onclick = () => {
     if (!confirm(`「${current.productName}」을(를) 지울까요?\n운영대장에서 이 줄이 삭제됩니다. 실수로 지웠다면 시트의 버전 기록에서 되살릴 수 있어요.`)) return;
-    void task(async () => { await HikaryApi.request('delete', { id: current.id, revision: current.revision }); dirty = false; $('detailDialog').close(); await load(); notice('지웠어요.'); });
+    void task(async () => { await HikaryApi.request('delete', { id: current.id, revision: current.revision }); dirty = false; stopSideVideo(); $('detailDialog').close(); await load(); notice('지웠어요.'); });
   };
   $('sidePublish').onclick = () => { if (dirty) { alert('고친 글을 먼저 「저장」해 주세요. 게시는 운영대장 글 그대로 올라가요.'); return; } openPublish(current); };
   for (const node of document.querySelectorAll('[data-copy]')) node.onclick = async () => {
@@ -892,7 +922,7 @@
   });
   paged('askTemplates', tplCards, { size: tplPerPage, keep: true, even: true });
   // item: a request already sent — the window shows its choices, saved with requestUpdate while it waits (server 2.11.0).
-  function ask(payload, item = null) {
+  function ask(payload, item = null, play = false) {
     return new Promise(resolve => {
       asking = { payload, item, resolve };
       const form = $('askForm'); form.reset(); const locked = !!item && item.status !== '대기';
@@ -906,11 +936,21 @@
       $('askMode').textContent = !item ? '루미한테 요청하기' : locked ? '루미가 만드는 중이라 고칠 수 없어요' : '보낸 요청 고치기';
       $('askSubmit').textContent = item ? '고친 대로 저장' : '요청하기'; $('askSubmit').hidden = locked; $('askCancel').textContent = locked ? '닫기' : '취소';
       $('askTitle').textContent = (item || payload).productName || payload.sourceUrl.replace(/^https:\/\//, '').split('?')[0];
+      // v3.9.0: the draft plays at the top; nothing is fetched until it plays (preload none). Confirming stays in the chat.
+      const draftVideo = $('askDraftVideo'); const draft = item ? playable(item.draftUrl) : '';
+      $('askDraft').hidden = !draft;
+      if (draft) {
+        $('askMode').textContent = '루미 초안이 왔어요 · 컨펌은 채팅으로';
+        const poster = posterOf(coverUrl(item.draftCover)); if (poster) draftVideo.poster = poster; else draftVideo.removeAttribute('poster');
+        if (draftVideo.getAttribute('src') !== draft) draftVideo.src = draft;
+        $('askDraftAt').textContent = `${shortDate(item.draftAt)} 녹화 · 휴대폰 크기`;
+      } else if (draftVideo.hasAttribute('src')) { draftVideo.removeAttribute('src'); draftVideo.load(); }
       $('askDialog').showModal();
+      if (play && draft) draftVideo.play().catch(() => {});
       const picked = tplCards.findIndex(card => card.querySelector('input').checked); $('askTemplates').style.minHeight = ''; showPage('askTemplates', pageWith('askTemplates', Math.max(0, picked)));
     });
   }
-  function closeAsk(sent) { if ($('askDialog').open) $('askDialog').close(); asking?.resolve(sent); asking = null; }
+  function closeAsk(sent) { $('askDraftVideo').pause(); if ($('askDialog').open) $('askDialog').close(); asking?.resolve(sent); asking = null; }
   $('askClose').onclick = $('askCancel').onclick = () => closeAsk(false);
   $('askDialog').addEventListener('cancel', event => { event.preventDefault(); closeAsk(false); });
   $('askForm').onsubmit = event => {

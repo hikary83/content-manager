@@ -1,4 +1,4 @@
-# HIKARY 콘텐츠 관리 v3.8.7
+# HIKARY 콘텐츠 관리 v3.9.0
 
 2026-11-06 · GitHub Pages + Google Apps Script + Google Sheets. 콘텐츠는 Claude에서 만든다.
 
@@ -7,13 +7,24 @@
 - 작업 기준은 저장소 맨 위 [CLAUDE.md](CLAUDE.md)(지시서)입니다. 어느 PC에서든 Claude가 이 파일을 먼저 읽습니다.
 - `docs/`: 「기록」(업로드 관리)·「상품 찾기」 두 탭. Pages 설정은 `main` / `/docs`.
 - `backend/`: Apps Script 서버. 웹이 쓰는 동작은 `status` · `list` · `save` · `delete` · `products` · `link` · `request` · `requests` · `requestUpdate` · `publish` · `studies` · `studyAdd` · `studyUpdate` · `studySync`(v3.7.0, `backend/Study.js` · v3.8.0 말머리), 시간 트리거 `syncPublishing`. Gemini 동작은 되돌리기 대비로 남아 있습니다.
-- `tools/register.mjs`: Claude가 만든 콘텐츠를 운영대장에 등록, 「게시」할 영상(`video`)과 커버(`cover`)를 Cloudinary에 올림. `tools/carousel/`: 캐러셀 HTML → 1080×1350 PNG.
+- `tools/register.mjs`: Claude가 만든 콘텐츠를 운영대장에 등록, 「게시」할 영상(`video`)과 커버(`cover`)를 Cloudinary에 올림. 요청 줄의 초안(`draft`)·채팅 상품 요청 줄(`request-add`)은 v3.9.0. `tools/carousel/`: 캐러셀 HTML → 1080×1350 PNG.
 - `scripts/preview-mock.mjs`: 가짜 데이터로 웹 확인 (http://127.0.0.1:4175/). `scripts/preview-content.mjs`: 실제 서버로 웹 확인 (http://127.0.0.1:4173/).
 - `scripts/reel/`: 사진 4장 + `video-job.json` → ffmpeg 무자막 MP4.
 - `contents/`: 만든 파일 보관 폴더. git에서 제외합니다(저장소가 공개).
 - `app/`, `worker/`, `db/` 등은 이전 Sites/React 코드입니다. Pages 배포에는 포함하지 않습니다. 백업 태그: `legacy-chatgpt-sites-2026-08-11`.
 
 ## 최초 연결
+
+### v3.9.0 웹에서 영상 보기 (2026-11-17, 서버 2.21.0)
+
+- 사람: "게시전까지만이라도 우리 영상을 웹에서 확인할수 없을까?? … 정식 업로드 전이면 더 좋고" — 채팅으로 받던 영상을 웹에서 봐요. 컨펌은 지금처럼 채팅으로 하고, 웹은 보기만 해요.
+- **초안 (등록 전)**: 「콘텐츠」 맨 위 요청 줄에 초안이 오면 썸네일이 초안 커버 + ▶, 칩 「● 초안 도착 · 시각」(초록). ▶를 누르면 요청 창이 열리며 맨 위에서 재생돼요(소리 포함). 줄의 다른 곳은 창만 열어요. 누를 때만 영상을 받아요.
+  - 루미(컨텐츠팀)가 `node tools/register.mjs draft <요청 id> contents/<폴더>`로 올려요 — `motion-bgm.mp4`를 가로 540으로 줄여(17초 영상이 약 1MB) Cloudinary `hikary/drafts/<요청 id>`에, `cover.png`는 `…-cover`에. 다시 녹화하면 같은 명령으로 같은 자리에 덮어써요.
+  - 채팅으로 받은 상품도 요청 줄로 시작해요: `node tools/register.mjs request-add <쿠팡 주소> [상품명]`.
+  - 초안을 지우는 때: 요청을 「완료」로 바꿀 때(= 운영대장 등록), 웹에서 요청을 「지우기」 할 때, 초안을 올린 지 30일 지났을 때(10분 트리거). Cloudinary가 실패하면 칸을 남겨 두고 10분 트리거가 다시 지워요.
+- **등록 뒤 ~ 게시 전**: ✎ 창 오른쪽 커버에 ▶ (운영대장 「영상 주소」가 있을 때). 누르면 그 자리에서 커지며 재생돼요 — 「✕ 닫기」로 돌아가요. 원본(1080×1920)은 Buffer용으로 두고, 웹은 Cloudinary가 만든 가로 720 사본(`q_auto,w_720,c_limit`)을 받아요. 세 곳에 다 올라가 서버가 영상을 지우면 ▶가 없어지고 「올린 곳」 링크만 남아요.
+- 서버 2.21.0: 「요청」 탭 11~13번 칸 「초안 영상」·「초안 커버」·「초안 올린 때」(예전 탭은 빈 칸에만 머리글을 채워요). `requestUpdate`의 `draft: true`는 **도구 키로만** 받고, 주소는 우리 Cloudinary의 `hikary/drafts/` 아래만 받아요(지우기가 게시할 영상을 건드리지 않게).
+- 배포: 서버 먼저(2.21.0), 그다음 웹. 아이폰 사파리에서 창 안 재생(`playsinline`)은 실제 기기로 **확인 필요**.
 
 ### v3.8.7 목록 머리줄 한 줄로 (2026-11-17, 화면만)
 

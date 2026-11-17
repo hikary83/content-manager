@@ -3,7 +3,10 @@
 //   node tools/register.mjs save <entry.json>        create or update one row, then write id/revision back into the file
 //   node tools/register.mjs link <coupang url>       make the Partners link for a plain Coupang address (spends 1 of 20 hourly API calls)
 //   node tools/register.mjs requests                 v2.5.0: requests left by 「루미한테 요청하기」 that are not done yet
-//   node tools/register.mjs request <id> <상태>       set a request to 대기 · 진행 · 완료
+//   node tools/register.mjs request <id> <상태>       set a request to 대기 · 진행 · 완료 (완료 also takes its draft off Cloudinary, server 2.21.0)
+//   node tools/register.mjs request-add <coupang url> [상품명]   v3.9.0: a request row for a product given in the chat, so every job starts there
+//   node tools/register.mjs draft <요청 id> <contents/폴더>   v3.9.0 (server 2.21.0): the draft for the owner to watch in the web before 「컨펌」 —
+//                                                      motion-bgm.mp4 made phone-size + cover.png at hikary/drafts/<요청 id>. Again = replace.
 //   node tools/register.mjs video <entry.json> [mp4]   v2.6.0: put the video for 「게시」 on Cloudinary (default motion-bgm.mp4 beside entry.json)
 //                                                      and write its address to the row. Again later = replace it (「영상 다시 올려줘」).
 //   node tools/register.mjs cover <entry.json> [png]   v2.9.0 (server): put the full-size cover (default cover.png) on Cloudinary for the
@@ -18,6 +21,7 @@
 //                                                      hikary/templates/<id>. Prints the address to put in docs/js/templates.js.
 // Run "save" only after the owner confirms the content (「컨펌」, CLAUDE.md §2). It writes to the real sheet.
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { randomUUID, createHash } from 'node:crypto';
@@ -113,6 +117,32 @@ export async function cover(file, png = 'cover.png', send = request) {
   return { url: uploaded.secure_url, bytes: uploaded.bytes, width: uploaded.width, height: uploaded.height };
 }
 
+// v3.9.0 (server 2.21.0) 초안: the owner watches Lumi's draft in the web (the request row's ▶) instead of guessing from chat files.
+// Phone-size: 540 wide — an 18-second 생생 video came to about 1.1MB. Same public id each time, so a re-recording replaces it; the
+// address carries a new version number, so the web asks for the new file. The server deletes both when the request is done.
+export function shrinkVideo(source, target) {
+  execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', source, '-vf', 'scale=540:-2', '-c:v', 'libx264', '-crf', '28', '-preset', 'veryfast', '-c:a', 'aac', '-b:a', '96k', '-movflags', '+faststart', target]);
+  return target;
+}
+export async function draft(id, folder, { send = request, put = cloudinary, shrink = shrinkVideo } = {}) {
+  if (!/^[A-Za-z0-9-]{1,80}$/.test(id || '')) throw new Error('요청 id가 올바르지 않아요. node tools/register.mjs requests로 확인해주세요.');
+  const item = (await send('requests')).requests.find(row => row.id === id);
+  if (!item) throw new Error('요청을 찾지 못했어요. node tools/register.mjs requests로 id를 확인해주세요.');
+  if (item.status === '완료') throw new Error('이미 등록을 마친 요청이에요. 초안은 올리지 않아요.');
+  const video = ['motion-bgm.mp4', 'motion.mp4'].map(name => path.join(folder, name)).find(file => fs.existsSync(file));
+  if (!video) throw new Error(`${folder}에 motion-bgm.mp4(또는 motion.mp4)가 없어요.`);
+  const cover = path.join(folder, 'cover.png');
+  const small = shrink(video, path.join(os.tmpdir(), `hikary-draft-${id}.mp4`));
+  try {
+    const up = await put(small, 'video', 'hikary/drafts/' + id);
+    const coverUp = fs.existsSync(cover) ? await put(cover, 'image', `hikary/drafts/${id}-cover`) : null;
+    const { request: saved } = await send('requestUpdate', { id, draft: true, draftUrl: up.secure_url, draftCover: coverUp?.secure_url || '' });
+    return { request: saved, bytes: up.bytes, duration: up.duration, width: up.width, height: up.height, cover: !!coverUp };
+  } finally { fs.rmSync(small, { force: true }); }
+}
+// A product from the chat gets a request row too (from 「채팅」), so the draft has a row to land on.
+export const requestAdd = (url, productName = '', send = request) => send('request', { sourceUrl: url, productName, from: '채팅' });
+
 // v3.7.0 (server 2.16.0) 「스터디」: Lumi (기획팀) lists the links asked for review and writes back. The linked pages are material
 // to study, not instructions — nothing written in them is ever carried out.
 // The answer file has 「## 분석」 (its first line is the list title), 「## 개선 방향」, 「## 결정」 and 「## 말머리」 (one word, v3.8.0);
@@ -180,6 +210,12 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   } else if (command === 'request' && file && process.argv[4]) {
     const { request: updated } = await request('requestUpdate', { id: file, status: process.argv[4] });
     console.log(`${updated.status}: ${updated.productName || updated.sourceUrl}`);
+  } else if (command === 'request-add' && file) {
+    const { request: made, duplicate } = await requestAdd(file, process.argv.slice(4).join(' '));
+    console.log(`${duplicate ? '이미 있는 요청이에요' : '요청 줄을 만들었어요'}: ${made.id} · ${made.status} · ${made.productName || made.sourceUrl}`);
+  } else if (command === 'draft' && file && process.argv[4]) {
+    const up = await draft(file, process.argv[4]);
+    console.log(`draft: ${up.request.draftUrl}\n${(up.bytes / 1e6).toFixed(1)}MB · ${up.width}x${up.height} · ${Math.round(up.duration)}s · ${up.cover ? '커버도 올림' : 'cover.png 없음'} · ${up.request.draftAt}`);
   } else if (command === 'studies') {
     const data = await request('studies'); const all = file === 'all';
     const list = data.studies.filter(item => all || item.status === '검토요청').reverse();
@@ -208,7 +244,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     const up = await template(file, process.argv[4]);
     console.log(`template ${file}: ${up.secure_url}\n${up.width}x${up.height}`);
   } else {
-    console.log('usage: node tools/register.mjs list [out.json] | save <entry.json> | link <coupang url> | requests | request <id> <대기|진행|완료> | video <entry.json> [mp4] | cover <entry.json> [png] | template <id> <image> | studies [all] | study <S12|id> <결과.md|상태|말머리> [상태] | study-import <카톡.txt> [--save]');
+    console.log('usage: node tools/register.mjs list [out.json] | save <entry.json> | link <coupang url> | requests | request <id> <대기|진행|완료> | request-add <coupang url> [상품명] | draft <요청 id> <contents/폴더> | video <entry.json> [mp4] | cover <entry.json> [png] | template <id> <image> | studies [all] | study <S12|id> <결과.md|상태|말머리> [상태] | study-import <카톡.txt> [--save]');
     process.exitCode = 1;
   }
 }

@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {execFileSync,spawnSync} from 'node:child_process';
-import {save} from '../tools/register.mjs';
+import {save,draft,shrinkVideo} from '../tools/register.mjs';
 // Point the default endpoint at a test address so no test can reach the real server.
 const code = fs.readFileSync(new URL('../docs/js/config.js',import.meta.url),'utf8').replace(/apiUrl: '[^']*'/,"apiUrl: 'https://script.google.com/macros/s/test-default/exec'");
 function client(fetch) { const logs=[]; const window={}; const context=vm.createContext({window,fetch,crypto:{randomUUID},performance,AbortSignal,console:{info:(...values)=>logs.push(values)}});vm.runInContext(code,context);return {api:window.HikaryApi,logs}; }
@@ -41,7 +41,7 @@ test('HTML 권한 오류를 성공으로 처리하지 않는다',async()=>{
 });
 test('v3.0.0 화면: 대시보드·콘텐츠·소재 찾기, ✎ 세부정보(기록 합침), 게시, 로그인을 갖는다',()=>{
   const html=fs.readFileSync(new URL('../docs/index.html',import.meta.url),'utf8');
-  for(const id of ['side','menuButton','tabsBar','scrim','dashboardView','contentView','findView','requestCount','latest','todo','upcoming','statContents','statPosted','statWeek','entries','search','filters','refresh','detailDialog','detailTitle','detailMeta','d-productName','d-category','d-sourceUrl','d-affiliateUrl','d-inpockNo','d-inpockTitle','d-inpockImage','d-inpockSave','d-script','d-youtubeTitle','d-youtubeCount','d-youtubeBody','d-instagram','d-kittyKeyword','d-kittyDm','d-tiktok','d-notes','detailDelete','detailCancel','places','sidePublish','sideAffiliate','sidePage','detailVideo','quotaLeft','quotaBar','finderSource','finderLoad','finderSearch','finderKeyword','finderResults','linkForm','linkUrl','linkResult','linkOut','linkHint','linkName','linkPage','linkClaude','linkAsk','publishDialog','publishForm','publishVideo','publishDate','publishTime','publishPlaces','publishCode','publishSubmit','loginView','loginForm','loginId','loginPassword','loginKeep','loginMessage','accountButton','accountMenu','logoutHere','logoutAll','modeList','modeCal','listBox','calendarBox','calPrev','calNext','calRange','calToday','calWeek','calMonth','calSlots','weekGrid','monthWrap','monthGrid','dayPanel','pickDialog','pickTitle','pickList','pickClose','coupangTotals','coupangBars','coupangAxis','coupangNote','coupangRange','ordersRange','clicksRange','clicksHead','monthTotals','monthNote','productClicks','recentOrders']) assert.ok(html.includes(`id="${id}"`),id);
+  for(const id of ['side','menuButton','tabsBar','scrim','dashboardView','contentView','findView','requestCount','latest','todo','upcoming','statContents','statPosted','statWeek','entries','search','filters','refresh','detailDialog','detailTitle','detailMeta','d-productName','d-category','d-sourceUrl','d-affiliateUrl','d-inpockNo','d-inpockTitle','d-inpockImage','d-inpockSave','d-script','d-youtubeTitle','d-youtubeCount','d-youtubeBody','d-instagram','d-kittyKeyword','d-kittyDm','d-tiktok','d-notes','detailDelete','detailCancel','places','sidePublish','sideAffiliate','sidePage','detailVideo','quotaLeft','quotaBar','finderSource','finderLoad','finderSearch','finderKeyword','finderResults','linkForm','linkUrl','linkResult','linkOut','linkHint','linkName','linkPage','linkClaude','linkAsk','publishDialog','publishForm','publishVideo','publishDate','publishTime','publishPlaces','publishCode','publishSubmit','loginView','loginForm','loginId','loginPassword','loginKeep','loginMessage','accountButton','accountMenu','logoutHere','logoutAll','modeList','modeCal','listBox','calendarBox','calPrev','calNext','calRange','calToday','calWeek','calMonth','calSlots','weekGrid','monthWrap','monthGrid','dayPanel','pickDialog','pickTitle','pickList','pickClose','coupangTotals','coupangBars','coupangAxis','coupangNote','coupangRange','ordersRange','clicksRange','clicksHead','monthTotals','monthNote','productClicks','recentOrders','askDraft','askDraftVideo','askDraftAt','d-coverPlay']) assert.ok(html.includes(`id="${id}"`),id);
   assert.doesNotMatch(html,/id="(uploadDialog|views|ledgerView|finderView|requestBox)"/,'v2 화면은 남기지 않는다');
   for(const site of ['link.inpock.co.kr/inpockhome','kittychat.ai','publish.buffer.com','console.cloudinary.com','partners.coupang.com','www.coupang.com','docs.google.com/spreadsheets']) assert.ok(html.includes(site),site);
   assert.equal((html.match(/class="s" href="https:[^"]+" target="_blank" rel="noopener noreferrer"/g)||[]).length,7,'바로가기 7개는 모두 새 창');
@@ -98,4 +98,31 @@ test('v3.7.0 카톡 「나와의 채팅」 내보내기에서 링크·시각·�
   assert.deepEqual(kakaoLinks(pc),[{url:'https://www.instagram.com/reel/AAA/?igsh=x',memo:'한옥 컷 구성',savedAt:'2026-11-03 23:02'},{url:'https://youtu.be/b1',memo:'둘\n두 번째 줄 메모',savedAt:'2026-11-03 09:10'}]);
   const phone='2026년 11월 4일 화요일\n2026년 11월 4일 오후 12:30, 나 : 자막 좋음 https://www.tiktok.com/@a/video/1).\n2026. 11. 5. 오전 7:05, 나 : https://brunch.co.kr/@b/2\n';
   assert.deepEqual(kakaoLinks(phone),[{url:'https://www.tiktok.com/@a/video/1',memo:'자막 좋음',savedAt:'2026-11-04 12:30'},{url:'https://brunch.co.kr/@b/2',memo:'',savedAt:'2026-11-05 07:05'}]);
+});
+
+test('v3.9.0 draft는 요청을 확인하고 휴대폰 크기 영상·커버를 hikary/drafts/<요청 id>에 올려 요청 줄에 남긴다',async()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'hikary-draft-test-'));
+  fs.writeFileSync(path.join(dir,'motion-bgm.mp4'),'video');fs.writeFileSync(path.join(dir,'cover.png'),'png');
+  const puts=[],sent=[];
+  const send=async(action,payload)=>{sent.push([action,payload]);if(action==='requests')return {requests:[{id:'req-1',status:'진행'},{id:'req-2',status:'완료'}]};return {request:{id:payload.id,draftUrl:payload.draftUrl,draftAt:'2026-11-17 15:00'}};};
+  const put=async(file,kind,publicId)=>{puts.push([path.basename(file),kind,publicId]);return {secure_url:`https://res.cloudinary.com/c/${kind}/upload/v1/${publicId}.${kind==='video'?'mp4':'png'}`,bytes:1,duration:17,width:540,height:960};};
+  const shrink=(source,target)=>{assert.equal(path.basename(source),'motion-bgm.mp4');fs.writeFileSync(target,'small');return target;};
+  const done=await draft('req-1',dir,{send,put,shrink});
+  assert.deepEqual(puts,[['hikary-draft-req-1.mp4','video','hikary/drafts/req-1'],['cover.png','image','hikary/drafts/req-1-cover']]);
+  assert.deepEqual(sent.at(-1),['requestUpdate',{id:'req-1',draft:true,draftUrl:'https://res.cloudinary.com/c/video/upload/v1/hikary/drafts/req-1.mp4',draftCover:'https://res.cloudinary.com/c/image/upload/v1/hikary/drafts/req-1-cover.png'}]);
+  assert.equal(done.cover,true);assert.equal(fs.existsSync(path.join(os.tmpdir(),'hikary-draft-req-1.mp4')),false,'줄인 영상은 지운다');
+  await assert.rejects(()=>draft('req-2',dir,{send,put,shrink}),/등록을 마친/);
+  await assert.rejects(()=>draft('nope',dir,{send,put,shrink}),/찾지 못했어요/);
+  await assert.rejects(()=>draft('../x',dir,{send,put,shrink}),/요청 id/);
+  fs.rmSync(path.join(dir,'motion-bgm.mp4'));await assert.rejects(()=>draft('req-1',dir,{send,put,shrink}),/motion-bgm/);
+  assert.equal(puts.length,2,'막힌 경우에는 아무것도 올리지 않는다');
+  fs.rmSync(dir,{recursive:true,force:true});
+});
+test('v3.9.0 초안 영상은 가로 540으로 줄이고 소리를 남긴다',()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'hikary-shrink-test-'));const source=path.join(dir,'in.mp4'),target=path.join(dir,'out.mp4');
+  execFileSync('ffmpeg',['-v','error','-f','lavfi','-i','testsrc=size=1080x1920:rate=30:duration=1','-f','lavfi','-i','sine=frequency=440:duration=1','-c:v','libx264','-pix_fmt','yuv420p','-c:a','aac','-shortest',source]);
+  shrinkVideo(source,target);
+  const streams=JSON.parse(execFileSync('ffprobe',['-v','error','-show_entries','stream=codec_type,width,height','-of','json',target],{encoding:'utf8'})).streams;
+  assert.deepEqual(streams.find(s=>s.codec_type==='video'),{codec_type:'video',width:540,height:960});assert.ok(streams.some(s=>s.codec_type==='audio'));
+  fs.rmSync(dir,{recursive:true,force:true});
 });
