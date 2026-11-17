@@ -244,7 +244,10 @@
     const query = $('search').value.trim().toLowerCase();
     for (const node of $('filters').children) node.querySelector('b').textContent = node.dataset.filter === '요청' ? openRequests().length : rows.filter(FILTERS[node.dataset.filter]).length;
     const reqs = ['전체', '요청'].includes(filter) ? openRequests().filter(item => `${item.productName} ${item.sourceUrl}`.toLowerCase().includes(query)) : [];
-    const shown = rows.filter(row => FILTERS[filter](row) && `${row.productName} ${row.category} No.${row.inpockNo}`.toLowerCase().includes(query));
+    // v3.9.1: largest inpock No. first (사람: "No. 순서로") — the server's order is registration order, which put 263·265·267 above 264·266.
+    // The sort is stable: a tie keeps registration order, and rows without a No. come after, in registration order too.
+    const no = row => /^\d+$/.test(row.inpockNo || '') ? Number(row.inpockNo) : -1;
+    const shown = rows.filter(row => FILTERS[filter](row) && `${row.productName} ${row.category} No.${row.inpockNo}`.toLowerCase().includes(query)).sort((a, b) => no(b) - no(a));
     const [page, at] = pageOf(shown, listPage, $('entriesFoot'), next => { listPage = next; renderList(); toListTop($('entries').parentElement); }); listPage = at;
     $('entries').replaceChildren(...(at === 0 ? reqs : []).map(requestRow), ...page.map(entryRow));
     if (!reqs.length && !shown.length) $('entries').append(emptyBox(rows.length ? '조건에 맞는 콘텐츠가 없어요.' : '아직 등록된 콘텐츠가 없어요.', rows.length ? '검색어나 보기를 바꿔 보세요.' : '「소재 찾기」에서 루미한테 요청하면 여기에 쌓여요.'));

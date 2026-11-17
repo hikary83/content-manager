@@ -20,6 +20,8 @@ const rows = [
   row({ productName: '접이식 실리콘 밀폐용기 4종 세트', createdAt: '2026-11-04', inpockNo: '251', inpockLinkedAt: '2026-11-04', kittyLinkedAt: '2026-11-05', script: '훅: 냉장고 문 열 때마다 쏟아지죠?\n장점: 접으면 얇아져요', youtube: '냉장고 정리 꿀템 #shorts', ...done('youtube', '2026-11-04'), ...done('instagram', '2026-11-05'), ...done('carousel', '2026-11-05'), ...done('tiktok', '2026-11-06'),
     // v3.6.0 mock: Buffer's numbers as the server 2.15.0 stores them (TikTok's reach is always 0, so the web hides it)
     metrics: JSON.stringify({ youtube: { views: 284, reactions: 1, comments: 0 }, instagram: { views: 111, reactions: 3, comments: 0, shares: 0, saves: 0, reach: 104, averageTimeWatched: 3.23 }, tiktok: { views: 31, reactions: 1, comments: 0, shares: 0, reach: 0, averageTimeWatched: 3.02 }, at: { youtube: '2026-11-12 15:01', instagram: '2026-11-12 15:14', tiktok: '2026-11-12 14:20' } }) }),
+  // v3.9.1 mock: registered after 252 and 251 but with a larger No. — the 콘텐츠 list puts it first (No. order, not registration order)
+  row({ productName: '나중에 등록한 예시 상품 (목업)', category: '여행', createdAt: '2026-11-10', inpockNo: '253', script: '대본' }),
   row({ productName: '제주 오션뷰 호텔 1박 패키지', category: '여행', sourceUrl: 'https://trip.coupang.com/tp/products/2', createdAt: '2026-11-03', script: '제주 바다가 보이는 객실', tiktokStatus: '보류', instagramType: '캐러셀', videoUrl: 'https://res.cloudinary.com/demo/video/upload/v1/hikary/example2.mp4', videoDate: '2026-11-11 09:00' }),
   row({ productName: '무선 미니 청소기 (v2.2.0 전 형식)', category: '가전·디지털', sourceUrl: 'https://www.coupang.com/vp/products/3', format: '캐러셀', createdAt: '2026-11-02', script: '책상 위 먼지, 손바닥 청소기로' })
 ];
