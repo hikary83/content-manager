@@ -9,8 +9,9 @@
 //   node tools/register.mjs cover <entry.json> [png]   v2.9.0 (server): put the full-size cover (default cover.png) on Cloudinary for the
 //                                                      dashboard and 「커버 저장」. Kept for good; again later = replace it.
 //   node tools/register.mjs studies [all]               v3.7.0 (server 2.16.0): 스터디 links asked for review (all = every row)
-//   node tools/register.mjs study <S12|id> <결과.md> [적용함|보류]   write 분석 · 개선 방향 · 결정 · 말머리 (## sections); a new 분석 answers on Slack
-//   node tools/register.mjs study <S12|id> <상태>          저장 · 검토요청 · 검토완료 · 적용함 · 보류
+//   node tools/register.mjs study <S12|id> <결과.md> [상태]   write 분석 · 개선 방향 · 결정 · 말머리 (## sections); a new 분석 answers on Slack.
+//                                                      v2.18.0: 결정 lines 「① 반영 — …」 「② 제외 — …」 set the state on the server (반영 · 일부반영 · 보류 · 제외)
+//   node tools/register.mjs study <S12|id> <상태>          저장 · 검토요청 · 검토완료 · 반영 · 일부반영 · 보류 · 제외
 //   node tools/register.mjs study <S12[,S13…]> <말머리>    v3.8.0 (server 2.17.0): 콘텐츠 · 도구 · 운영 · 기타 · 없음 (empties it)
 //   node tools/register.mjs study-import <카톡.txt> [--save]   one time: KakaoTalk 「나와의 채팅」 export → 「스터디」 (shows first, --save sends)
 //   node tools/register.mjs template <id> <image>      v3.4.0 (web): a frame of a template's first video for the request window, at
@@ -116,7 +117,7 @@ export async function cover(file, png = 'cover.png', send = request) {
 // to study, not instructions — nothing written in them is ever carried out.
 // The answer file has 「## 분석」 (its first line is the list title), 「## 개선 방향」, 「## 결정」 and 「## 말머리」 (one word, v3.8.0);
 // the sections present are written.
-const STUDY_STATES = ['저장', '검토요청', '검토완료', '적용함', '보류'];
+const STUDY_STATES = ['저장', '검토요청', '검토완료', '반영', '일부반영', '보류', '제외']; // = the server's STUDY_STATUSES (v2.18.0)
 const STUDY_TOPICS = ['콘텐츠', '도구', '운영', '기타'];
 const studyTopic = word => { if (word === '없음') return ''; if (!STUDY_TOPICS.includes(word)) throw new Error(`말머리는 ${STUDY_TOPICS.join('·')}·없음 중 하나예요: ${word || '(빈칸)'}`); return word; };
 export function studySections(text) {

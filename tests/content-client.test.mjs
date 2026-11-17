@@ -78,10 +78,10 @@ test('v3.7.0 스터디 결과 파일은 ## 분석·개선 방향·결정을 나�
   assert.deepEqual(studySections('## 결정\n보류해요'),{decision:'보류해요'});
   assert.throws(()=>studySections('제목 없이 쓴 글'),/## 분석/);
   const sent=[];const send=async(action,payload)=>{sent.push([action,payload]);return {studies:[]};};
-  await studyWrite('S12','적용함',undefined,send);
+  await studyWrite('S12','반영',undefined,send);
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'study-'));const file=path.join(dir,'결정.md');fs.writeFileSync(file,'## 결정\n투어 컷 2초로 가요');
-  await studyWrite('S12',file,'적용함',send);
-  assert.deepEqual(sent,[['studyUpdate',{ids:['S12'],status:'적용함'}],['studyUpdate',{ids:['S12'],decision:'투어 컷 2초로 가요',status:'적용함'}]]);
+  await studyWrite('S12',file,'반영',send);
+  assert.deepEqual(sent,[['studyUpdate',{ids:['S12'],status:'반영'}],['studyUpdate',{ids:['S12'],decision:'투어 컷 2초로 가요',status:'반영'}]]);
   await assert.rejects(()=>studyWrite('S12',file,'의견있음',send),/상태는/);
   // v3.8.0 말머리: a ## 말머리 section (one word), or the word alone for one or several rows; 없음 empties it; anything else is refused.
   assert.deepEqual(studySections('## 말머리\n도구\n\n## 분석\n템플릿 쪽으로 다시 봤어요'),{topic:'도구',result:'템플릿 쪽으로 다시 봤어요'});

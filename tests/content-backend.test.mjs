@@ -667,14 +667,32 @@ test('v2.16.0 검토 요청 → 루미 분석은 검토완료로 저장하고 �
   assert.equal(fake.posted[1].thread_ts, '1794400100.000200', '한 메시지의 두 번째 링크도 그 메시지에 단다');
   call('studyUpdate', { ids: ['S4'], result: '웹에서 넣은 글 분석' });
   assert.equal(fake.posted.length, 2, '웹·카톡에서 온 줄은 슬랙에 올리지 않는다');
-  const decided = call('studyUpdate', { ids: ['S1'], decision: '투어 컷 2초 버전을 No.262에서 시험', status: '적용함' }).data.studies[0];
-  assert.deepEqual([decided.status, decided.decision], ['적용함', '투어 컷 2초 버전을 No.262에서 시험']);
+  const decided = call('studyUpdate', { ids: ['S1'], decision: '투어 컷 2초 버전을 No.262에서 시험', status: '반영' }).data.studies[0];
+  assert.deepEqual([decided.status, decided.decision], ['반영', '투어 컷 2초 버전을 No.262에서 시험']);
   assert.equal(fake.posted.length, 2, '결정은 댓글을 달지 않는다');
   fake.error = 'not_in_channel';
   const failed = call('studyUpdate', { ids: ['S2'], result: '틱톡 분석' }).data;
   assert.equal(failed.studies[0].status, '검토완료', '댓글이 실패해도 분석은 저장한다'); assert.match(failed.slack[0], /S2 슬랙 댓글 실패: .*\/invite @HIKARY/);
   assert.match(call('studyUpdate', { ids: ['S99'], status: '보류' }).error, /S99/);
   assert.match(call('studyUpdate', { ids: ['S1'], status: '의견있음' }).error, /상태/);
+});
+
+test('v2.18.0 결정 줄이 상태를 정한다 — 모두 반영 · 섞이면 일부반영 · 반영 없이 보류 · 모두 제외, 자유 글은 그대로, 같이 보낸 상태가 이기고, 결정엔 슬랙 댓글이 없다', () => {
+  const { env, call, fake } = studyEnv(); fake.history = SLACK_MESSAGES.slice(0, 1); call('studySync');
+  call('studyUpdate', { ids: ['S1'], result: '숙소 릴스 분석', direction: '① 물 먼저\n② 구글 플로우' });
+  assert.equal(fake.posted.length, 1, '분석 도착 댓글 하나');
+  const write = decision => call('studyUpdate', { ids: ['S1'], decision }).data.studies[0].status;
+  assert.equal(write('① 반영 — 생생 첫 컷 (v3.8.2)\n② 반영 — 끝 부탁'), '반영');
+  assert.equal(write('① 반영 — 생생 첫 컷\n② 제외 — 구글 플로우: 워터마크\n두 번째 영상을 보고 다시'), '일부반영', '자유 글 줄은 세지 않는다');
+  assert.equal(write('1. 보류 — 결과 보고\n2) 제외 — 안 맞아요'), '보류');
+  assert.equal(write('① 제외 — a\n② 제외 — b'), '제외');
+  assert.equal(write('반영하기로 했어요 (자유 글)'), '제외', '결정 줄이 없으면 상태를 건드리지 않는다');
+  assert.equal(call('studyUpdate', { ids: ['S1'], decision: '① 반영 — a', status: '보류' }).data.studies[0].status, '보류', '같이 보낸 상태가 이긴다');
+  assert.equal(call('studyUpdate', { ids: ['S1'], status: '반영' }).data.studies[0].decision, '① 반영 — a', '상태만 바꾸면 결정 줄은 그대로');
+  assert.equal(call('studyUpdate', { ids: ['S1'], status: '검토요청' }).data.studies[0].status, '검토요청', '반영에서도 다시 요청');
+  assert.equal(fake.posted.length, 1, '결정에는 슬랙 댓글을 달지 않는다');
+  assert.match(call('studyUpdate', { ids: ['S1'], status: '적용함' }).error, /상태/, '적용함은 반영으로 바뀌었다');
+  assert.throws(() => env.context.updateStudies_({ ids: ['S1'], decision: '① 반영 — 웹에서' }, 'session'), /루미가 등록 도구로/);
 });
 
 test('v2.17.0 말머리: 예전 탭에 칸을 더하고, 웹·도구 모두 바꾸며, 다시 요청은 새 분석이 올 때까지 이전 분석을 남기고 새 분석마다 댓글에 말머리를 단다', () => {

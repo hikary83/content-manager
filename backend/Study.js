@@ -10,10 +10,13 @@
 // v2.17.0 말머리 (2026-11-16): which team a link is for — 콘텐츠 (our videos and posts) · 도구 (how we make them) · 운영 (accounts,
 // times, DM, rules) · 기타 — or empty (Lumi decides). Anyone can set it; 「다시 요청」 = back to 검토요청 with a new 말머리, the old
 // analysis stays until the new one replaces it (no history kept). The Slack answer carries it: 「✅ S25 [도구] 루미 분석 도착」.
+// v2.18.0 결정 (2026-11-17): the states after an analysis are 반영 · 일부반영 · 보류 · 제외 (적용함 was renamed 반영; no row had it).
+// The 결정 is written as one line per 개선 방향 item — 「① 반영 — …」 「② 제외 — …」 — and those lines set the state (studyDecided_, the only
+// place this rule lives). A 결정 without such lines (free text) leaves the state alone. 다시 요청 works from any of the four.
 var STUDY_SHEET = '스터디';
 var STUDY_HEADERS = ['스터디 ID', '번호', '저장 시각', '링크', '플랫폼', '메모', '출처', '상태', '검토 요청 시각', '분석', '개선 방향', '결정', '분석 시각', '슬랙 ts', '말머리'];
 var STUDY_KEYS = ['id', 'no', 'savedAt', 'url', 'platform', 'memo', 'from', 'status', 'askedAt', 'result', 'direction', 'decision', 'reviewedAt', 'slackTs', 'topic'];
-var STUDY_STATUSES = ['저장', '검토요청', '검토완료', '적용함', '보류'];
+var STUDY_STATUSES = ['저장', '검토요청', '검토완료', '반영', '일부반영', '보류', '제외'];
 var STUDY_TOPICS = ['콘텐츠', '도구', '운영', '기타'];
 var STUDY_FIRST_HEADERS = 14; // the tab as v2.16.0 made it; later headers are filled in when their cells are still empty
 var STUDY_WEB = 'https://hikary83.github.io/content-manager/#study';
@@ -160,6 +163,7 @@ function updateStudies_(input, who) {
       if (input.topic !== undefined) entry.topic = input.topic;
       Object.keys(text).forEach(function(key) { entry[key] = text[key]; });
       if (text.result) { entry.reviewedAt = now; if (input.status === undefined) entry.status = '검토완료'; }
+      if (text.decision !== undefined && input.status === undefined) { var decided = studyDecided_(entry.decision); if (decided) entry.status = decided; }
       if (input.status !== undefined) {
         if (input.status === '검토요청' && entry.status !== '검토요청') entry.askedAt = now;
         if (input.status === '저장') entry.askedAt = '';
@@ -181,6 +185,15 @@ function updateStudies_(input, who) {
 }
 // 「✅ S12 [도구] 루미 분석 도착 · 한 줄 요약 · 개선 방향 · 웹 링크」 under the owner's own Slack message — once per analysis, so a
 // 다시 요청 is answered again. Nothing else is posted.
+// 결정 lines → state: all 반영 → 반영 · some 반영 with others → 일부반영 · no 반영 but a 보류 → 보류 · all 제외 → 제외 · no lines → '' (unchanged).
+// A line starts with ①–⑳ (or 「1.」 「1)」) and its first word is 반영 · 보류 · 제외. A status sent with the same call wins over this.
+function studyDecided_(decision) {
+  var kinds = String(decision || '').split('\n').map(function(line) { return (/^\s*(?:[①-⑳]|\d{1,2}[.)])\s*(반영|보류|제외)(?![가-힣])/.exec(line) || [])[1]; }).filter(Boolean);
+  if (!kinds.length) return '';
+  if (kinds.every(function(kind) { return kind === '반영'; })) return '반영';
+  if (kinds.indexOf('반영') >= 0) return '일부반영';
+  return kinds.indexOf('보류') >= 0 ? '보류' : '제외';
+}
 function studyAnswer_(entry) {
   var escape = function(value) { return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); };
   var direction = String(entry.direction || '').trim();

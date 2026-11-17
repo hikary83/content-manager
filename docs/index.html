@@ -1,19 +1,19 @@
 <!doctype html>
-<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0f0f0f"><title>HIKARY 콘텐츠 관리</title><link rel="icon" type="image/png" href="assets/favicon.png?v=3.8.2"><link rel="apple-touch-icon" href="assets/apple-touch-icon.png?v=3.8.2"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css"><link rel="stylesheet" href="css/app.css?v=3.8.2"></head>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0f0f0f"><title>HIKARY 콘텐츠 관리</title><link rel="icon" type="image/png" href="assets/favicon.png?v=3.8.3"><link rel="apple-touch-icon" href="assets/apple-touch-icon.png?v=3.8.3"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css"><link rel="stylesheet" href="css/app.css?v=3.8.3"></head>
 <body>
 <div class="app">
 <header class="top">
  <button id="menuButton" type="button" class="burger" aria-label="메뉴 열기·닫기"><i></i></button>
- <a class="brand" href="#dashboard"><img class="brand-word" src="assets/logo-word.png?v=3.8.2" alt="HIKARY"><span class="ver">v3.8.2</span></a>
+ <a class="brand" href="#dashboard"><img class="brand-word" src="assets/logo-word.png?v=3.8.3" alt="HIKARY"><span class="ver">v3.8.3</span></a>
  <label class="search"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="콘텐츠 검색 (상품명·카테고리·No.)" aria-label="콘텐츠 검색"></label>
  <div class="top-right"><span id="connectionState" class="conn">연결 확인 중…</span>
-  <div class="account"><button id="accountButton" type="button" class="avatar" aria-haspopup="true" aria-expanded="false" aria-label="계정 메뉴"><img src="assets/logo-mascot.png?v=3.8.2" alt=""></button>
-   <div id="accountMenu" class="account-menu" hidden><div class="who"><img src="assets/logo-mascot.png?v=3.8.2" alt=""><div><b>HIKARY</b><small>이 기기에서 로그인 중</small></div></div>
+  <div class="account"><button id="accountButton" type="button" class="avatar" aria-haspopup="true" aria-expanded="false" aria-label="계정 메뉴"><img src="assets/logo-mascot.png?v=3.8.3" alt=""></button>
+   <div id="accountMenu" class="account-menu" hidden><div class="who"><img src="assets/logo-mascot.png?v=3.8.3" alt=""><div><b>HIKARY</b><small>이 기기에서 로그인 중</small></div></div>
     <button id="logoutHere" type="button"><i>⎋</i>로그아웃</button><button id="logoutAll" type="button"><i>⊘</i>모든 기기에서 로그아웃</button><small class="sub">휴대폰·다른 PC에 남은 로그인도 끝내요</small></div></div>
  </div>
 </header>
 <aside id="side" class="side">
- <div class="me" title="내 채널 · HikaryVibe"><img src="assets/logo-mascot.png?v=3.8.2" alt=""><b>내 채널</b><small>HikaryVibe</small></div>
+ <div class="me" title="내 채널 · HikaryVibe"><img src="assets/logo-mascot.png?v=3.8.3" alt=""><b>내 채널</b><small>HikaryVibe</small></div>
  <nav class="nav" aria-label="메뉴"><a href="#dashboard" data-view="dashboard" title="대시보드"><i>▦</i><span class="lbl">대시보드</span></a><a href="#content" data-view="content" title="콘텐츠"><i>▶</i><span class="lbl">콘텐츠</span><span id="requestCount" class="count" hidden title="루미가 기다리는 요청"></span></a><a href="#find" data-view="find" title="소재 찾기"><i>◎</i><span class="lbl">소재 찾기</span></a><a href="#study" data-view="study" title="스터디"><i>✦</i><span class="lbl">스터디</span><span id="studyCount" class="count" hidden title="루미 분석이 도착한 링크"></span></a></nav>
  <div class="shortcuts"><small>바로가기</small><div class="sc">
   <a class="s" href="https://docs.google.com/spreadsheets/d/1ZSB7FBZTWdT_eLlo3kpom-u2yM5UwHitG059Zci6TUc/edit" target="_blank" rel="noopener noreferrer" aria-label="운영대장 (새 창)"><span aria-hidden="true">▦</span><em>운영대장</em></a>
@@ -86,7 +86,7 @@
   <form id="studyForm" class="study-form"><input id="studyUrl" type="url" required maxlength="2000" placeholder="참고할 릴스·영상·글 링크 붙여넣기" aria-label="링크"><input id="studyMemo" maxlength="1000" placeholder="메모 (선택) · 어디가 좋았는지" aria-label="메모"><button type="submit" class="btn white">저장</button></form>
  </section>
  <div class="bar"><div id="studyFilters" class="filter" role="group" aria-label="상태">
-  <button type="button" class="on" data-filter="전체">전체 <b></b></button><button type="button" data-filter="저장">저장 <b></b></button><button type="button" data-filter="검토요청">검토 요청 <b></b></button><button type="button" data-filter="검토완료">분석 도착 <b></b></button><button type="button" data-filter="적용함">적용함 <b></b></button><button type="button" data-filter="보류">보류 <b></b></button>
+  <button type="button" class="on" data-filter="전체">전체 <b></b></button><button type="button" data-filter="저장">저장 <b></b></button><button type="button" data-filter="검토요청">검토 요청 <b></b></button><button type="button" data-filter="검토완료">결정 대기 <b></b></button><button type="button" data-filter="반영">반영 <b></b></button><button type="button" data-filter="일부반영">일부 반영 <b></b></button><button type="button" data-filter="보류">보류 <b></b></button><button type="button" data-filter="제외">제외 <b></b></button>
  </div><span class="study-ask"><select id="studyAskTopic" hidden aria-label="검토 요청할 말머리"><option value="">루미가 정해</option><option>콘텐츠</option><option>도구</option><option>운영</option><option>기타</option></select><button id="studyAsk" type="button" class="btn sm primary" hidden></button></span></div>
  <div id="studyTopics" class="filter topics" role="group" aria-label="말머리"><span class="lbl">말머리</span><button type="button" class="on" data-topic="전체">전체 <b></b></button><button type="button" data-topic="콘텐츠">콘텐츠 <b></b></button><button type="button" data-topic="도구">도구 <b></b></button><button type="button" data-topic="운영">운영 <b></b></button><button type="button" data-topic="기타">기타 <b></b></button><button type="button" data-topic="">없음 <b></b></button></div>
  <div class="table"><div class="tr st th"><span class="chk"><input id="studyAll" type="checkbox" aria-label="저장된 링크 모두 고르기"></span><span>링크 · 메모</span><span>출처</span><span>상태</span><span></span></div><div id="studies"></div></div><div id="studiesFoot" class="list-foot" hidden></div>
@@ -184,18 +184,18 @@
 <label for="s-memo">메모</label><textarea id="s-memo" rows="2" maxlength="1000" placeholder="어디가 좋았는지, 루미가 봐 줬으면 하는 것"></textarea>
 <div id="studyReview"><h3 class="sec">루미 분석 <small id="studyReviewedAt"></small></h3><div id="studyResult" class="study-text"></div>
 <h3 class="sec">개선 방향 <small>우리 영상에 이렇게</small></h3><div id="studyDirection" class="study-text"></div>
-<div id="studyDecisionBox" hidden><h3 class="sec">결정 <small>루미와 얘기해서 정한 것</small></h3><div id="studyDecision" class="study-text decided"></div></div></div>
+<div id="studyDecisionBox"><h3 class="sec">결정 <small>개선 방향 항목마다 반영 · 보류 · 제외</small></h3><div id="studyDecision" class="study-decision"></div></div></div>
 <p id="studyWaiting" class="hint"></p>
 </div>
 <div class="dialog-foot"><button id="studyDelete" type="button" class="danger">🗑 삭제</button><span id="studyActions" class="r"></span></div></form></dialog>
 
 <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 <section id="loginView" class="login-view" hidden><form id="loginForm" class="login-card">
-<img class="login-mascot" src="assets/logo-mascot.png?v=3.8.2" alt=""><img class="login-word" src="assets/logo-word.png?v=3.8.2" alt="HIKARY"><p class="login-sub">콘텐츠 관리</p>
+<img class="login-mascot" src="assets/logo-mascot.png?v=3.8.3" alt=""><img class="login-word" src="assets/logo-word.png?v=3.8.3" alt="HIKARY"><p class="login-sub">콘텐츠 관리</p>
 <label class="login-field">아이디<input id="loginId" autocomplete="username" autocapitalize="off" spellcheck="false" required maxlength="100"></label>
 <label class="login-field">비밀번호<input id="loginPassword" type="password" autocomplete="current-password" required maxlength="200"></label>
 <label class="login-keep"><input id="loginKeep" type="checkbox" checked>이 기기에서 로그인 유지</label>
 <button id="loginSubmit" type="submit">로그인</button>
 <p id="loginMessage" class="login-message" role="alert" hidden></p>
 <p class="login-foot">5번 틀리면 1시간 동안 로그인을 막아요</p></form></section>
-<script src="js/config.js?v=3.8.2"></script><script src="js/templates.js?v=3.8.2"></script><script src="js/app.js?v=3.8.2"></script></body></html>
+<script src="js/config.js?v=3.8.3"></script><script src="js/templates.js?v=3.8.3"></script><script src="js/app.js?v=3.8.3"></script></body></html>

@@ -542,7 +542,7 @@
     const studyCount = state => studies.filter(item => item.status === state).length;
     const again = studies.filter(item => item.status === '검토요청' && item.result).length;
     if (studyCount('검토요청')) add(`스터디 검토 요청 ${studyCount('검토요청')}개${again ? ` (다시 요청 ${again})` : ''} — Claude에서 「스터디 확인해줘」`, button('보기', () => { go('study'); setStudyFilter('검토요청'); }));
-    if (studyCount('검토완료')) add(`스터디 분석 ${studyCount('검토완료')}개 도착 — 적용함·보류 고르기`, button('보기', () => { go('study'); setStudyFilter('검토완료'); }));
+    if (studyCount('검토완료')) add(`스터디 결정 대기 ${studyCount('검토완료')}개 — Claude에서 「스터디 S○ 얘기하자」`, button('보기', () => { go('study'); setStudyFilter('검토완료'); }));
     if (!items.length) items.push(element('div', 'trow ok-line', '할 일이 없어요'));
     return items;
   }
@@ -921,7 +921,18 @@
   // v3.8.0 (server 2.17.0) 말머리: 콘텐츠 · 도구 · 운영 · 기타 or none (Lumi decides) — a chip before the title, a second filter, a
   // choice when asking, and 「다시 요청」 in the window (back to 검토요청; the old analysis shows until the new one replaces it).
   const STUDY_MARK = { 인스타: 'instagram', 유튜브: 'youtube', 틱톡: 'tiktok' };
-  const STUDY_CHIP = { 저장: ['', '저장'], 검토요청: ['req doing', '루미 대기 중'], 검토완료: ['sched', '분석 도착'], 적용함: ['done', '적용함'], 보류: ['', '보류'] };
+  // v3.8.3 (server 2.18.0) 결정: after an analysis a row is 반영 · 일부반영 · 보류 · 제외, set by its 결정 lines 「① 반영 — …」 on the server.
+  const STUDY_CHIP = { 저장: ['', '저장'], 검토요청: ['req doing', '루미 대기 중'], 검토완료: ['sched', '분석 도착'], 반영: ['dec-yes', '반영'], 일부반영: ['dec-part', '일부 반영'], 보류: ['dec-hold', '보류'], 제외: ['dec-no', '제외'] };
+  const DECIDED = ['반영', '일부반영', '보류', '제외'];
+  const VERDICT = { 반영: ['yes', '✓ 반영', '✓'], 보류: ['hold', '보류', '⏸︎'], 제외: ['no', '✕ 제외', '✕'] };
+  // One 결정 line: 「① 반영 — 생생 끝 부탁 (v3.8.2)」 → { verdict: '반영', mark: '①', text: '생생 끝 부탁 (v3.8.2)' }; anything else → { text }.
+  const decisionLines = item => String(item.decision || '').split('\n').map(line => line.trim()).filter(Boolean).map(line => {
+    const match = /^((?:[①-⑳]|\d{1,2}[.)])\s*)(반영|보류|제외)(?![가-힣])\s*[—–:\-]?\s*(.*)$/.exec(line);
+    return match ? { mark: match[1].trim(), verdict: match[2], text: match[3] } : { text: line };
+  });
+  // The list's one-line summary: 「✓ 생생 끝 부탁 「아무 댓글」 · ✕ 구글 플로우」 — each item cut before 「:」 or 「(」.
+  const decisionSummary = item => { const lines = decisionLines(item); const marked = lines.filter(line => line.verdict);
+    return marked.length ? marked.map(line => `${VERDICT[line.verdict][2]} ${line.text.split(/\s*[:(]/)[0]}`).join(' · ') : lines[0]?.text || ''; };
   const STUDY_TOPIC_CLS = { 콘텐츠: 't-content', 도구: 't-tool', 운영: 't-ops', 기타: 't-etc' };
   let studyFilter = '전체', studyTopic = '전체', studyPage = 0, studyVisible = [], studyCall = 0, studyNow = null; const studyPicked = new Set();
   async function loadStudies() { const call = ++studyCall; const data = await HikaryApi.request('studies'); if (call !== studyCall) return; studies = data.studies; studySlack = data; render(); }
@@ -947,17 +958,18 @@
       : studySlack.syncedAt ? `${shortDate(studySlack.syncedAt)} 기준` : '슬랙 연결됨 · 10분 안에 처음 읽어요';
   }
   function studyRow(item) {
-    const tr = element('div', `tr st row${item.status === '검토완료' ? ' fresh' : ''}`); tr.onclick = event => { if (!event.target.closest('button,a,input,label')) openStudy(item); };
+    const tr = element('div', `tr st row${item.status === '검토완료' ? ' fresh' : ''}${item.status === '제외' ? ' dim' : ''}`); tr.onclick = event => { if (!event.target.closest('button,a,input,label')) openStudy(item); };
     const chk = element('label', 'chk');
     if (item.status === '저장') { const box = element('input'); box.type = 'checkbox'; box.checked = studyPicked.has(item.id); box.setAttribute('aria-label', '검토 요청할 링크로 고르기'); box.onchange = () => { if (box.checked) studyPicked.add(item.id); else studyPicked.delete(item.id); renderStudies(); }; chk.append(box); }
     const main = element('div', 'item'); const text = element('div'); const summary = studySummary(item);
     const name = element('b', '', summary || item.memo || `${item.platform || '기타'} 링크 · 메모 없음`); name.prepend(element('span', 'sno', 'S' + item.no)); if (item.topic) name.querySelector('.sno').after(element('span', `topic ${STUDY_TOPIC_CLS[item.topic] || ''}`, item.topic));
     text.append(name, element('small', '', [studyShort(item.url), summary && item.memo].filter(Boolean).join(' · ')));
+    const decided = decisionSummary(item); if (decided) text.append(element('small', 'dec', decided));
     main.append(studyMark(item), text);
     const from = element('div', 'when', item.from || '—'); from.append(element('small', '', `${shortDate(item.savedAt)} 저장`));
     const [cls, word] = STUDY_CHIP[item.status] || ['', item.status]; const state = element('div', 'st-state'); state.append(element('span', `chip ${cls}`, word));
     if (item.status === '검토요청' && item.askedAt) state.append(element('small', '', `${shortDate(item.askedAt)} ${item.result ? '다시 ' : ''}요청`));
-    if (['검토완료', '적용함', '보류'].includes(item.status) && item.reviewedAt) state.append(element('small', '', `${shortDate(item.reviewedAt)} 분석`));
+    if (['검토완료', ...DECIDED].includes(item.status) && item.reviewedAt) state.append(element('small', '', `${shortDate(item.reviewedAt)} 분석`));
     const actions = element('div', 'acts');
     if (item.status === '저장') actions.append(button('검토 요청', () => askStudy([item.id])));
     else if (item.status === '검토완료') actions.append(button('분석 보기', () => openStudy(item), 'btn sm primary'));
@@ -989,15 +1001,24 @@
     $('studyMark').replaceWith(Object.assign(studyMark(item), { id: 'studyMark' }));
     $('studyLinkText').textContent = studyShort(item.url); $('studyOpen').href = item.url; $('s-memo').value = item.memo || ''; $('s-topic').value = item.topic || '';
     $('studyReview').hidden = !(item.result || item.direction);
-    $('studyResult').textContent = item.result || ''; $('studyDirection').textContent = item.direction || '—'; $('studyDecision').textContent = item.decision || ''; $('studyDecisionBox').hidden = !item.decision; $('studyReviewedAt').textContent = item.reviewedAt ? `${shortDate(item.reviewedAt)} · 루미${item.status === '검토요청' ? ' · 다시 요청해서 새 분석이 오면 바뀌어요' : ''}` : '';
+    $('studyResult').textContent = item.result || ''; $('studyDirection').textContent = item.direction || '—'; renderDecision(item); $('studyReviewedAt').textContent = item.reviewedAt ? `${shortDate(item.reviewedAt)} · 루미${item.status === '검토요청' ? ' · 다시 요청해서 새 분석이 오면 바뀌어요' : ''}` : '';
     $('studyWaiting').textContent = item.status === '검토요청' ? `${shortDate(item.askedAt)}에 검토 요청했어요. Claude에서 「스터디 확인해줘」라고 하면 루미가 분석을 여기에 남겨요${item.slackTs ? ' — 슬랙 원래 메시지에도 댓글로 알려 드려요' : ''}.` : item.status === '저장' ? '「검토 요청」을 누르면 루미가 볼 목록에 올라가요.' : '';
     $('studyWaiting').hidden = !$('studyWaiting').textContent;
     const step = (text, changes, done, cls) => button(text, () => void task(async () => { await updateStudy([item.id], { memo: $('s-memo').value.trim(), topic: $('s-topic').value, ...changes }); $('studyDialog').close(); await loadStudies(); toast(done); }), cls);
     const memo = step('메모 저장', {}, '메모를 저장했어요.', 'btn');
     if (item.status === '저장') $('studyActions').replaceChildren(memo, step('검토 요청', { status: '검토요청' }, '검토 요청했어요 — Claude에서 「스터디 확인해줘」', 'btn primary'));
     else if (item.status === '검토요청') $('studyActions').replaceChildren(step('요청 거두기', { status: '저장' }, '검토 요청을 거뒀어요.', 'btn'), memo);
-    else $('studyActions').replaceChildren(step('다시 요청', { status: '검토요청' }, '다시 요청했어요 — Claude에서 「스터디 확인해줘」', 'btn'), step('보류', { status: '보류' }, '보류로 두었어요.', `btn${item.status === '보류' ? ' picked' : ''}`), step('적용함', { status: '적용함' }, '적용함으로 바꿨어요.', `btn white${item.status === '적용함' ? ' picked' : ''}`));
+    // Whole-row buttons: they set the state only — the 결정 lines stay as written (the next 결정 the tool writes sets the state again).
+    else $('studyActions').replaceChildren(step('다시 요청', { status: '검토요청' }, '다시 요청했어요 — Claude에서 「스터디 확인해줘」', 'btn'),
+      ...['보류', '제외', '반영'].map(state => step(state, { status: state }, `「${STUDY_CHIP[state][1]}」으로 두었어요.`, `btn${state === '반영' ? ' white' : ''}${item.status === state ? ' picked' : ''}`)));
     $('studyDialog').showModal();
+  }
+  function renderDecision(item) {
+    const box = $('studyDecision'); const lines = decisionLines(item);
+    box.replaceChildren(...(lines.length ? lines.map(line => {
+      const row = element('div', 'dline'); if (!line.verdict) { row.append(element('span', 'dtext', line.text)); return row; }
+      const [cls, label] = VERDICT[line.verdict]; row.append(element('span', `dbadge ${cls}`, label), element('span', 'dtext', `${line.mark} ${line.text}`)); return row;
+    }) : [element('p', 'dwait', `결정 대기 — Claude에서 「스터디 S${item.no} 얘기하자」`)]));
   }
   $('studyClose').onclick = () => $('studyDialog').close();
   $('studyDetailForm').onsubmit = event => event.preventDefault();

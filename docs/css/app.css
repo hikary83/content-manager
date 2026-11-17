@@ -611,3 +611,18 @@ dialog.study-dialog{width:min(720px,calc(100vw - 24px))}
 .list-foot span{margin-right:10px;font-variant-numeric:tabular-nums}
 .list-foot .ibtn{width:28px;height:28px;font-size:15px}
 .list-foot .ibtn:disabled{opacity:.3;cursor:default}
+/* v3.8.3 스터디 결정: 반영 green · 일부 반영 green outline · 보류 yellow · 제외 grey (row dimmed); badges per 결정 line in the window */
+.chip.dec-yes{border-color:var(--ok);background:var(--ok);color:#0f0f0f}
+.chip.dec-part{border-color:var(--ok);color:var(--ok)}
+.chip.dec-hold{border-color:#e8b931;color:#e8b931;background:rgba(232,185,49,.12)}
+.chip.dec-no{border-color:#555;color:#999}
+.tr.st.dim{opacity:.55}
+.tr.st .item small.dec{display:block;margin-top:2px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.study-decision{margin-top:8px;display:grid;gap:6px}
+.dline{display:flex;gap:10px;align-items:flex-start;background:var(--raise);border-radius:10px;padding:10px 12px;font-size:14px;line-height:1.6}
+.dbadge{flex:none;border-radius:999px;padding:1px 10px;font-size:12px;font-weight:800;line-height:20px;margin-top:1px}
+.dbadge.yes{background:var(--ok);color:#0f0f0f}
+.dbadge.hold{background:rgba(232,185,49,.18);color:#e8b931;border:1px solid #e8b931}
+.dbadge.no{background:#333;color:#aaa}
+.dtext{white-space:pre-wrap;min-width:0}
+.dwait{margin:0;padding:12px 14px;border:1px dashed var(--line2);border-radius:10px;color:var(--muted);font-size:13.5px}
