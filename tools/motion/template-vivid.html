@@ -18,7 +18,7 @@
      | 1.4~2.8    | 두 번째로 센 컷 (물이면 더 좋다)         | 2.5D 또는 CSS 당기기   | 첫 한마디 그대로                      |
      | 2.8~10.6   | 객실·시설 세 컷, 2.6초씩                 | 실내 2.5D · 바깥 CSS   | 가운데 한 줄 (이름표·조건은 꼭 필요할 때만) |
      | 10.6~13.0  | 한 컷 더 (주변·시설)                     | CSS                    | 가운데 한 줄                          |
-     | 13.0~17.5  | 전체 모습 (밤 외관 멀어지기)             | CSS                    | 끝 부탁 + 프로필 링크, 고지            |
+     | 13.0~17.5  | 전체 모습 (밤 외관 멀어지기) → 격자 한 칸 | CSS                    | 영상 컷 격자 + 끝 부탁 + 프로필 링크, 고지 |
      물이 없는 숙소면 첫 컷은 가장 센 한 장 (불멍·풍경·수영장).
    첫 한마디 (0초, 두 줄, 한 줄에 7자 안쪽) — 세 꼴 중 하나로 상품마다 새로 쓴다:
      상황형 「~하고 싶을 때」「추운 날, 소나무 아래 온천」 · 놀람형 「여기가 한국?」 꼴 (사실일 때만 — 과장·확인 안 된 비교 금지) ·
@@ -211,8 +211,22 @@ em,i{font-style:normal}
 .fire i:nth-child(4){--l:60%;--t:1.7s;--dl:-.9s;--dx:30px;--s:4px;--b:40%}
 .fire i:nth-child(5){--l:42%;--t:2.9s;--dl:-2.5s;--dx:12px;--s:5px;--b:50%}
 .fire i:nth-child(6){--l:56%;--t:2.4s;--dl:-.1s;--dx:-30px;--s:6px;--b:38%}
+/* 끝 모아 보기 (2026-11-17, 스터디 S34 — 사람: "끝장면 격자는 좋네", 생생 기본): 밤 외관이 격자 왼쪽 위 칸으로 줄어들고(14.0~14.7초),
+   영상에 나온 컷이 나머지 칸에 차례로 들어온 뒤(14.25~14.85초) 그 아래에 끝 부탁. 고지는 그대로 맨 위.
+     끝 컷 .shot에 tocell 클래스와 --gd(줄어들기 시작, 장면 안 초) · --cx·--cy(칸 왼쪽 위) · --cs(줄일 배율 = 칸 가로 480 ÷ 1080)를 준다.
+     칸은 480×270, 2열 × 3줄 (x 40·560, y 310·600·890) — 끝 부탁 글자는 바로 아래 1180부터.
+   칸에 넣을 컷 고르기: 영상에 실제로 나온 컷만 다섯 장 (밤 외관은 이미 왼쪽 위). 따뜻한 물 첫 컷 · 객실 · 시설처럼 서로 다른 장면을 고르고,
+     같은 사진을 두 칸에 넣지 않는다. 나온 컷이 다섯보다 적으면 남는 칸을 지우고, 셋째 줄이 통째로 비면 끝 부탁 세 줄(--y)을 290px 올린다.
+   간판·글자·사람이 든 컷 자르기: 사진을 칸보다 크게 키우고(--bs:가로px 세로px, 사진 비율 그대로) --bp를 음수 px로 밀어 보일 곳만 칸에 온다.
+     예: 영상에서 오른쪽 37%만 썼던 3:2 사진 → --bs:1280px 853px;--bp:-800px -560px (오른쪽 아래만). 그래도 이름이 보이면 그 컷은 빼고 다른 컷을 넣는다. */
+.shot.tocell{transform-origin:0 0;animation:show var(--len) linear var(--at),whip .35s cubic-bezier(.2,.8,.2,1) var(--at) both,tocell .7s cubic-bezier(.6,0,.2,1) calc(var(--at) + var(--gd,1s)) both}
+/* 고르게 줄인 뒤 16:9로 잘라 칸에 맞춘다 (늘어나지 않게): 1080×1920 → ×--cs, 위아래 656px씩 잘라 1080×608 → 480×270 */
+@keyframes tocell{from{transform:none;clip-path:inset(0 0 0 0 round 0)}to{transform:translate(var(--cx),calc(var(--cy) - 656px * var(--cs))) scale(var(--cs));clip-path:inset(656px 0 656px 0 round 40px)}}
+.cell{position:absolute;left:var(--x);top:var(--y);width:480px;height:270px;border-radius:18px;background:var(--img) var(--bp,50% 50%)/var(--bs,cover) no-repeat;
+  box-shadow:0 14px 34px rgba(0,0,0,.45);animation:cellin .5s cubic-bezier(.3,1.3,.5,1) calc(var(--at) + var(--d,0s)) both}
+@keyframes cellin{from{opacity:0;transform:scale(.6)}}
 </style></head>
-<body data-duration="17.5" data-voice="1.7b 또렷하고 경쾌하게, 광고 내레이션처럼" data-sfx="0 thud .5, 1.4 thud .45, 2.8 thud .4, 2.95 pop .3, 5.4 swoosh .45, 8 swoosh .45, 10.6 swoosh .45, 13 whoosh .7, 13.9 ding .55">
+<body data-duration="17.5" data-voice="1.7b 또렷하고 경쾌하게, 광고 내레이션처럼" data-sfx="0 thud .5, 1.4 thud .45, 2.8 thud .4, 2.95 pop .3, 5.4 swoosh .45, 8 swoosh .45, 10.6 swoosh .45, 13 whoosh .7, 13.9 ding .55, 14 swoosh .35, 14.3 pop .22, 14.6 pop .2, 14.9 pop .2">
 
 <!-- ── 사진 (컷마다 하나. 실내는 2.5D img, 바깥은 CSS .cam) ── -->
 <!-- 01 훅 (0~2.8초): 블러 없는 컷 두 번 (첫 3초 규칙). 따뜻한 물·김·불 컷을 0초에 → 1.4초에 두 번째로 센 컷 -->
@@ -228,12 +242,20 @@ em,i{font-style:normal}
 <!-- 05 한 컷 더 (10.6~13초): 주변·시설 -->
 <div class="shot" style="--at:10.6s;--len:2.4s"><div class="cam ph" data-label="바깥 2" style="--at:10.6s;--len:2.4s;--img:url(photo-6.jpg);--w:3413px;--h:1920px;--x0:-1337px;--x1:-1337px;--o:1877px 1100px;--s0:1;--s1:1.12"></div></div>
 <!-- 06 끝 (13~17.5초): 전체 모습 — 밤 외관 멀어지기 -->
-<div class="shot" style="--at:13s;--len:4.5s"><div class="cam lin ph" data-label="밤 외관" style="--at:13s;--len:4.5s;--img:url(photo-7.jpg);--w:3413px;--h:1920px;--x0:-893px;--x1:-893px;--o:1433px 1000px;--s0:1.3;--s1:1">
+<div class="shot tocell" style="--at:13s;--len:4.5s;--gd:1s;--cx:40px;--cy:310px;--cs:.4444"><div class="cam lin ph" data-label="밤 외관" style="--at:13s;--len:4.5s;--img:url(photo-7.jpg);--w:3413px;--h:1920px;--x0:-893px;--x1:-893px;--o:1433px 1000px;--s0:1.3;--s1:1">
   <!-- 사진 속 불빛·별만 반짝 (.cam 안이라 카메라를 따라간다): node tools/motion/lights.mjs photo-7.jpg 3413 1920 893 0 → 나온 줄로 바꾼다. 불빛이 없는 사진이면 지운다 -->
   <div class="lights"></div></div></div>
 
 <!-- 고지: 첫 장면과 마지막 장면 -->
 <section class="scene" style="--at:0s;--len:2.8s"><p class="disc">이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.</p></section>
+<!-- 끝 모아 보기: 영상에 나온 컷 다섯 장 (고르는 법·자르는 법은 위 「끝 모아 보기」 주석). 사진을 넣으면 ph 클래스를 뺀다 -->
+<section class="scene" style="--at:13s;--len:4.5s">
+  <div class="cell ph" data-label="칸 1" style="--x:560px;--y:310px;--d:1.25s;--img:url(photo-1.jpg)"></div>
+  <div class="cell ph" data-label="칸 2" style="--x:40px;--y:600px;--d:1.4s;--img:url(photo-2.jpg)"></div>
+  <div class="cell ph" data-label="칸 3" style="--x:560px;--y:600px;--d:1.55s;--img:url(photo-3.jpg)"></div>
+  <div class="cell ph" data-label="칸 4" style="--x:40px;--y:890px;--d:1.7s;--img:url(photo-4.jpg)"></div>
+  <div class="cell ph" data-label="칸 5" style="--x:560px;--y:890px;--d:1.85s;--img:url(photo-5.jpg)"></div>
+</section>
 <section class="scene" style="--at:13s;--len:4.5s"><p class="disc">이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.</p></section>
 
 <!-- 01 첫 한마디 (상황형 · 놀람형 · 좋은 것 두 개 — 머리 주석). 0초 프레임부터 두 줄 모두 (등장 애니메이션 없음), 퀴즈 말 없이 -->
@@ -247,9 +269,9 @@ em,i{font-style:normal}
 
 <!-- 06 끝 부탁: 프로필 링크 (유튜브·틱톡도 같은 영상) + 인스타는 아무 댓글에 DM. 이름은 화면·나레이션에 말하지 않는다 -->
 <section class="scene" style="--at:13s;--len:4.5s">
-  <p class="ask" style="--y:760px"><b style="--t:13.2s">숙소 정보는</b></p>
-  <div class="link pop" style="--d:.9s"><b>프로필 링크 No.○○○<i>+</i></b></div>
-  <p class="dm fade" style="--d:1.4s">인스타는 아무 댓글이나 남기면 숙소 정보를 DM으로 보내 드려요</p>
+  <p class="ask" style="--y:1180px;font-size:80px"><b style="--t:13.2s">숙소 정보는</b></p>
+  <div class="link pop" style="--d:.9s;--y:1290px"><b>프로필 링크 No.○○○<i>+</i></b></div>
+  <p class="dm fade" style="--d:1.4s;--y:1425px">인스타는 아무 댓글이나 남기면 숙소 정보를 DM으로 보내 드려요</p>
 </section>
 
 </body></html>
