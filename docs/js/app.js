@@ -565,7 +565,7 @@
     const add = (text, ...actions) => { const line = element('div', 'trow'); line.append(element('span', '', text), ...actions); items.push(line); };
     const tick = (row, key) => button('체크', () => { openDetail(row); showTab(key); });
     if (bufferLimitedAt) add(`Buffer 호출 한도에 걸려 ${bufferLimitedAt.slice(11)}부터 결과 받기를 쉬는 중 — 올라간 기록이 늦게 채워져요`, link('Buffer ↗', 'https://publish.buffer.com', 'btn sm'));
-    if (cloudHigh()) add(`Cloudinary 크레딧 ${Math.round(cloudUsage.credits.percent)}% 썼어요 (최근 30일 ${credit(cloudUsage.credits.limit)} 중 ${credit(cloudUsage.credits.used)}) — 콘솔에서 확인해 주세요`, link('Cloudinary ↗', 'https://console.cloudinary.com', 'btn sm')); // v3.11.0
+    if (cloudHigh()) add(`Cloudinary 크레딧 ${credit(cloudUsage.credits.used)} / ${credit(cloudUsage.credits.limit)} 썼어요 (${Math.round(cloudUsage.credits.percent)}%) — 콘솔에서 확인해 주세요`, link('Cloudinary ↗', 'https://console.cloudinary.com', 'btn sm')); // v3.11.0
     for (const row of rows) {
       const no = row.inpockNo ? `No.${row.inpockNo}` : row.productName;
       for (const [key, name] of PUBLISH) if (row[key + 'Status'] === '오류') add(`${no} ${name} 게시 오류`, button('보기', () => openDetail(row, key)));
@@ -860,9 +860,10 @@
       $('cloudUsage').replaceChildren(emptyBox('불러오지 못했어요', 'Cloudinary 콘솔에서 직접 볼 수 있어요. 서버가 1시간 뒤에 다시 읽어요.')); return;
     }
     $('cloudUsageAt').textContent = usage.updated ? `갱신 ${shortDate(usage.updated)}` : '';
-    $('cloudUsageAt').title = `Cloudinary ${usage.plan} 요금제 · 최근 30일 크레딧 · 서버가 받아 온 시각 ${usage.at} (6시간마다)`;
+    $('cloudUsageAt').title = `Cloudinary ${usage.plan} 요금제 · 최근 30일 크레딧 ${Math.round(usage.credits.percent)}% · 서버가 받아 온 시각 ${usage.at} (6시간마다)`;
     const line = element('div', `qrow${cloudHigh() ? ' low' : ''}`); const bar = element('span', 'qbar'); const fill = element('i'); fill.style.width = `${Math.min(100, usage.credits.percent)}%`; bar.append(fill);
-    const right = element('span', 'qn'); right.append(element('b', '', `${credit(usage.credits.limit)} 중 ${credit(usage.credits.used)}`), element('small', '', `${Math.round(usage.credits.percent)}% · 크레딧`));
+    // v3.11.1 (사람: "1.61 / 25 크레딧 이라고만 하자."): one line, used / limit; the percent stays in the hover text and in 할 일.
+    const right = element('span', 'qn'); right.append(element('b', '', `${credit(usage.credits.used)} / ${credit(usage.credits.limit)} 크레딧`));
     line.append(element('span', 'ql', '30일'), bar, right);
     const parts = element('div', 'cparts');
     for (const [name, value, used] of [['저장', bytesText(usage.storage.bytes), usage.storage.credits], ['전송', bytesText(usage.bandwidth.bytes), usage.bandwidth.credits], ['변환', `${num(usage.transformations.count)}회`, usage.transformations.credits]]) {
@@ -1170,7 +1171,34 @@
     $('pickHint').textContent = `아직 다 올리지 않은 콘텐츠예요. 고르면 그날 ${postTime()}로 「게시」 창이 열려요.`;
     if (view === 'settings') renderSettings(); // a draft being edited stays as it is
   }
+  // v3.11.1 (사람: "예시를 플레이하고 닫을 수가 없다"): one example at a time, and it closes — a small ✕ in the clip's top right corner, a click on the
+  // video, or Esc; another ▶, moving a row or starting a drag closes it first. Closing stops the clip and lets it go (no src).
+  let exampleClose = null;
+  function closeExample() { if (!exampleClose) return false; exampleClose(); return true; }
+  function openExample(media, clip) {
+    closeExample();
+    const before = [...media.childNodes]; const video = element('video');
+    Object.assign(video, { src: clip, autoplay: true, muted: true, loop: true, playsInline: true, title: '누르면 닫혀요' }); video.setAttribute('playsinline', '');
+    exampleClose = () => { video.pause(); video.removeAttribute('src'); video.load(); media.replaceChildren(...before); media.classList.remove('playing'); exampleClose = null; };
+    video.onclick = closeExample;
+    media.replaceChildren(video, Object.assign(button('✕', closeExample, 'ex-close'), { ariaLabel: '예시 닫기', title: '닫기 (Esc)' })); media.classList.add('playing');
+  }
+  document.addEventListener('keydown', event => { if (event.key === 'Escape' && view === 'settings' && closeExample()) event.preventDefault(); });
+  // v3.11.1 (사람: "클릭 해서 위로 올리면 화면이 안 움직여서 젤 위로 못 올리네"): while a row is dragged, the page scrolls by itself near the
+  // top (under the 56px top bar) or the bottom edge, 80px deep — faster the closer to the edge.
+  const DRAG_EDGE = 80, DRAG_TOP = 56; let dragY = -1, dragFrame = 0;
+  function dragScroll() {
+    if (dragY < 0) { dragFrame = 0; return; }
+    const top = DRAG_TOP + DRAG_EDGE, bottom = innerHeight - DRAG_EDGE;
+    const step = dragY < top ? -Math.ceil((top - dragY) / DRAG_EDGE * 18) : dragY > bottom ? Math.ceil((dragY - bottom) / DRAG_EDGE * 18) : 0;
+    if (step) scrollBy(0, step);
+    dragFrame = requestAnimationFrame(dragScroll);
+  }
+  function startDragScroll(y) { dragY = y; if (!dragFrame) dragFrame = requestAnimationFrame(dragScroll); }
+  document.addEventListener('dragover', event => { if (dragY >= 0 && event.clientY > 0) dragY = event.clientY; });
+  document.addEventListener('drop', () => { dragY = -1; });
   function renderSettings() {
+    closeExample();
     const now = working(); const all = window.HIKARY_TEMPLATE_ORDER(); const byId = Object.fromEntries(all.map(tpl => [tpl.id, tpl]));
     for (const [tab, button, pane] of [['templates', 'setTabTemplates', 'setTemplates'], ['general', 'setTabGeneral', 'setGeneral']]) {
       $(button).classList.toggle('on', setTab === tab); $(button).setAttribute('aria-selected', setTab === tab); $(pane).hidden = setTab !== tab;
@@ -1182,10 +1210,7 @@
       const grip = element('span', 'grip', '⠿'); grip.title = '끌어서 순서 바꾸기';
       const media = element('div', 'tset-media'); const img = element('img'); img.src = tplThumb(tpl.preview); img.alt = ''; media.append(img);
       const clip = playable(tpl.example);
-      if (clip) media.append(Object.assign(button('▶', () => {
-        const video = element('video'); Object.assign(video, { src: clip, autoplay: true, muted: true, loop: true, playsInline: true }); video.setAttribute('playsinline', '');
-        media.replaceChildren(video); media.classList.add('playing');
-      }, 'play'), { ariaLabel: `${tpl.name} 예시 보기` }));
+      if (clip) media.append(Object.assign(button('▶', () => openExample(media, clip), 'play'), { ariaLabel: `${tpl.name} 예시 보기` }));
       const label = now.templates.names[id] || tpl.name, note = now.templates.notes[id] || tpl.note; const renamed = !!(now.templates.names[id] || now.templates.notes[id]);
       const name = element('b'); const text = element('div', 'tset-text');
       if (renaming === id) {
@@ -1210,11 +1235,14 @@
       check.onchange = () => editSettings(next => { next.templates.hidden = check.checked ? next.templates.hidden.filter(other => other !== id) : [...next.templates.hidden, id]; });
       shown.append(check, element('span', 'knob'), document.createTextNode('요청 창에 보이기')); if (isDefault) shown.title = '기본값은 숨길 수 없어요';
       const updown = element('span', 'updown');
-      updown.append(Object.assign(button('▲', () => moveTemplate(id, index - 1), 'ibtn'), { disabled: index === 0, ariaLabel: '위로' }), Object.assign(button('▼', () => moveTemplate(id, index + 1), 'ibtn'), { disabled: index === last, ariaLabel: '아래로' }));
+      // v3.11.1: ▲▼ on a computer too (dragging a long list was hard), and ⤒ 「맨 위로」 for the one to use first.
+      updown.append(Object.assign(button('⤒', () => moveTemplate(id, 0), 'ibtn'), { disabled: index === 0, ariaLabel: '맨 위로', title: '맨 위로' }),
+        Object.assign(button('▲', () => moveTemplate(id, index - 1), 'ibtn'), { disabled: index === 0, ariaLabel: '위로', title: '위로' }),
+        Object.assign(button('▼', () => moveTemplate(id, index + 1), 'ibtn'), { disabled: index === last, ariaLabel: '아래로', title: '아래로' }));
       const controls = element('div', 'tset-ctrl'); controls.append(pick, shown, updown);
       row.append(grip, element('span', 'pos', String(index + 1)), media, text, controls);
-      row.addEventListener('dragstart', event => { row.classList.add('dragging'); event.dataTransfer.setData('text/plain', id); });
-      row.addEventListener('dragend', () => row.classList.remove('dragging'));
+      row.addEventListener('dragstart', event => { closeExample(); row.classList.add('dragging'); event.dataTransfer.setData('text/plain', id); startDragScroll(event.clientY); });
+      row.addEventListener('dragend', () => { row.classList.remove('dragging'); dragY = -1; });
       row.addEventListener('dragover', event => { event.preventDefault(); row.classList.add('drop'); });
       row.addEventListener('dragleave', () => row.classList.remove('drop'));
       row.addEventListener('drop', event => { event.preventDefault(); row.classList.remove('drop'); const from = event.dataTransfer.getData('text/plain'); if (from && from !== id && byId[from]) moveTemplate(from, index); });
@@ -1246,7 +1274,7 @@
     if (moved) void refreshQuietly();
     for (const node of document.querySelectorAll('[data-view]')) node.classList.toggle('on', node.dataset.view === view);
     if (location.hash !== '#' + view) history.replaceState(null, '', '#' + view);
-    closeDrawer(); $('accountMenu').hidden = true; // v3.10.0: the profile menu's 「설정」 is a link inside it
+    closeDrawer(); $('accountMenu').hidden = true; closeExample(); // v3.10.0: the profile menu's 「설정」 is a link inside it · v3.11.1: no example left playing behind
     if (view === 'find' && !busy && HikaryApi.hasSession()) HikaryApi.request('status').then(useStatus).catch(() => {}); // the hourly count frees up over time
     if (view === 'settings') { renderSettings(); if (HikaryApi.hasSession()) HikaryApi.request('status').then(useStatus).catch(() => {}); } // v3.10.0: the latest saved settings
   }
