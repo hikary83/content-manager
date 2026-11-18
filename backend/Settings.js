@@ -1,6 +1,7 @@
 // v2.22.0: 「설정」 — the owner's settings from the web 「설정」 menu, one key a row in the ledger's tab 「설정」 (키 · 값 · 바꾼 때),
 // so every device sees the same and the owner can read them in the sheet (and roll back with its version history).
-//   templates      {"order":[id…],"hidden":[id…],"default":id} — the request window's cards. docs/js/templates.js stays the list
+//   templates      {"order":[id…],"hidden":[id…],"default":id,"names":{id:이름},"notes":{id:설명}} — the request window's cards
+//                  (names · notes since v2.23.0, only the renamed ones). docs/js/templates.js stays the list
 //                  and the numbers; this only orders, hides and picks the default (an id it does not know is kept, the web skips it).
 //   publishTime    "HH:mm" — 「게시」's default time (and the calendar's 「＋」). The one-a-day 「day after the latest」 rule stays.
 //   instagramType  "릴스" · "캐러셀" — what the request window picks first. Requests already sent and the ledger keep theirs.
@@ -47,7 +48,26 @@ function settingValue_(key, value) {
   var hidden = setting.hidden.filter(function(id) { return setting.order.indexOf(id) >= 0; });
   if (setting.order.indexOf(setting.default) < 0 || hidden.indexOf(setting.default) >= 0) throw userError_('기본 템플릿은 요청 창에 보이는 템플릿이어야 해요.');
   if (!setting.order.some(function(id) { return hidden.indexOf(id) < 0; })) throw userError_('템플릿은 하나 이상 보여야 해요.');
-  return { order: setting.order, hidden: hidden, default: setting.default };
+  var clean = { order: setting.order, hidden: hidden, default: setting.default };
+  // v2.23.0: the owner's names and one-line notes (사람: "설정에서 템플릿명도 바꿀수 있을까??"). Empty = templates.js's own; the id and
+  // the number never change. Left out when there are none, so a setting without renames keeps its old shape.
+  var names = settingTexts_(setting.names, 20, '이름은'), notes = settingTexts_(setting.notes, 40, '설명은');
+  if (Object.keys(names).length) clean.names = names;
+  if (Object.keys(notes).length) clean.notes = notes;
+  return clean;
+}
+function settingTexts_(map, max, label) {
+  if (map === undefined || map === null) return {};
+  var bad = function() { return userError_('템플릿 ' + label.slice(0, -1) + ' 모양이 올바르지 않아요.'); };
+  if (typeof map !== 'object' || Array.isArray(map) || Object.keys(map).length > 50) throw bad();
+  var out = {};
+  Object.keys(map).forEach(function(id) {
+    if (!TEMPLATE_ID.test(id) || typeof map[id] !== 'string') throw bad();
+    var text = map[id].replace(/\s+/g, ' ').trim();
+    if (text.length > max) throw userError_('템플릿 ' + label + ' ' + max + '자까지예요.');
+    if (text) out[id] = text;
+  });
+  return out;
 }
 
 function updateSettings_(input) {

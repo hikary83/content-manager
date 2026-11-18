@@ -1,5 +1,5 @@
 /* HIKARY only. No credentials or endpoints from kic-worktools. */
-var SERVICE_VERSION = '2.22.0';
+var SERVICE_VERSION = '2.23.0';
 // Columns 1-14 are the original ledger. 15-21 (v1.7.0), 22-27 (v2.2.0), 28-30 (v2.3.0), 31-36 (v2.6.0), 37 (v2.9.0), 38 (v2.10.0), 39-40 (v2.13.0) and 41 (v2.15.0) are appended so existing rows never move.
 // v2.2.0: one row per product. Instagram columns are the reel; the card news (carousel) has its own upload columns.
 // v2.3.0: KittyChat keyword and DM text, and a small Inpock thumbnail as a data URL. 「카드뉴스 문구」 is no longer filled.
@@ -45,7 +45,7 @@ function doPost(event) {
     var data;
     if (action === 'login') data = login_(payload);
     else if (action === 'logout') { if (who !== 'session') throw userError_('브라우저에서 로그인한 세션만 로그아웃할 수 있어요.'); data = logout_(input.token, payload); }
-    else if (action === 'status') { getContentSheet_(); data = { version: SERVICE_VERSION, aiConfigured: !!PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY'), coupang: coupangStatus_(), publishing: publishStatus_(), settings: statusSettings_() }; } // v2.22.0 settings (Settings.js)
+    else if (action === 'status') { getContentSheet_(); data = { version: SERVICE_VERSION, aiConfigured: !!PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY'), coupang: coupangStatus_(), publishing: publishStatus_(), settings: statusSettings_(), cloudinary: statusCloudinary_() }; } // v2.22.0 settings (Settings.js) · v2.23.0 Cloudinary usage (Publish.js)
     else if (action === 'list') data = { entries: readEntries_() };
     else if (action === 'save') data = saveEntry_(payload);
     else if (action === 'delete') data = deleteEntry_(payload);

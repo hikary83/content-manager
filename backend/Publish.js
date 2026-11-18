@@ -151,6 +151,36 @@ function cloudinary_() {
   var config = { cloud: props.getProperty('CLOUDINARY_CLOUD_NAME'), key: props.getProperty('CLOUDINARY_API_KEY'), secret: props.getProperty('CLOUDINARY_API_SECRET') };
   return config.cloud && config.key && config.secret ? config : null;
 }
+// v2.23.0: the Cloudinary account's usage for the dashboard card (under 「Buffer 남은 횟수」). Admin API GET /usage, Basic auth with the
+// same three script properties. Read at most every 6 hours when `status` asks, kept in CLOUDINARY_USAGE; a failed read is kept for an
+// hour so a broken key does not cost a call on every status, and status still answers. The free plan answered (2026-11-18): plan "Free",
+// last_updated (a day, Cloudinary's own refresh), credits { usage, limit 25, used_percent } over a rolling 30 days, storage · bandwidth
+// in bytes and transformations as counts, each with credits_usage.
+var CLOUDINARY_USAGE_HOURS = 6;
+function cloudinaryUsage_() {
+  var props = publishProps_(); var saved = null;
+  try { saved = JSON.parse(props.getProperty('CLOUDINARY_USAGE') || 'null'); } catch (_) {}
+  if (saved && Date.now() - Number(saved.fetchedAt || 0) < (saved.error ? 3600e3 : CLOUDINARY_USAGE_HOURS * 3600e3)) return saved;
+  var config = cloudinary_(); if (!config) return null;
+  var next;
+  try {
+    var response = UrlFetchApp.fetch('https://api.cloudinary.com/v1_1/' + config.cloud + '/usage', { headers: { Authorization: 'Basic ' + Utilities.base64Encode(config.key + ':' + config.secret) }, muteHttpExceptions: true });
+    if (response.getResponseCode() !== 200) throw new Error('usage ' + response.getResponseCode());
+    var usage = JSON.parse(response.getContentText());
+    var num = function(part, key) { var value = usage[part] && usage[part][key]; return isFinite(value) ? Number(value) : 0; };
+    if (!(num('credits', 'limit') > 0)) throw new Error('no credit limit');
+    next = { fetchedAt: Date.now(), at: kst_(new Date()), plan: String(usage.plan || '').slice(0, 40), updated: String(usage.last_updated || '').slice(0, 10),
+      credits: { used: num('credits', 'usage'), limit: num('credits', 'limit'), percent: num('credits', 'used_percent') },
+      storage: { bytes: num('storage', 'usage'), credits: num('storage', 'credits_usage') },
+      bandwidth: { bytes: num('bandwidth', 'usage'), credits: num('bandwidth', 'credits_usage') },
+      transformations: { count: num('transformations', 'usage'), credits: num('transformations', 'credits_usage') } };
+  } catch (_) {
+    next = { fetchedAt: Date.now(), at: kst_(new Date()), error: '불러오지 못했어요' }; // the reason may hold the address; never the keys
+  }
+  props.setProperty('CLOUDINARY_USAGE', JSON.stringify(next));
+  return next;
+}
+function statusCloudinary_() { try { return cloudinaryUsage_(); } catch (_) { return { error: '불러오지 못했어요' }; } }
 // Only an mp4 on our own Cloudinary may be posted: anyone can call `save`, so an address alone proves nothing.
 function videoPublicId_(url) {
   var config = cloudinary_(); var match = String(url || '').match(/^https:\/\/res\.cloudinary\.com\/([a-z0-9_-]+)\/video\/upload\/(?:v\d+\/)?([A-Za-z0-9_\/-]+)\.mp4$/);

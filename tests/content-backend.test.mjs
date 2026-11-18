@@ -258,6 +258,7 @@ function publishEnv({ fail = {} } = {}) {
   const env = runtime();
   for (const [key, value] of Object.entries({ BUFFER_API_KEY: 'buffer-example', CLOUDINARY_CLOUD_NAME: 'mycloud', CLOUDINARY_API_KEY: '123', CLOUDINARY_API_SECRET: 'cloud-secret', PUBLISH_CODE: CODE })) env.props.set(key, value);
   env.context.METRICS_HOUR = 24; // v2.15.0: no daily metrics read unless a test asks (the real hour would make runs differ)
+  env.props.set('CLOUDINARY_USAGE', JSON.stringify({ fetchedAt: Date.now(), credits: { used: 1, limit: 25, percent: 4 } })); // v2.23.0: fresh, so status does not read usage here
   const sent = []; const posts = new Map(); let next = 0; const limit = { on: false };
   const reply = (code, body) => ({ getResponseCode: () => code, getContentText: () => JSON.stringify(body) });
   env.context.UrlFetchApp.fetch = (url, options) => {
@@ -832,4 +833,43 @@ test('v2.22.0 설정 값은 모양을 검사한다 — 시각 HH:mm, 릴스·캐
   // a broken cell typed by hand reads as unset, the rest still reads
   env.tabs.get('설정').rows.push(['publishTime', '아침', '2026-11-18 09:00']);
   assert.deepEqual(Object.keys(JSON.parse(env.context.doPost({ postData: { contents: JSON.stringify({ action: 'status', payload: {} }) } }).text).data.settings.values), ['templates']);
+});
+
+// v2.23.0 Cloudinary usage (Publish.js): Admin API /usage with Basic auth, at most every 6 hours, sent with status.
+test('v2.23.0 Cloudinary 사용량은 status가 6시간에 한 번만 읽어 두고, 실패해도 status는 살아 있으며 1시간 뒤 다시 읽는다', () => {
+  const env = runtime(); for (const [key, value] of Object.entries({ CLOUDINARY_CLOUD_NAME: 'mycloud', CLOUDINARY_API_KEY: '123', CLOUDINARY_API_SECRET: 'cloud-secret' })) env.props.set(key, value);
+  const sent = []; let answer = { code: 200, body: { plan: 'Free', last_updated: '2026-11-17', credits: { usage: 1.59, limit: 25, used_percent: 6.36 }, storage: { usage: 307700243, credits_usage: 0.29 }, bandwidth: { usage: 917824043, credits_usage: 0.85 }, transformations: { usage: 447, credits_usage: 0.45 } } };
+  env.context.UrlFetchApp.fetch = (url, options) => { sent.push({ url, options }); return { getResponseCode: () => answer.code, getContentText: () => JSON.stringify(answer.body) }; };
+  const status = () => JSON.parse(env.context.doPost({ postData: { contents: JSON.stringify({ action: 'status', payload: {} }) } }).text);
+  const first = status(); assert.equal(first.ok, true);
+  const usage = first.data.cloudinary;
+  assert.deepEqual([usage.plan, usage.updated, usage.credits, usage.storage, usage.bandwidth, usage.transformations],
+    ['Free', '2026-11-17', { used: 1.59, limit: 25, percent: 6.36 }, { bytes: 307700243, credits: 0.29 }, { bytes: 917824043, credits: 0.85 }, { count: 447, credits: 0.45 }]);
+  assert.match(usage.at, /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
+  assert.equal(sent.length, 1); assert.equal(sent[0].url, 'https://api.cloudinary.com/v1_1/mycloud/usage');
+  assert.equal(sent[0].options.headers.Authorization, 'Basic ' + Buffer.from('123:cloud-secret').toString('base64'));
+  status(); status(); assert.equal(sent.length, 1, '6시간 안에는 저장한 것을 쓴다');
+  // 6 hours on: read again; this time Cloudinary refuses → the card says so, status still answers, no retry for an hour
+  const saved = JSON.parse(env.props.get('CLOUDINARY_USAGE')); env.props.set('CLOUDINARY_USAGE', JSON.stringify({ ...saved, fetchedAt: Date.now() - 6 * 3600e3 - 1 }));
+  answer = { code: 401, body: { error: { message: 'Invalid api_key' } } };
+  const failed = status(); assert.equal(failed.ok, true); assert.equal(failed.data.cloudinary.error, '불러오지 못했어요'); assert.equal(failed.data.cloudinary.credits, undefined);
+  assert.doesNotMatch(env.props.get('CLOUDINARY_USAGE'), /cloud-secret|Invalid api_key/, '키나 Cloudinary 문구를 남기지 않는다');
+  status(); assert.equal(sent.length, 2, '실패는 1시간 동안 다시 부르지 않는다');
+  env.props.set('CLOUDINARY_USAGE', JSON.stringify({ ...JSON.parse(env.props.get('CLOUDINARY_USAGE')), fetchedAt: Date.now() - 3600e3 - 1 }));
+  answer = { code: 200, body: { plan: 'Free' } }; assert.equal(status().data.cloudinary.error, '불러오지 못했어요', '한도 칸이 없는 답도 실패로 본다');
+  assert.equal(sent.length, 3);
+  // no keys: nothing to read, nothing sent
+  const bare = runtime(); assert.equal(JSON.parse(bare.context.doPost({ postData: { contents: JSON.stringify({ action: 'status', payload: {} }) } }).text).data.cloudinary, null); assert.equal(bare.fetches(), 0);
+});
+
+test('v2.23.0 템플릿 이름·설명 바꾸기 — 20자·40자까지, 빈 칸은 원래 이름, 바꾼 게 없으면 칸을 남기지 않는다', () => {
+  const env = runtime(); const call = payload => JSON.parse(env.context.doPost({ postData: { contents: JSON.stringify({ action: 'settingsUpdate', payload }) } }).text);
+  const revision = () => JSON.parse(env.context.doPost({ postData: { contents: JSON.stringify({ action: 'status', payload: {} }) } }).text).data.settings.revision;
+  const base = { order: ['vivid', 'photo'], hidden: [], default: 'vivid' };
+  const saved = call({ changes: { templates: { ...base, names: { vivid: '  생생   온천 ', photo: '' }, notes: { vivid: '따뜻한 물 먼저', neon: '아직 없는 템플릿' } } }, revision: revision() }).data.values.templates;
+  assert.deepEqual(saved, { ...base, names: { vivid: '생생 온천' }, notes: { vivid: '따뜻한 물 먼저', neon: '아직 없는 템플릿' } }, '공백은 줄이고 빈 이름은 빼고, 모르는 id는 그대로');
+  assert.deepEqual(call({ changes: { templates: { ...base, names: { vivid: '' } } }, revision: revision() }).data.values.templates, base, '모두 원래 이름이면 names·notes 칸이 없다');
+  assert.match(call({ changes: { templates: { ...base, names: { vivid: '가'.repeat(21) } } }, revision: revision() }).error, /이름은 20자까지/);
+  assert.match(call({ changes: { templates: { ...base, notes: { vivid: '가'.repeat(41) } } }, revision: revision() }).error, /설명은 40자까지/);
+  for (const names of [['생생'], { '../x': '생생' }, { vivid: 3 }]) assert.match(call({ changes: { templates: { ...base, names } }, revision: revision() }).error, /이름 모양/, JSON.stringify(names));
 });
