@@ -130,8 +130,8 @@ test('v3.9.0 초안 영상은 가로 540으로 줄이고 소리를 남긴다',()
 test('v3.10.0 템플릿 순서는 설정을 templates.js 위에 덮는다 — 번호는 줄 그대로, 새 템플릿은 맨 끝에 보이기, 숨긴 건 기본값이 못 된다',()=>{
   const context={window:{}};vm.runInNewContext(fs.readFileSync(new URL('../docs/js/templates.js',import.meta.url),'utf8'),context);
   const order=context.window.HIKARY_TEMPLATE_ORDER;const ids=list=>list.map(t=>`${t.no}${t.id}${t.shown?'':'(숨김)'}${t.isDefault?'*':''}`).join(' ');
-  assert.equal(ids(order()),'1soda 2paper 3quiz 4photo 5tour 6vivid*','설정이 없으면 파일 순서와 파일 기본값');
-  assert.equal(ids(order({order:['vivid','photo','tour'],hidden:['soda','paper','ghost'],default:'photo'})),'6vivid 4photo* 5tour 1soda(숨김) 2paper(숨김) 3quiz','모르는 id는 건너뛰고 설정에 없는 템플릿은 맨 끝');
+  assert.equal(ids(order()),'1soda 2paper 3quiz 4photo 5tour 6vivid* 7vivid-line','설정이 없으면 파일 순서와 파일 기본값');
+  assert.equal(ids(order({order:['vivid','photo','tour'],hidden:['soda','paper','ghost'],default:'photo'})),'6vivid 4photo* 5tour 1soda(숨김) 2paper(숨김) 3quiz 7vivid-line','모르는 id는 건너뛰고 설정에 없는 템플릿은 맨 끝');
   assert.equal(ids(order({order:['vivid','photo'],hidden:['vivid'],default:'vivid'})).split(' ').filter(s=>s.endsWith('*')).join(),'4photo*','숨긴 기본값 대신 보이는 첫 번째');
   assert.equal(ids(order({order:['soda','vivid'],hidden:[],default:'nope'})).split(' ').filter(s=>s.endsWith('*')).join(),'6vivid*','모르는 기본값이면 파일 기본값');
   for(const tpl of order()) assert.equal(typeof tpl.example,'string',`${tpl.id} example 자리`);

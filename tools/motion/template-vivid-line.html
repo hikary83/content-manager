@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><title>HIKARY 모션 템플릿 · 생생 한 줄</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&display=block">
+<style>
+/* 템플릿 7 · 생생 한 줄 (2026-11-18, 사람: "앙~ 이전꺼를 살려서 7번으로 하자. 힘들게 만든건데 아깝잖아..ㅎ").
+   템플릿 6 생생에 타이포(작은 주아 + 큰 Black Han Sans 낱말, 폴더 이름으로 정해지는 움직임)를 넣기 직전 판(커밋 892a6c3)을 그대로 살렸다.
+   6과 다른 점: 자막은 가운데 한 줄 + 노란 핵심어(--hi, 한 번 통 튐), 등장 방식(drop·slide·wipe·zoom·rise)은 장면마다 손으로 고른다.
+   커버는 6과 같은 template-vivid-cover.html을 쓴다. 아래 주석은 그때 그대로다 — 「생생(템플릿 6)」은 이 파일 이야기로 읽는다.
+   생생 (템플릿 6, 2026-11-16 — 투어(템플릿 5, template-tour.html)에서 갈라졌다. 사람: "6번으로 하고 김, 물결, 반짝임 뿐 아니라 컨텐츠에 맞게 적절한 효과").
+   투어에 1차 개선(따뜻한 물 첫 컷 · 퀴즈 아닌 첫 한마디 · 15~20초)과 사진 속 실제 것에 맞춘 움직임 효과(아래 표)를 더했다. 커버는 template-vivid-cover.html.
+   숙소를 짧게 도는 영상. 사진이 주인공이고 꾸밈은 적다 — 화면 가운데 자막 한 줄이 기본.
+   실내는 2.5D(사진 한 장을 깊이대로 움직여 카메라가 지나가는 것처럼, tools/motion/depth.mjs), 바깥은 CSS 카메라. AI는 깊이만 읽고 픽셀은 새로 만들지 않는다.
+   글씨체·색·고지·효과음·나레이션은 사진 템플릿(4번)과 같다. 경험담처럼 쓰지 않는다 (CLAUDE.md 3장).
+   1차 개선 (2026-11-16, 사람 승인): 유튜브 「계속 시청함」이 252~259 모두 16~23%라 첫 장면을 바꿨다. 잘 되는 숙소 릴스(스터디 S23·S27~S32)는
+     따뜻한 물·김이 첫 장면, 퀴즈가 아닌 첫 한마디, 가운데 한 줄 자막, 14~28초였다 — 연출만 참고하고 문장은 상품마다 새로 쓴다.
+     퀴즈(「여기 어디게?」「어딘지 궁금하면?」)와 쿠팡 후기 카드 장면을 뺐다 (후기는 게시글로). 업체 이름은 화면·나레이션·게시글에서 계속 숨긴다.
+   쓰는 법: contents/<폴더>/motion.html로 복사 → 사진을 photo-1.jpg…로 옆에 두고 ph 클래스를 뺀다 → 「…」 자리를 상품 페이지 사실로 바꾼다 →
+     node tools/motion/record.mjs contents/<폴더>/motion.html   → motion.mp4 + motion-bgm.mp4 (2.5D 프레임은 <폴더>/depth/에 처음 한 번 만든다)
+   대본 틀 (숙소 상품, 17.5초 — 기본 15~20초. 장면을 더하거나 빼면 --at·--len, 나레이션 줄, data-sfx를 같이 옮긴다):
+     | 시간       | 장면                                    | 움직임                 | 화면                                  |
+     | 0~1.4      | 따뜻한 물·김·불 (온천·노천탕·온수풀·불멍) | 2.5D in (세기 .7) + 물이면 김·물결 | 첫 한마디가 0초부터 가운데 크게, 고지  |
+     | 1.4~2.8    | 두 번째로 센 컷 (물이면 더 좋다)         | 2.5D 또는 CSS 당기기   | 첫 한마디 그대로                      |
+     | 2.8~10.6   | 객실·시설 세 컷, 2.6초씩                 | 실내 2.5D · 바깥 CSS   | 가운데 한 줄 (이름표·조건은 꼭 필요할 때만) |
+     | 10.6~13.0  | 한 컷 더 (주변·시설)                     | CSS                    | 가운데 한 줄                          |
+     | 13.0~17.5  | 전체 모습 (밤 외관 멀어지기) → 격자 한 칸 | CSS                    | 영상 컷 격자 + 끝 부탁 + 프로필 링크, 고지 |
+     물이 없는 숙소면 첫 컷은 가장 센 한 장 (불멍·풍경·수영장).
+   첫 한마디 (0초, 두 줄, 한 줄에 7자 안쪽) — 세 꼴 중 하나로 상품마다 새로 쓴다:
+     상황형 「~하고 싶을 때」「추운 날, 소나무 아래 온천」 · 놀람형 「여기가 한국?」 꼴 (사실일 때만 — 과장·확인 안 된 비교 금지) ·
+     좋은 것 두 개 「노천탕 앞에서 바비큐」 꼴 (상품 페이지에 둘 다 있을 때). 「어디게?」 같은 퀴즈 말은 쓰지 않는다.
+   2.5D 사진 (<img class="depth" data-depth="in">): 움직임 in·out·left·right·up·down, 세기 data-strength(기본 1, 0.5 약하게 ~ 2).
+     구도는 object-position을 %로만. 가로 1920 사진을 세로 화면에 채우면 가로 31.6%만 보인다 — 보일 가운데가 사진 가로 f(0~1)이면 x% = (f − 0.158) ÷ 0.684.
+     img에 CSS 움직임을 주지 않는다 (움직임은 프레임에 들어 있다). 브라우저 미리보기에서는 멈춘 사진으로 보인다.
+     맞는 사진: 단순한 바탕(벽·바닥·하늘) 앞에 물체 하나 — 거실·침실·주방·욕실·실내 온천, 테이블 위 소품. 가로 1920px 이상.
+     피할 사진: 난간·나뭇가지·울타리가 복잡한 바탕 앞에 있는 사진(기둥 옆이 늘어나 일렁인다 → 테라스·바베큐·숲은 CSS로),
+       사람이 나오는 사진, 작은 사진. 밤 외관처럼 난간이 앞에 있으면 세기를 .7 아래로 줄이고 프레임을 보고 정한다.
+   CSS 카메라 .cam: 사진 템플릿과 같다 (--w×--h, (--x0,--y0,--s0) → (--x1,--y1,--s1), 당기고 밀 때 가운데 --o). 1920×1080 사진은 --w:3413px;--h:1920px,
+     가운데 f를 보이려면 --x = −(f × 3413 − 540), 범위 0 ≥ --x ≥ −2333. 작은 사진(가로 1400 안팎)은 가로 띠(.strip) + 같은 사진 흐린 바탕.
+   글씨는 x 60~900, y 200~1480 안에 (가운데는 x 480). 고지는 첫 장면과 마지막 장면 위쪽(.disc). 이름이 크게 보이는 사진(간판·로고)은 피한다.
+   자막(.say)은 가운데 한 줄 위주. 나레이션 줄과 같은 시각에 바뀌고, 등장 방식(drop·slide·wipe·zoom·rise)은 장면마다 다르게 한다. 읽는 말과 같게 짧게 쓴다.
+   효과음: <body data-sfx> — 컷마다 swoosh(3초 안은 thud), 이름표가 있으면 pop. 장면 시각을 바꾸면 같이 고친다.
+   첫 3초 규칙 (2026-11-13): ① 0초 프레임부터 첫 한마디 전체를 크게 (등장 애니메이션 없이) ② 첫 장면은 화면 가득 가장 센 사진
+     ③ 첫 3초 안에 블러 전환 없음 (.shot.cut) ④ 1~1.5초 안에 장면이 한 번 바뀐다 ⑤ 고지 줄은 0초부터 맨 위. 나레이션 첫 줄은 0.15초부터 첫 한마디를 그대로 읽는다.
+   끝 부탁: 「프로필 링크 No.」은 유튜브·틱톡도 같은 영상이라 그대로 둔다. DM 줄은 인스타만 되니 「인스타는」을 앞에 붙인다 (유튜브·틱톡 댓글엔 DM이 가지 않는다).
+   나레이션 표 예시 (narration.md, 1초에 5음절쯤 — 1.7B는 조금 느리니 줄을 짧게):
+     | 0.15–2.65  | 첫 한마디         | (화면 그대로) |
+     | 2.95–5.25  | 객실              | 사실 한 줄    |
+     | 5.55–7.85  | 시설 1            | 사실 한 줄    |
+     | 8.15–10.45 | 시설 2            | 사실 한 줄    |
+     | 10.75–12.85| 시설 3 · 주변     | 사실 한 줄    |
+     | 13.2–17.2  | 밤 외관 · 끝 부탁 | 숙소 정보는 프로필 링크, ○○○번! | */
+/* 색: 상품에 맞춰 이 블록만 바꾼다 (CLAUDE.md §4 · 후보는 node tools/colors.mjs).
+   포인트 --point(이름표·링크 알약) · --on-point(그 위 글자) · --hi(자막 핵심어) · --night(바탕) */
+:root{
+  --point:#e8312f;
+  --on-point:#fff;
+  --hi:#ffe14d;
+  --night:#050a2d;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1080px;height:1920px;overflow:hidden}
+body{position:relative;background:var(--night);font-family:Jua,sans-serif;font-synthesis:none;color:#fff;letter-spacing:-.5px;word-break:keep-all}
+em,i{font-style:normal}
+/* 사진 자리 표시 (CSS 카메라만): 사진을 넣으면 ph 클래스를 뺀다. 2.5D img는 사진 파일이 옆에 있어야 녹화된다 */
+.ph::after{content:attr(data-label) " 자리";position:absolute;inset:0;display:grid;place-items:center;background:rgba(255,255,255,.08);color:rgba(255,255,255,.5);font-size:44px}
+
+.scene{position:absolute;inset:0;opacity:0;animation:show var(--len) linear var(--at)}
+@keyframes show{from,to{opacity:1}}
+.up,.pop,.fade{animation-duration:.6s;animation-timing-function:cubic-bezier(.2,.8,.2,1);animation-fill-mode:both;animation-delay:calc(var(--at) + var(--d,0s))}
+.up{animation-name:up}     @keyframes up{from{opacity:0;transform:translateY(50px)}}
+.pop{animation-name:pop;animation-timing-function:cubic-bezier(.3,1.6,.5,1)} @keyframes pop{from{opacity:0;transform:scale(.3)}}
+.fade{animation-name:fade} @keyframes fade{from{opacity:0}}
+
+/* 컷 하나 = 사진 한 장. 들어올 때 잠깐 흐렸다가 또렷해진다. ::after는 고지(위)·자막(가운데)·플랫폼 글자(아래) 자리만 살짝 어둡게 */
+.shot{position:absolute;inset:0;overflow:hidden;opacity:0;animation:show var(--len) linear var(--at),whip .35s cubic-bezier(.2,.8,.2,1) var(--at) both}
+.shot.cut{animation:show var(--len) linear var(--at)} /* 블러 없이 바로 바뀌는 컷 — 첫 3초는 이것만 */
+.shot::after{content:"";position:absolute;inset:0;background:linear-gradient(rgba(0,0,0,.4),transparent 17%,transparent 36%,rgba(0,0,0,.28) 48%,rgba(0,0,0,.28) 56%,transparent 68%,transparent 84%,rgba(0,0,0,.4))}
+@keyframes whip{from{filter:blur(22px) brightness(1.3)}}
+.depth{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.cam{position:absolute;left:0;top:0;width:var(--w);height:var(--h);background:var(--img) 0 0/100% 100% no-repeat;transform-origin:var(--o,0 0);
+  animation:cam var(--len) cubic-bezier(.35,0,.65,1) var(--at) both}
+@keyframes cam{from{transform:translate(var(--x0,0px),var(--y0,0px)) scale(var(--s0,1))}to{transform:translate(var(--x1,0px),var(--y1,0px)) scale(var(--s1,1))}}
+.cam.soft{filter:blur(8px) brightness(.45)}
+.cam.lin{animation-timing-function:linear} /* 끝 장면: 마지막 프레임까지 같은 빠르기로 */
+/* 작은 사진은 가로 띠로 (같은 사진 .cam.soft를 바탕에 깐다) */
+.strip{position:absolute;left:0;width:1080px;height:var(--sh);top:var(--top);overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.5);animation:stripin .45s cubic-bezier(.2,.8,.2,1) calc(var(--at) + var(--d,0s)) both}
+@keyframes stripin{from{transform:translateX(var(--from,0px))}}
+
+/* 위: 고지 */
+.disc{position:absolute;left:60px;width:840px;top:200px;padding:12px 22px 10px;border-radius:18px;background:rgba(0,0,0,.5);color:rgba(255,255,255,.92);font-size:26px;line-height:1.4}
+/* 가운데: 첫 한마디(첫 장면) · 자막 한 줄 (+ 꼭 필요할 때 이름표·작은 조건) */
+.ask,.line,.sub{text-shadow:0 0 3px rgba(0,0,0,.9),0 3px 10px rgba(0,0,0,.7),0 0 30px rgba(0,0,0,.45)}
+.ask{position:absolute;left:60px;width:840px;top:var(--y,760px);text-align:center;font-size:104px;line-height:1.12}
+.ask b{display:block;font-weight:400;animation:up var(--dur,.5s) cubic-bezier(.2,.8,.2,1) var(--t) both}
+.ask em,.line em{color:var(--hi)}
+.say{position:absolute;left:60px;width:840px;top:var(--y,820px);text-align:center}
+.label{display:inline-block;padding:12px 32px 6px;border-radius:999px;background:var(--point);color:var(--on-point);font-size:48px;box-shadow:0 8px 24px rgba(0,0,0,.35)}
+.line{margin-top:16px;font-size:84px;line-height:1.15}
+.sub{margin-top:14px;font-size:40px;color:rgba(255,255,255,.94)}
+/* 자막 등장: 같은 등장이 이어지면 심심하다 — 장면마다 다른 것을 .say에 붙인다.
+   drop 한 단어씩 위에서 떨어짐 · rise 한 단어씩 아래서 기울어 올라옴 · slide 옆에서 미끄러짐(--from) · wipe 왼쪽부터 써지듯 · zoom 크게 흐렸다 또렷하게.
+   drop·rise는 단어를 <span class="w" style="--i:0">로 나눈다. 이름표는 먼저 튀어나오고, 핵심어(em)는 줄이 다 나온 뒤 한 번 통 튄다 (--e로 늦춘다, 기본 .7초) */
+.say .label{animation:pop .45s cubic-bezier(.3,1.6,.5,1) calc(var(--at) + var(--d,0s)) both}
+.say .sub{animation:fade .5s ease calc(var(--at) + var(--d,0s) + .8s) both}
+.say em{display:inline-block;animation:empop .5s cubic-bezier(.3,1.8,.5,1) calc(var(--at) + var(--d,0s) + var(--e,.7s)) both}
+@keyframes empop{50%{transform:scale(1.14) rotate(-2deg)}}
+.w{display:inline-block}
+.say.drop .w{animation:wdrop .45s cubic-bezier(.3,1.5,.5,1) calc(var(--at) + var(--d,0s) + .15s + var(--i) * .13s) both}
+@keyframes wdrop{from{opacity:0;transform:translateY(-80px)}}
+.say.rise .w{animation:wrise .45s cubic-bezier(.3,1.4,.5,1) calc(var(--at) + var(--d,0s) + .15s + var(--i) * .13s) both}
+@keyframes wrise{from{opacity:0;transform:translateY(70px) rotate(10deg)}}
+.say.slide .line{animation:slide .5s cubic-bezier(.3,1.3,.5,1) calc(var(--at) + var(--d,0s) + .15s) both}
+@keyframes slide{from{opacity:0;transform:translateX(var(--from,-240px))}}
+.say.wipe .line{animation:wipe .6s cubic-bezier(.4,0,.3,1) calc(var(--at) + var(--d,0s) + .15s) both}
+@keyframes wipe{from{clip-path:inset(-30% 100% -30% 0)}to{clip-path:inset(-30% 0 -30% 0)}}
+.say.zoom .line{animation:zoomin .45s cubic-bezier(.2,.8,.2,1) calc(var(--at) + var(--d,0s) + .15s) both}
+@keyframes zoomin{from{opacity:0;transform:scale(1.7);filter:blur(12px)}}
+
+/* 끝: 프로필 링크 */
+.link{position:absolute;left:0;width:960px;top:var(--y,1000px);display:flex;justify-content:center;animation-delay:calc(var(--at) + var(--d))}
+.link b{display:flex;align-items:center;gap:20px;padding:20px 22px 16px 44px;border-radius:999px;background:var(--point);color:var(--on-point);font-weight:400;font-size:62px;box-shadow:0 20px 50px rgba(0,0,0,.45);transform:rotate(-2deg)}
+.link i{display:grid;place-items:center;width:80px;height:80px;border-radius:50%;background:#fff;color:var(--point);font-size:56px;line-height:1;padding-top:6px}
+.dm{position:absolute;left:60px;width:840px;top:var(--y,1150px);text-align:center;font-size:34px;color:rgba(255,255,255,.94);text-shadow:0 0 3px rgba(0,0,0,.9),0 3px 10px rgba(0,0,0,.7)}
+/* 움직임 효과 (2026-11-16, 사람: "김·물결 반짝임을 코드로 직접 얹기" · "별이나 전등도 반짝반짝" · "컨텐츠에 맞게 적절한 효과").
+   AI 없이 CSS로만 — 사진 픽셀은 그대로 두고 위에 겹친다. **사진에 실제로 찍힌 것 위에만** 그것에 맞는 효과를 쓴다:
+     | 사진에 찍힌 것                          | 효과                                   | 하지 말 것                                                  |
+     | 따뜻한 물 (온천·노천탕·스파·온수풀)      | 김 .steam + 물결 빛 .shimmer            | 차가운 물(수영장·바다)에 김 · 탕을 덮어 윤곽을 가리기        |
+     | 물 (수영장·풀빌라 풀·탕의 수면)          | 물결 빛 .shimmer                        | 물 밖(돌턱·바닥)·물 위에 뜬 물건으로 번지게 (--clip으로 자른다) · 거품 많은 흰 물(안 보임) |
+     | 밤의 별·창문·조명                        | 반짝임 .lights (lights.mjs가 찾은 자리만) | 손으로 점 찍기 · 없는 별·불빛                                |
+     | 불 (불멍·화로·바베큐 숯불)              | 불꽃 일렁임 .fire                        | 불이 안 붙은 화로·그릴 · 불을 키우거나 번지게                  |
+     | 나중에 더할 것 — 그 상품이 올 때         | 분수·폭포 물 흐름 · 바다 윤슬 등          |                                                              |
+   공통 금지: 사진에 없는 것(눈·비·별·불빛·사람·음식·불)을 새로 만들지 않는다 · 탕·시설 모양을 바꾸거나 가리지 않는다 · AI를 쓰지 않는다
+     (CLAUDE.md 3장 「실제와 다른 광고」 · 4장 2.5D 메모 — 특수효과라 AI 표시 대상이 아니라고 본다).
+   어디에 두나: 2.5D 컷(img.depth)은 사진 다음 줄에 두고 --push로 카메라가 다가가는 만큼 같이 커지게 한다 (in 움직임이면 1 + .08 × 세기, 예 세기 1 → 1.08).
+     CSS 카메라 컷(.cam)은 .cam 안에 두면 카메라를 저절로 따라간다 — 좌표는 .cam 상자 기준 (사진 px × --w ÷ 사진 가로). 띠 사진도 띠의 .cam 안에.
+   김   <div class="steam" style="--x:0px;--y:1300px;--w:1080px;--h:240px"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          --x·--y·--w·--h = 김이 피어오를 물 표면. 물 위에 옅은 김이 깔려 숨 쉬듯 일렁이고, 가는 김 줄기 9개가 흔들리며 --rise(기본 320px)만큼 올라 흩어진다.
+          세기 --k (기본 .55 · .35 ~ .7). 줄기마다 크기·빠르기·흔들림·진하기가 달라 똑같이 되풀이되지 않고, 0초 프레임에도 이미 올라가고 있다.
+          흰 김이라 어두운 물·벽·나무 앞에서 잘 보이고, 햇빛 든 밝은 실내(흰 벽·밝은 물) 앞에서는 거의 안 보인다 — 그런 컷은 물결이 움직임을 맡는다.
+     물결 <div class="shimmer" style="--x:0px;--y:1150px;--w:1080px;--h:770px;--clip:polygon(0 0,100% 0,100% 100%,0 100%)"></div>
+          상자 = 사진 속 물 전체 (위 끝 = 물의 먼 쪽 끝). 빛 무늬가 상자 전체에 깔리고 위 30%는 흐려지며 끝나니, 상자 위 끝을 물 끝보다 조금 위에 둬도 된다.
+          물 모양·물 위에 뜬 튜브 같은 물건은 --clip으로 잘라 낸다 (상자 기준 %). 무늬는 멀수록(위로 갈수록) 작아지고, 두 겹이 다른 쪽으로 쉬지 않고
+          흘러가며 번갈아 밝아져서 1.4초 컷에서도 움직임이 보인다. 상자 크기와 상관없이 같은 모양이다 (.cam 안의 사진 좌표 상자도).
+          세기 --k (기본 .55). 밝은 파란 타일 물에서도 보인다 — 더 또렷하게 하려면 .6까지. 거품이 많은 흰 물에는 안 보이니 쓰지 않는다 (김만).
+     불빛 <div class="lights"><i style="--x:612px;--y:1180px"></i><i style="--x:700px;--y:1210px;--s:44px;--t:3.1s;--dl:-1.2s"></i>…</div>
+          사진에 찍혀 있는 불빛·별 자리마다 <i> 하나 (.cam 안이면 .cam 좌표). 크기 --s(기본 36px) · 깜빡임 길이 --t(기본 2.4초) · 시작 --dl을
+          점마다 다르게 해서 같은 박자로 깜빡이지 않게 한다. 세기 --k (기본 .85). 자리는 손으로 찍지 않고
+          node tools/motion/lights.mjs <사진> <--w> <--h> <보이는 x 시작 = −--x0>  로 사진 속 밝은 점을 찾아 나온 줄을 그대로 붙인다 (확인 그림도 나온다).
+     불꽃 <div class="fire" style="--x:1950px;--y:860px;--w:700px;--h:500px"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          상자 = 사진 속 불길이 보이는 자리 (불 바닥이 상자 아래쪽). 불 위의 따뜻한 빛이 고르지 않게 밝아졌다 어두워지고, 불길 자리가 좌우로 살짝 일렁이며,
+          작은 불티 6개가 --rise(기본 220px)만큼 올라 사라진다. 세기 --k (기본 .5 · .3 ~ .7). 불길 밖(의자·나무·바닥)으로 빛이 크게 번지지 않게 상자를 불에 맞춘다.
+   세기 기준: 김 --k .7 · 물결 .6 · 불꽃 .7을 넘기지 않는다 (사진이 효과에 묻히면 안 된다). --rise는 탕·불 위 벽·하늘까지만. */
+.steam,.shimmer{position:absolute;left:var(--x);top:var(--y);width:var(--w);height:var(--h);pointer-events:none;
+  transform-origin:calc(540px - var(--x)) calc(960px - var(--y));animation:fxpush var(--len) linear var(--at) both}
+@keyframes fxpush{from{transform:scale(1)}to{transform:scale(var(--push,1))}}
+/* 김: 물 위에 깔린 옅은 김(::before) + 흔들리며 오르는 줄기 9개 */
+.steam::before{content:"";position:absolute;left:-6%;right:-6%;bottom:-8%;height:70%;border-radius:50%;
+  background:radial-gradient(closest-side,rgba(255,255,255,calc(var(--k,.55) * .55)),rgba(255,255,255,0));filter:blur(20px);
+  animation:mist 6.5s ease-in-out -2s infinite alternate}
+@keyframes mist{from{opacity:.55;transform:translateX(-3%) scaleY(.85)}to{opacity:1;transform:translateX(3%) scaleY(1.1)}}
+.steam i{position:absolute;bottom:var(--b,12%);left:var(--l);width:var(--s);height:calc(var(--s) * 1.5);margin-left:calc(var(--s) / -2);border-radius:50%;
+  background:radial-gradient(closest-side,rgba(255,255,255,calc(var(--k,.55) * var(--a,1))),rgba(255,255,255,0));filter:blur(18px);opacity:0;
+  animation:wisp var(--t) cubic-bezier(.3,.1,.6,1) var(--dl) infinite}
+@keyframes wisp{
+  0%{opacity:0;transform:translate(0,0) scale(.45,.35) rotate(0)}
+  18%{opacity:1}
+  55%{opacity:.75;transform:translate(var(--dx1),calc(var(--rise,320px) * -.5)) scale(.9,.8) rotate(var(--r,6deg))}
+  100%{opacity:0;transform:translate(var(--dx2),calc(var(--rise,320px) * -1)) scale(1.7,1.25) rotate(calc(var(--r,6deg) * -1))}}
+.steam i:nth-child(1){--l:9%;--s:150px;--t:4.1s;--dl:-.6s;--dx1:22px;--dx2:-10px;--b:8%;--a:.9;--r:7deg}
+.steam i:nth-child(2){--l:24%;--s:190px;--t:5.3s;--dl:-3.1s;--dx1:-28px;--dx2:16px;--b:22%;--a:.7;--r:-5deg}
+.steam i:nth-child(3){--l:37%;--s:130px;--t:3.6s;--dl:-1.7s;--dx1:14px;--dx2:34px;--b:4%;--a:1;--r:9deg}
+.steam i:nth-child(4){--l:51%;--s:210px;--t:5.9s;--dl:-4.4s;--dx1:-18px;--dx2:-40px;--b:18%;--a:.65;--r:-8deg}
+.steam i:nth-child(5){--l:63%;--s:160px;--t:4.5s;--dl:-2.2s;--dx1:26px;--dx2:6px;--b:10%;--a:.95;--r:6deg}
+.steam i:nth-child(6){--l:77%;--s:180px;--t:4.9s;--dl:-.2s;--dx1:-12px;--dx2:-30px;--b:26%;--a:.75;--r:-6deg}
+.steam i:nth-child(7){--l:90%;--s:140px;--t:3.9s;--dl:-2.9s;--dx1:18px;--dx2:28px;--b:6%;--a:.85;--r:8deg}
+.steam i:nth-child(8){--l:44%;--s:120px;--t:3.3s;--dl:-1.1s;--dx1:-10px;--dx2:20px;--b:30%;--a:.6;--r:-9deg}
+.steam i:nth-child(9){--l:70%;--s:125px;--t:3.8s;--dl:-3.5s;--dx1:12px;--dx2:-16px;--b:2%;--a:1;--r:5deg}
+/* 물결: 노이즈 등고선(이음매 없는 SVG 타일) 두 겹을 물 위에 눕혀 깐다 — 위(먼 쪽)로 갈수록 작다. 두 겹이 다른 쪽으로 흘러가며 번갈아 밝아진다.
+   2026-11-17 고침: 52도로 눕힌 판이 상자 맨 아래 띠(200~350px)에만 그려지고 위 끝이 직선으로 끊겼다 · 9~12초 주기라 1.4초 컷에서 멈춰 보였다.
+   이제 판의 원근(perspective)과 높이를 상자 높이(cqh)에 맞춰서 상자가 크든 작든(.cam 안의 큰 상자도) 상자 전체에 깔리고,
+   위 30%는 흐려지며 끝나고 양옆 6%도 흐려진다. 흐름은 멈추지 않는 등속(6초·8초에 한 바퀴), 밝기는 1.7초·2.3초 박자로 번갈아 바뀐다. */
+.shimmer{overflow:hidden;clip-path:var(--clip,none);mix-blend-mode:screen;container-type:size;
+  -webkit-mask-image:linear-gradient(transparent,#000 30%),linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent);-webkit-mask-composite:source-in;
+  mask-image:linear-gradient(transparent,#000 30%),linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent);mask-composite:intersect}
+/* 판 높이 2.8 × 상자(위로 −170%, 아래로 −10%)를 40도로 눕히고 원근 250cqh로 보면 상자 위 끝보다 조금 더 올라가고, 위 끝에서도 판 너비(2배)가 상자보다 넓다 */
+.shimmer::before,.shimmer::after{content:"";position:absolute;left:-50%;right:-50%;top:-170%;bottom:-10%;transform-origin:50% 100%;
+  transform:perspective(250cqh) rotateX(40deg);
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='320'%3E%3Cfilter id='c' x='0' y='0' width='1' height='1'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.016' numOctaves='2' seed='5' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 1 0 0 0 0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='table' tableValues='0 0 0 0 0 0 0 0 .95 0 0 0 .95 0 0 0 0 0 0 0 0'/%3E%3C/feComponentTransfer%3E%3CfeGaussianBlur stdDeviation='1.1'/%3E%3C/filter%3E%3Crect width='320' height='320' filter='url(%23c)'/%3E%3C/svg%3E") 0 0/420px 420px;
+  opacity:var(--k,.55);animation:flow1 6s linear infinite,breathe1 1.7s ease-in-out infinite alternate}
+.shimmer::after{background-size:560px 560px;animation:flow2 8s linear -3s infinite,breathe2 2.3s ease-in-out -.8s infinite alternate}
+@keyframes flow1{to{background-position:420px 420px}}
+@keyframes flow2{to{background-position:-560px 560px}}
+@keyframes breathe1{from{opacity:calc(var(--k,.55) * .45)}to{opacity:var(--k,.55)}}
+@keyframes breathe2{from{opacity:var(--k,.55)}to{opacity:calc(var(--k,.55) * .4)}}
+/* 불빛·별: 사진에 찍힌 밝은 점 위에서만 은은하게 깜빡인다 (점마다 길이·시작이 달라 박자가 맞지 않게) */
+.lights{position:absolute;inset:0;pointer-events:none}
+.lights i{position:absolute;left:var(--x);top:var(--y);width:var(--s,36px);height:var(--s,36px);margin:calc(var(--s,36px) / -2) 0 0 calc(var(--s,36px) / -2);
+  background:radial-gradient(closest-side,rgba(255,252,240,.95),rgba(255,244,220,.4) 30%,rgba(255,240,210,0) 70%),
+    linear-gradient(90deg,rgba(255,255,255,0) 47%,rgba(255,255,255,.8) 50%,rgba(255,255,255,0) 53%),
+    linear-gradient(rgba(255,255,255,0) 47%,rgba(255,255,255,.8) 50%,rgba(255,255,255,0) 53%);
+  -webkit-mask-image:radial-gradient(closest-side,#000 40%,transparent);mask-image:radial-gradient(closest-side,#000 40%,transparent);
+  mix-blend-mode:screen;opacity:0;animation:twinkle var(--t,2.4s) ease-in-out var(--dl,0s) infinite}
+@keyframes twinkle{0%,100%{opacity:.08;transform:scale(.55) rotate(0)}45%{opacity:var(--k,.85);transform:scale(1) rotate(10deg)}60%{opacity:calc(var(--k,.85) * .7)}}
+/* 불꽃: 불 위 따뜻한 빛(::before)이 길이가 다른 두 박자로 고르지 않게 밝아졌다 어두워지고, 불길 자리(::after)가 좌우로 일렁이며, 불티(i)가 오른다 */
+.fire{position:absolute;left:var(--x);top:var(--y);width:var(--w);height:var(--h);pointer-events:none;
+  transform-origin:calc(540px - var(--x)) calc(960px - var(--y));animation:fxpush var(--len) linear var(--at) both}
+.fire::before{content:"";position:absolute;left:-25%;right:-25%;top:-20%;bottom:-15%;border-radius:50%;mix-blend-mode:screen;filter:blur(14px);
+  background:radial-gradient(50% 55% at 50% 62%,rgba(255,150,60,calc(var(--k,.5) * .55)),rgba(255,110,30,calc(var(--k,.5) * .25)) 55%,rgba(255,100,20,0));
+  animation:flick1 1.9s linear infinite,flick2 3.1s linear -1.2s infinite}
+@keyframes flick1{0%{opacity:.7}9%{opacity:.95}17%{opacity:.6}26%{opacity:.88}38%{opacity:.55}47%{opacity:1}58%{opacity:.68}69%{opacity:.9}81%{opacity:.58}92%{opacity:.85}100%{opacity:.7}}
+@keyframes flick2{0%,100%{transform:scale(1)}23%{transform:scale(1.06,1.1)}51%{transform:scale(.96,.94)}77%{transform:scale(1.04,1.07)}}
+.fire::after{content:"";position:absolute;left:15%;right:15%;top:5%;bottom:20%;border-radius:45% 45% 40% 40%;mix-blend-mode:overlay;filter:blur(8px);transform-origin:50% 100%;
+  background:radial-gradient(50% 60% at 50% 70%,rgba(255,200,110,calc(var(--k,.5) * 1.1)),rgba(255,140,40,calc(var(--k,.5) * .4)) 60%,rgba(255,120,40,0));
+  animation:sway 1.3s ease-in-out infinite alternate,flick1 2.4s linear -.7s infinite}
+@keyframes sway{0%{transform:skewX(-4deg) scaleY(.95)}50%{transform:skewX(2deg) scaleY(1.05)}100%{transform:skewX(5deg) scaleY(.98)}}
+.fire i{position:absolute;bottom:var(--b,35%);left:var(--l);width:var(--s,6px);height:var(--s,6px);border-radius:50%;opacity:0;
+  background:radial-gradient(closest-side,#fff6d8,#ffb347 60%,rgba(255,140,40,0));box-shadow:0 0 6px 2px rgba(255,150,50,.7);
+  animation:ember var(--t) ease-out var(--dl) infinite}
+@keyframes ember{0%{opacity:0;transform:translate(0,0) scale(1)}12%{opacity:var(--k2,.95)}100%{opacity:0;transform:translate(var(--dx),calc(var(--rise,220px) * -1)) scale(.4)}}
+.fire i:nth-child(1){--l:38%;--t:1.9s;--dl:-.3s;--dx:-24px;--s:6px}
+.fire i:nth-child(2){--l:52%;--t:2.6s;--dl:-1.4s;--dx:18px;--s:5px;--b:45%}
+.fire i:nth-child(3){--l:46%;--t:2.2s;--dl:-2s;--dx:-8px;--s:7px;--b:30%}
+.fire i:nth-child(4){--l:60%;--t:1.7s;--dl:-.9s;--dx:30px;--s:4px;--b:40%}
+.fire i:nth-child(5){--l:42%;--t:2.9s;--dl:-2.5s;--dx:12px;--s:5px;--b:50%}
+.fire i:nth-child(6){--l:56%;--t:2.4s;--dl:-.1s;--dx:-30px;--s:6px;--b:38%}
+/* 끝 모아 보기 (2026-11-17, 스터디 S34 — 사람: "끝장면 격자는 좋네", 생생 기본): 밤 외관이 격자 왼쪽 위 칸으로 줄어들고(14.0~14.7초),
+   영상에 나온 컷이 나머지 칸에 차례로 들어온 뒤(14.25~14.85초) 그 아래에 끝 부탁. 고지는 그대로 맨 위.
+     끝 컷 .shot에 tocell 클래스와 --gd(줄어들기 시작, 장면 안 초) · --cx·--cy(칸 왼쪽 위) · --cs(줄일 배율 = 칸 가로 480 ÷ 1080)를 준다.
+     칸은 480×270, 2열 × 3줄 (x 40·560, y 310·600·890) — 끝 부탁 글자는 바로 아래 1180부터.
+   칸에 넣을 컷 고르기: 영상에 실제로 나온 컷만 다섯 장 (밤 외관은 이미 왼쪽 위). 따뜻한 물 첫 컷 · 객실 · 시설처럼 서로 다른 장면을 고르고,
+     같은 사진을 두 칸에 넣지 않는다. 나온 컷이 다섯보다 적으면 남는 칸을 지우고, 셋째 줄이 통째로 비면 끝 부탁 세 줄(--y)을 290px 올린다.
+   간판·글자·사람이 든 컷 자르기: 사진을 칸보다 크게 키우고(--bs:가로px 세로px, 사진 비율 그대로) --bp를 음수 px로 밀어 보일 곳만 칸에 온다.
+     예: 영상에서 오른쪽 37%만 썼던 3:2 사진 → --bs:1280px 853px;--bp:-800px -560px (오른쪽 아래만). 그래도 이름이 보이면 그 컷은 빼고 다른 컷을 넣는다. */
+.shot.tocell{transform-origin:0 0;animation:show var(--len) linear var(--at),whip .35s cubic-bezier(.2,.8,.2,1) var(--at) both,tocell .7s cubic-bezier(.6,0,.2,1) calc(var(--at) + var(--gd,1s)) both}
+/* 고르게 줄인 뒤 16:9로 잘라 칸에 맞춘다 (늘어나지 않게): 1080×1920 → ×--cs, 위아래 656px씩 잘라 1080×608 → 480×270 */
+@keyframes tocell{from{transform:none;clip-path:inset(0 0 0 0 round 0)}to{transform:translate(var(--cx),calc(var(--cy) - 656px * var(--cs))) scale(var(--cs));clip-path:inset(656px 0 656px 0 round 40px)}}
+.cell{position:absolute;left:var(--x);top:var(--y);width:480px;height:270px;border-radius:18px;background:var(--img) var(--bp,50% 50%)/var(--bs,cover) no-repeat;
+  box-shadow:0 14px 34px rgba(0,0,0,.45);animation:cellin .5s cubic-bezier(.3,1.3,.5,1) calc(var(--at) + var(--d,0s)) both}
+@keyframes cellin{from{opacity:0;transform:scale(.6)}}
+</style></head>
+<body data-duration="17.5" data-voice="1.7b 또렷하고 경쾌하게, 광고 내레이션처럼" data-sfx="0 thud .5, 1.4 thud .45, 2.8 thud .4, 2.95 pop .3, 5.4 swoosh .45, 8 swoosh .45, 10.6 swoosh .45, 13 whoosh .7, 13.9 ding .55, 14 swoosh .35, 14.3 pop .22, 14.6 pop .2, 14.9 pop .2">
+
+<!-- ── 사진 (컷마다 하나. 실내는 2.5D img, 바깥은 CSS .cam) ── -->
+<!-- 01 훅 (0~2.8초): 블러 없는 컷 두 번 (첫 3초 규칙). 따뜻한 물·김·불 컷을 0초에 → 1.4초에 두 번째로 센 컷 -->
+<div class="shot cut" style="--at:0s;--len:1.4s"><img class="depth" src="photo-1.jpg" data-depth="in" data-strength=".7" style="object-position:50% 50%">
+  <!-- 따뜻한 물 컷이면 물 위에만 김·물결 (숫자는 사진 속 물 자리로 바꾼다 — 위 「김·물결 반짝임·불빛 반짝임」 주석). 2.5D in이라 --push로 같이 다가간다. 물이 아니면 두 줄을 지운다 -->
+  <div class="shimmer" style="--x:0px;--y:1200px;--w:1080px;--h:720px;--push:1.056"></div>
+  <div class="steam" style="--x:40px;--y:1230px;--w:1000px;--h:280px;--push:1.056"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
+<div class="shot cut" style="--at:1.4s;--len:1.4s"><img class="depth" src="photo-2.jpg" data-depth="in" style="object-position:50% 50%"></div>
+<!-- 02~04 객실·시설 (2.8~10.6초): 2.6초씩. 실내는 2.5D, 바깥은 CSS -->
+<div class="shot cut" style="--at:2.8s;--len:2.6s"><img class="depth" src="photo-3.jpg" data-depth="in" style="object-position:50% 50%"></div>
+<div class="shot" style="--at:5.4s;--len:2.6s"><img class="depth" src="photo-4.jpg" data-depth="in" style="object-position:50% 50%"></div>
+<div class="shot" style="--at:8s;--len:2.6s"><div class="cam ph" data-label="바깥 1" style="--at:8s;--len:2.6s;--img:url(photo-5.jpg);--w:3413px;--h:1920px;--x0:-1166px;--x1:-1436px;--s0:1.04;--s1:1.04"></div></div>
+<!-- 05 한 컷 더 (10.6~13초): 주변·시설 -->
+<div class="shot" style="--at:10.6s;--len:2.4s"><div class="cam ph" data-label="바깥 2" style="--at:10.6s;--len:2.4s;--img:url(photo-6.jpg);--w:3413px;--h:1920px;--x0:-1337px;--x1:-1337px;--o:1877px 1100px;--s0:1;--s1:1.12"></div></div>
+<!-- 06 끝 (13~17.5초): 전체 모습 — 밤 외관 멀어지기 -->
+<div class="shot tocell" style="--at:13s;--len:4.5s;--gd:1s;--cx:40px;--cy:310px;--cs:.4444"><div class="cam lin ph" data-label="밤 외관" style="--at:13s;--len:4.5s;--img:url(photo-7.jpg);--w:3413px;--h:1920px;--x0:-893px;--x1:-893px;--o:1433px 1000px;--s0:1.3;--s1:1">
+  <!-- 사진 속 불빛·별만 반짝 (.cam 안이라 카메라를 따라간다): node tools/motion/lights.mjs photo-7.jpg 3413 1920 893 0 → 나온 줄로 바꾼다. 불빛이 없는 사진이면 지운다 -->
+  <div class="lights"></div></div></div>
+
+<!-- 고지: 첫 장면과 마지막 장면 -->
+<section class="scene" style="--at:0s;--len:2.8s"><p class="disc">이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.</p></section>
+<!-- 끝 모아 보기: 영상에 나온 컷 다섯 장 (고르는 법·자르는 법은 위 「끝 모아 보기」 주석). 사진을 넣으면 ph 클래스를 뺀다 -->
+<section class="scene" style="--at:13s;--len:4.5s">
+  <div class="cell ph" data-label="칸 1" style="--x:560px;--y:310px;--d:1.25s;--img:url(photo-1.jpg)"></div>
+  <div class="cell ph" data-label="칸 2" style="--x:40px;--y:600px;--d:1.4s;--img:url(photo-2.jpg)"></div>
+  <div class="cell ph" data-label="칸 3" style="--x:560px;--y:600px;--d:1.55s;--img:url(photo-3.jpg)"></div>
+  <div class="cell ph" data-label="칸 4" style="--x:40px;--y:890px;--d:1.7s;--img:url(photo-4.jpg)"></div>
+  <div class="cell ph" data-label="칸 5" style="--x:560px;--y:890px;--d:1.85s;--img:url(photo-5.jpg)"></div>
+</section>
+<section class="scene" style="--at:13s;--len:4.5s"><p class="disc">이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.</p></section>
+
+<!-- 01 첫 한마디 (상황형 · 놀람형 · 좋은 것 두 개 — 머리 주석). 0초 프레임부터 두 줄 모두 (등장 애니메이션 없음), 퀴즈 말 없이 -->
+<section class="scene" style="--at:0s;--len:2.8s"><p class="ask"><b style="--t:0s;--dur:0s">상황·좋은 것</b><b style="--t:0s;--dur:0s"><em>첫 한마디</em></b></p></section>
+
+<!-- 02~05 가운데 한 줄 (상품 페이지 사실). 이름표·조건(.sub)은 꼭 필요한 컷에만 — 예: 객실 종류·옵션 조건 (가격·시간은 넣지 않는다) -->
+<section class="scene" style="--at:2.8s;--len:2.6s"><div class="say drop" style="--d:.15s;--e:.75s"><p class="label">✔ 객실</p><p class="line"><span class="w" style="--i:0">사실</span> <span class="w" style="--i:1"><em>한 줄</em></span></p><p class="sub">작은 조건</p></div></section>
+<section class="scene" style="--at:5.4s;--len:2.6s"><div class="say zoom" style="--d:.15s"><p class="line">사실 <em>한 줄</em></p></div></section>
+<section class="scene" style="--at:8s;--len:2.6s"><div class="say wipe" style="--d:.15s"><p class="line">사실 <em>한 줄</em></p></div></section>
+<section class="scene" style="--at:10.6s;--len:2.4s"><div class="say rise" style="--d:.15s;--e:.75s"><p class="line"><span class="w" style="--i:0">사실</span> <span class="w" style="--i:1"><em>한 줄</em></span></p></div></section>
+
+<!-- 06 끝 부탁: 프로필 링크 (유튜브·틱톡도 같은 영상) + 인스타는 아무 댓글에 DM. 이름은 화면·나레이션에 말하지 않는다 -->
+<section class="scene" style="--at:13s;--len:4.5s">
+  <p class="ask" style="--y:1180px;font-size:80px"><b style="--t:13.2s">숙소 정보는</b></p>
+  <div class="link pop" style="--d:.9s;--y:1290px"><b>프로필 링크 No.○○○<i>+</i></b></div>
+  <p class="dm fade" style="--d:1.4s;--y:1425px">인스타는 아무 댓글이나 남기면 숙소 정보를 DM으로 보내 드려요</p>
+</section>
+
+</body></html>
