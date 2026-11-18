@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="ko"><head><meta charset="utf-8"><title>HIKARY 모션 템플릿 · 생생</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&display=block">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Black+Han+Sans&display=block">
 <style>
 /* 생생 (템플릿 6, 2026-11-16 — 투어(템플릿 5, template-tour.html)에서 갈라졌다. 사람: "6번으로 하고 김, 물결, 반짝임 뿐 아니라 컨텐츠에 맞게 적절한 효과").
    투어에 1차 개선(따뜻한 물 첫 컷 · 퀴즈 아닌 첫 한마디 · 15~20초)과 사진 속 실제 것에 맞춘 움직임 효과(아래 표)를 더했다. 커버는 template-vivid-cover.html.
@@ -14,10 +14,10 @@
      node tools/motion/record.mjs contents/<폴더>/motion.html   → motion.mp4 + motion-bgm.mp4 (2.5D 프레임은 <폴더>/depth/에 처음 한 번 만든다)
    대본 틀 (숙소 상품, 17.5초 — 기본 15~20초. 장면을 더하거나 빼면 --at·--len, 나레이션 줄, data-sfx를 같이 옮긴다):
      | 시간       | 장면                                    | 움직임                 | 화면                                  |
-     | 0~1.4      | 따뜻한 물·김·불 (온천·노천탕·온수풀·불멍) | 2.5D in (세기 .7) + 물이면 김·물결 | 첫 한마디가 0초부터 가운데 크게, 고지  |
+     | 0~1.4      | 따뜻한 물·김·불 (온천·노천탕·온수풀·불멍) | 2.5D in (세기 .7) + 물이면 김·물결 | 첫 한마디가 0초부터 가운데 크게 (착지), 고지 |
      | 1.4~2.8    | 두 번째로 센 컷 (물이면 더 좋다)         | 2.5D 또는 CSS 당기기   | 첫 한마디 그대로                      |
-     | 2.8~10.6   | 객실·시설 세 컷, 2.6초씩                 | 실내 2.5D · 바깥 CSS   | 가운데 한 줄 (이름표·조건은 꼭 필요할 때만) |
-     | 10.6~13.0  | 한 컷 더 (주변·시설)                     | CSS                    | 가운데 한 줄                          |
+     | 2.8~10.6   | 객실·시설 세 컷, 2.6초씩                 | 실내 2.5D · 바깥 CSS   | 작은 말 / 큰 낱말 — 수 A·B·C는 저절로 (이름표·조건은 꼭 필요할 때만) |
+     | 10.6~13.0  | 한 컷 더 (주변·시설)                     | CSS                    | 작은 말 / 큰 낱말 — D 뚫고 지나감      |
      | 13.0~17.5  | 전체 모습 (밤 외관 멀어지기) → 격자 한 칸 | CSS                    | 영상 컷 격자 + 끝 부탁 + 프로필 링크, 고지 |
      물이 없는 숙소면 첫 컷은 가장 센 한 장 (불멍·풍경·수영장).
    첫 한마디 (0초, 두 줄, 한 줄에 7자 안쪽) — 세 꼴 중 하나로 상품마다 새로 쓴다:
@@ -32,9 +32,31 @@
    CSS 카메라 .cam: 사진 템플릿과 같다 (--w×--h, (--x0,--y0,--s0) → (--x1,--y1,--s1), 당기고 밀 때 가운데 --o). 1920×1080 사진은 --w:3413px;--h:1920px,
      가운데 f를 보이려면 --x = −(f × 3413 − 540), 범위 0 ≥ --x ≥ −2333. 작은 사진(가로 1400 안팎)은 가로 띠(.strip) + 같은 사진 흐린 바탕.
    글씨는 x 60~900, y 200~1480 안에 (가운데는 x 480). 고지는 첫 장면과 마지막 장면 위쪽(.disc). 이름이 크게 보이는 사진(간판·로고)은 피한다.
-   자막(.say)은 가운데 한 줄 위주. 나레이션 줄과 같은 시각에 바뀌고, 등장 방식(drop·slide·wipe·zoom·rise)은 장면마다 다르게 한다. 읽는 말과 같게 짧게 쓴다.
-   효과음: <body data-sfx> — 컷마다 swoosh(3초 안은 thud), 이름표가 있으면 pop. 장면 시각을 바꾸면 같이 고친다.
-   첫 3초 규칙 (2026-11-13): ① 0초 프레임부터 첫 한마디 전체를 크게 (등장 애니메이션 없이) ② 첫 장면은 화면 가득 가장 센 사진
+   자막 타이포 (2026-11-18, 스터디 S45 시험 1~3차 — 사람: "좋네~ㅎ"): 작은 주아 한 줄(.small) + 큰 낱말 한 줄(.big, Black Han Sans). 크기 대비가 핵심이다.
+     자막은 「작은 말 / 큰 낱말」 두 줄로 나눠 쓴다. 큰 낱말은 네 글자 안쪽(띄어쓰기 빼고). 나레이션 줄과 같은 시각에 바뀌고, 읽는 말과 같게 짧게 쓴다.
+     큰 낱말 크기 --fs: 두 글자 250px · 세 글자 220px(기본) · 네 글자 170px. 숫자·기호(「1~2분」)는 좁으니 가로 840px 안에 들면 한 단계 키워도 된다.
+     형광펜: 큰 낱말을 <em>으로 감싸면 포인트 색 띠가 글자 아래에 쓸린다. 띠 위 글자는 흰색이라 포인트가 밝은 색(연분홍·연노랑)이면 묻힌다 — 진한 포인트를 고른다.
+       띠가 그 컷 사진과 같은 색이어도 묻힌다 (262 주황 계단 위 주황 띠) — 그 컷은 --y로 다른 색 위에 둔다.
+     움직임(수) — 장면마다 하나. 들어올 때도 나갈 때도 움직이고, 큰 낱말은 들어온 뒤 0.4초 안에 읽힌다:
+       | 클래스        | 수            | 들어올 때 → 나갈 때                                       | 어디에                                    |
+       | .ask.land     | 착지          | 0초에 125%로 꽉 찼다가 내려앉음 → 위로 튕겨 나감           | 첫 장면 — 고정 (0초 프레임에 글자가 다 보인다, 훅 규칙 ①) |
+       | .say.slam     | A 쿵          | 위에서 떨어져 쿵, 찌그러졌다 펴짐 → 아래로 떨어짐           | 가운데 장면 — 저절로                       |
+       | .say.fly      | B 날아옴      | 글자마다 다른 방향·회전으로 날아와 맞춰짐 → 왼쪽으로 밀려남 | 가운데 장면 — 저절로 (세 글자 이하·2초 이상만) |
+       | .say.rise     | C 솟아오름    | 흰 선 아래에서 솟음 → 선 아래로 다시 들어감                 | 가운데 장면 — 저절로                       |
+       | .say.through  | D 뚫고 지나감 | 툭 튀어나옴 → 끝 0.42초에 6배로 커지며 다음 장면으로        | 끝 장면(모아 보기 격자) 바로 앞 컷 — 고정  |
+     **가운데 장면의 수는 저절로 정해진다** (2026-11-18, 배경음악처럼): .say에 수를 적지 않으면 맨 아래 script가 폴더 이름을 씨앗으로
+       A·B·C 순서를 정한다 — 같은 수를 잇지 않고, B는 큰 낱말이 세 글자 이하이고 장면이 2초 이상일 때만. 형광펜 기울기(±3도)와 B 글자가 날아오는 방향도 씨앗으로 정한다.
+       같은 폴더는 다시 녹화해도 같고, 폴더가 다르면 달라진다. 컨텐츠팀은 고르지 않는다.
+       꼭 바꾸고 싶으면: ① 다른 조합을 보려면 <body data-typo="아무 글자">로 씨앗만 바꾼다 ② 한 장면만 정하려면 그 .say에 slam·fly·rise를 직접 적는다 (적은 것은 그대로 두고 나머지만 고른다).
+       브라우저 미리보기에도 같은 수가 보인다.
+     밝은 사진(흰 벽·흰 침구·하늘) 위에서는 흰 큰 글자가 덜 또렷하다 → ① --y로 글자를 사진의 어두운 자리(바다·나무·가구 앞)로 옮기고
+       ② 그래도 흐리면 .say에 dark를 더해 그림자를 진하게 한다 (class="say dark") ③ 그래도 안 되면 그 컷은 큰 낱말 장면으로 쓰지 않는다.
+     이름표(.label)·작은 조건(.sub)은 꼭 필요한 컷에만. 맨 아래 script는 지우지 않는다 (수 고르기 · 효과음 · 큰 낱말 글꼴 받아 두기).
+   효과음 <body data-sfx>: 여기에는 첫 장면·컷·끝 장면 소리만 적는다 — 착지 thud .6을 0.18초에 · 컷마다 swoosh .45를 컷 시각에
+     (0.14~0.16초 뒤에 가장 크다. 1.4초 컷은 thud .45) · 끝 장면 컷은 whoosh .75 · 끝 격자 ding·swoosh·pop. 장면 시각을 바꾸면 이 목록도 같이 고친다.
+     가운데 장면의 이름표 pop·A 쿵 thud·C 솟음 swoosh·D 튀어나옴 pop은 맨 아래 script가 정해진 수에 맞춰 더한다 (B는 컷 swoosh가 맡는다).
+     녹화(record.mjs)는 더해진 목록을 페이지에서 읽는다. 소리만 다시 넣는 sfx.mjs는 HTML 글만 읽어 script가 더한 소리를 모른다 — 소리를 고치면 다시 녹화한다.
+   첫 3초 규칙 (2026-11-13): ① 0초 프레임부터 첫 한마디 전체를 크게 (나타나는 애니메이션 없이 — 착지는 0초에 이미 다 보여서 된다) ② 첫 장면은 화면 가득 가장 센 사진
      ③ 첫 3초 안에 블러 전환 없음 (.shot.cut) ④ 1~1.5초 안에 장면이 한 번 바뀐다 ⑤ 고지 줄은 0초부터 맨 위. 나레이션 첫 줄은 0.15초부터 첫 한마디를 그대로 읽는다.
    끝 부탁: 「프로필 링크 No.」은 유튜브·틱톡도 같은 영상이라 그대로 둔다. DM 줄은 인스타만 되니 「인스타는」을 앞에 붙인다 (유튜브·틱톡 댓글엔 DM이 가지 않는다).
    나레이션 표 예시 (narration.md, 1초에 5음절쯤 — 1.7B는 조금 느리니 줄을 짧게):
@@ -45,7 +67,7 @@
      | 10.75–12.85| 시설 3 · 주변     | 사실 한 줄    |
      | 13.2–17.2  | 밤 외관 · 끝 부탁 | 숙소 정보는 프로필 링크, ○○○번! | */
 /* 색: 상품에 맞춰 이 블록만 바꾼다 (CLAUDE.md §4 · 후보는 node tools/colors.mjs).
-   포인트 --point(이름표·링크 알약) · --on-point(그 위 글자) · --hi(자막 핵심어) · --night(바탕) */
+   포인트 --point(형광펜 띠·이름표·링크 알약 — 진한 색) · --on-point(이름표·알약 위 글자) · --hi(커버의 큰 노란 글자 — 영상에서는 안 쓴다) · --night(바탕) */
 :root{
   --point:#e8312f;
   --on-point:#fff;
@@ -83,33 +105,65 @@ em,i{font-style:normal}
 
 /* 위: 고지 */
 .disc{position:absolute;left:60px;width:840px;top:200px;padding:12px 22px 10px;border-radius:18px;background:rgba(0,0,0,.5);color:rgba(255,255,255,.92);font-size:26px;line-height:1.4}
-/* 가운데: 첫 한마디(첫 장면) · 자막 한 줄 (+ 꼭 필요할 때 이름표·작은 조건) */
+/* 가운데: 첫 한마디(첫 장면) · 자막 = 작은 주아 한 줄(.small) + 큰 낱말 한 줄(.big, Black Han Sans) (+ 꼭 필요할 때 이름표·작은 조건).
+   쓰는 법·크기·수 고르기는 머리 주석 「자막 타이포」 */
 .ask,.line,.sub{text-shadow:0 0 3px rgba(0,0,0,.9),0 3px 10px rgba(0,0,0,.7),0 0 30px rgba(0,0,0,.45)}
 .ask{position:absolute;left:60px;width:840px;top:var(--y,760px);text-align:center;font-size:104px;line-height:1.12}
 .ask b{display:block;font-weight:400;animation:up var(--dur,.5s) cubic-bezier(.2,.8,.2,1) var(--t) both}
-.ask em,.line em{color:var(--hi)}
-.say{position:absolute;left:60px;width:840px;top:var(--y,820px);text-align:center}
+.say{position:absolute;left:60px;width:840px;top:var(--y,760px);text-align:center}
 .label{display:inline-block;padding:12px 32px 6px;border-radius:999px;background:var(--point);color:var(--on-point);font-size:48px;box-shadow:0 8px 24px rgba(0,0,0,.35)}
-.line{margin-top:16px;font-size:84px;line-height:1.15}
+.line{margin-top:16px;line-height:1.15}
+.ask .small{font-size:90px}
+.line.small{font-size:72px}
+.big{font-family:'Black Han Sans',sans-serif;font-size:var(--fs,220px);line-height:1;letter-spacing:-.02em}
+.line.big{margin-top:6px}
 .sub{margin-top:14px;font-size:40px;color:rgba(255,255,255,.94)}
-/* 자막 등장: 같은 등장이 이어지면 심심하다 — 장면마다 다른 것을 .say에 붙인다.
-   drop 한 단어씩 위에서 떨어짐 · rise 한 단어씩 아래서 기울어 올라옴 · slide 옆에서 미끄러짐(--from) · wipe 왼쪽부터 써지듯 · zoom 크게 흐렸다 또렷하게.
-   drop·rise는 단어를 <span class="w" style="--i:0">로 나눈다. 이름표는 먼저 튀어나오고, 핵심어(em)는 줄이 다 나온 뒤 한 번 통 튄다 (--e로 늦춘다, 기본 .7초) */
+.say.dark .line{text-shadow:0 0 4px rgba(0,0,0,.95),0 4px 16px rgba(0,0,0,.8),0 0 60px rgba(0,0,0,.65)} /* 밝은 사진 위 */
 .say .label{animation:pop .45s cubic-bezier(.3,1.6,.5,1) calc(var(--at) + var(--d,0s)) both}
 .say .sub{animation:fade .5s ease calc(var(--at) + var(--d,0s) + .8s) both}
-.say em{display:inline-block;animation:empop .5s cubic-bezier(.3,1.8,.5,1) calc(var(--at) + var(--d,0s) + var(--e,.7s)) both}
-@keyframes empop{50%{transform:scale(1.14) rotate(-2deg)}}
-.w{display:inline-block}
-.say.drop .w{animation:wdrop .45s cubic-bezier(.3,1.5,.5,1) calc(var(--at) + var(--d,0s) + .15s + var(--i) * .13s) both}
-@keyframes wdrop{from{opacity:0;transform:translateY(-80px)}}
-.say.rise .w{animation:wrise .45s cubic-bezier(.3,1.4,.5,1) calc(var(--at) + var(--d,0s) + .15s + var(--i) * .13s) both}
-@keyframes wrise{from{opacity:0;transform:translateY(70px) rotate(10deg)}}
-.say.slide .line{animation:slide .5s cubic-bezier(.3,1.3,.5,1) calc(var(--at) + var(--d,0s) + .15s) both}
-@keyframes slide{from{opacity:0;transform:translateX(var(--from,-240px))}}
-.say.wipe .line{animation:wipe .6s cubic-bezier(.4,0,.3,1) calc(var(--at) + var(--d,0s) + .15s) both}
-@keyframes wipe{from{clip-path:inset(-30% 100% -30% 0)}to{clip-path:inset(-30% 0 -30% 0)}}
-.say.zoom .line{animation:zoomin .45s cubic-bezier(.2,.8,.2,1) calc(var(--at) + var(--d,0s) + .15s) both}
-@keyframes zoomin{from{opacity:0;transform:scale(1.7);filter:blur(12px)}}
+/* 형광펜: 큰 낱말 <em> 뒤 띠(::before)가 0.18초에 쓸린다 — 글자 아래 42%, ±3도 (--tilt, 맨 아래 script가 씨앗으로 정한다). --e = 띠가 들어오는 때 (수마다 기본값) */
+.big em{position:relative;isolation:isolate;display:inline-block;padding:0 .06em;margin:0 -.03em}
+.big em::before{content:"";position:absolute;z-index:-1;left:-.02em;right:-.02em;top:47%;height:42%;border-radius:.05em;background:var(--point);
+  transform:rotate(var(--tilt,-3deg)) scaleX(0);transform-origin:0 50%;animation:band .18s cubic-bezier(.5,0,.2,1) calc(var(--at) + var(--d,0s) + var(--e,.5s)) both}
+@keyframes band{to{transform:rotate(var(--tilt,-3deg)) scaleX(1)}}
+/* 움직임(수). 들어오는 움직임은 안쪽(.big·.c·em)에, 나가는 움직임은 바깥 상자(.ask·.say)에 — 한 요소에 transform 애니메이션 둘이 겹치지 않게.
+   나가기는 장면 끝(--at + --len) 0.22~0.42초 전에 시작하고 forwards로만 채운다 */
+/* 착지 (첫 장면): 0초에 125%로 꽉 차 있다가(0초 프레임에 글자가 다 보인다) 0.36초에 찌그러지며 내려앉음 → 위로 튕겨 나감 */
+.ask.land{--e:.22s;animation:outup .24s cubic-bezier(.5,0,1,.5) calc(var(--at) + var(--len) - .26s) forwards}
+.ask.land>span{display:block;transform-origin:50% 55%;animation:land .36s linear var(--at) both}
+@keyframes land{0%{transform:scale(1.25);animation-timing-function:cubic-bezier(.5,0,.9,.6)}55%{transform:scale(1.04,.9);animation-timing-function:ease-out}78%{transform:scale(.98,1.04)}100%{transform:none}}
+@keyframes outup{from{transform:none;opacity:1}to{transform:translateY(-520px) scale(.75);opacity:0}}
+/* A 쿵: 위에서 떨어져 0.25초에 쿵 — 찌그러졌다 펴짐 → 아래로 떨어짐 */
+.say.slam{--e:.45s;animation:outdown .26s cubic-bezier(.5,0,1,.5) calc(var(--at) + var(--len) - .28s) forwards}
+.say.slam .label,.say.slam .small{animation:pop .35s cubic-bezier(.3,1.6,.5,1) calc(var(--at) + var(--d,0s) + .25s) both} /* 떨어지는 낱말이 이름표 위를 지나가지 않게 쿵 뒤에 */
+.say.slam .big{transform-origin:50% 85%;animation:slam .52s linear calc(var(--at) + var(--d,0s)) both}
+@keyframes slam{0%{transform:translateY(-1050px) scale(.9,1.3);animation-timing-function:cubic-bezier(.55,0,1,.7)}
+  48%{transform:translateY(0) scale(1.22,.74);animation-timing-function:cubic-bezier(.2,.8,.3,1)}70%{transform:scale(.95,1.07)}86%{transform:scale(1.02,.98)}100%{transform:none}}
+@keyframes outdown{from{transform:none}to{transform:translateY(1150px) rotate(9deg)}}
+/* B 날아옴: 글자마다 다른 방향·회전으로 날아와 0.38초 안에 맞춰짐 → 왼쪽으로 밀려남. 세 글자까지.
+   글자 나누기(<span class="c">)와 방향(--i·--fx·--fy·--fr)은 맨 아래 script가 씨앗으로 정한다 */
+.say.fly{--e:.5s;animation:outleft .22s cubic-bezier(.5,0,1,.5) calc(var(--at) + var(--len) - .24s) forwards}
+.say.fly .small{animation:up .3s cubic-bezier(.2,.8,.2,1) calc(var(--at) + var(--d,0s)) both}
+.say.fly .c{display:inline-block;animation:flyin .3s cubic-bezier(.2,.9,.3,1.12) calc(var(--at) + var(--d,0s) + .08s + var(--i) * .04s) both}
+@keyframes flyin{0%{opacity:0;transform:translate(var(--fx),var(--fy)) rotate(var(--fr)) scale(1.7)}30%{opacity:1}}
+@keyframes outleft{from{transform:none}to{transform:translateX(-1300px) skewX(16deg)}}
+/* C 솟아오름: 흰 선이 그어지고 그 아래에서 낱말이 솟음 (.big 아래 14% = 글자 바닥 근처에서 자른다) → 선 아래로 다시 들어감 */
+.say.rise{--e:.5s}
+.say.rise .big{position:relative;clip-path:inset(-40% -30% 14% -30%)}
+.say.rise .big::after{content:"";position:absolute;left:50%;bottom:14%;width:620px;height:9px;margin-left:-310px;border-radius:5px;background:#fff;
+  transform:scaleX(0);animation:rule .2s cubic-bezier(.3,0,.2,1) calc(var(--at) + var(--d,0s)) both}
+@keyframes rule{to{transform:scaleX(1)}}
+.say.rise .big em{animation:risein .36s cubic-bezier(.2,.9,.25,1.12) calc(var(--at) + var(--d,0s) + .18s) both,sinkout .2s cubic-bezier(.6,0,1,.6) calc(var(--at) + var(--len) - .24s) forwards}
+@keyframes risein{from{transform:translateY(90%)}}
+@keyframes sinkout{from{transform:none}to{transform:translateY(90%)}}
+.say.rise .label,.say.rise .small,.say.rise .sub{animation-name:pop,outfade;animation-duration:.45s,.2s;animation-timing-function:cubic-bezier(.3,1.6,.5,1),ease-in;
+  animation-delay:calc(var(--at) + var(--d,0s)),calc(var(--at) + var(--len) - .24s);animation-fill-mode:both,forwards}
+@keyframes outfade{from{opacity:1;transform:none}to{opacity:0;transform:translateY(-50px)}}
+/* D 뚫고 지나감: 툭 튀어나옴 → 끝 0.42초에 6배로 커지며 화면을 뚫고 다음 장면(끝 격자)으로. 이름표가 있으면 transform-origin 세로를 큰 낱말 가운데로 고친다 */
+.say.through{--e:.4s;transform-origin:50% 66%;animation:through .42s cubic-bezier(.7,0,1,.6) calc(var(--at) + var(--len) - .42s) forwards}
+.say.through .small{animation:fade .3s ease calc(var(--at) + var(--d,0s)) both}
+.say.through .big{animation:pop .4s cubic-bezier(.3,1.7,.5,1) calc(var(--at) + var(--d,0s) + .05s) both}
+@keyframes through{0%{transform:none;opacity:1}60%{opacity:1}100%{transform:scale(6);opacity:0}}
 
 /* 끝: 프로필 링크 */
 .link{position:absolute;left:0;width:960px;top:var(--y,1000px);display:flex;justify-content:center;animation-delay:calc(var(--at) + var(--d))}
@@ -233,7 +287,7 @@ em,i{font-style:normal}
   box-shadow:0 14px 34px rgba(0,0,0,.45);animation:cellin .5s cubic-bezier(.3,1.3,.5,1) calc(var(--at) + var(--d,0s)) both}
 @keyframes cellin{from{opacity:0;transform:scale(.6)}}
 </style></head>
-<body data-duration="17.5" data-voice="1.7b 또렷하고 경쾌하게, 광고 내레이션처럼" data-sfx="0 thud .5, 1.4 thud .45, 2.8 thud .4, 2.95 pop .3, 5.4 swoosh .45, 8 swoosh .45, 10.6 swoosh .45, 13 whoosh .7, 13.9 ding .55, 14 swoosh .35, 14.3 pop .22, 14.6 pop .2, 14.9 pop .2">
+<body data-duration="17.5" data-voice="1.7b 또렷하고 경쾌하게, 광고 내레이션처럼" data-sfx="0.18 thud .6, 1.4 thud .45, 2.8 swoosh .45, 5.4 swoosh .45, 8 swoosh .45, 10.6 swoosh .45, 13 whoosh .75, 13.9 ding .55, 14 swoosh .35, 14.3 pop .22, 14.6 pop .2, 14.9 pop .2">
 
 <!-- ── 사진 (컷마다 하나. 실내는 2.5D img, 바깥은 CSS .cam) ── -->
 <!-- 01 훅 (0~2.8초): 블러 없는 컷 두 번 (첫 3초 규칙). 따뜻한 물·김·불 컷을 0초에 → 1.4초에 두 번째로 센 컷 -->
@@ -265,14 +319,15 @@ em,i{font-style:normal}
 </section>
 <section class="scene" style="--at:13s;--len:4.5s"><p class="disc">이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.</p></section>
 
-<!-- 01 첫 한마디 (상황형 · 놀람형 · 좋은 것 두 개 — 머리 주석). 0초 프레임부터 두 줄 모두 (등장 애니메이션 없음), 퀴즈 말 없이 -->
-<section class="scene" style="--at:0s;--len:2.8s"><p class="ask"><b style="--t:0s;--dur:0s">상황·좋은 것</b><b style="--t:0s;--dur:0s"><em>첫 한마디</em></b></p></section>
+<!-- 01 첫 한마디 (상황형 · 놀람형 · 좋은 것 두 개 — 머리 주석) — 착지. 작은 말 / 큰 낱말. 0초 프레임부터 두 줄 모두 보인다, 퀴즈 말 없이 -->
+<section class="scene" style="--at:0s;--len:2.8s"><p class="ask land" style="--y:690px"><span><b class="small" style="--t:0s;--dur:0s">작은 말</b><b class="big" style="--t:0s;--dur:0s;--fs:220px"><em>큰 낱말</em>!</b></span></p></section>
 
-<!-- 02~05 가운데 한 줄 (상품 페이지 사실). 이름표·조건(.sub)은 꼭 필요한 컷에만 — 예: 객실 종류·옵션 조건 (가격·시간은 넣지 않는다) -->
-<section class="scene" style="--at:2.8s;--len:2.6s"><div class="say drop" style="--d:.15s;--e:.75s"><p class="label">✔ 객실</p><p class="line"><span class="w" style="--i:0">사실</span> <span class="w" style="--i:1"><em>한 줄</em></span></p><p class="sub">작은 조건</p></div></section>
-<section class="scene" style="--at:5.4s;--len:2.6s"><div class="say zoom" style="--d:.15s"><p class="line">사실 <em>한 줄</em></p></div></section>
-<section class="scene" style="--at:8s;--len:2.6s"><div class="say wipe" style="--d:.15s"><p class="line">사실 <em>한 줄</em></p></div></section>
-<section class="scene" style="--at:10.6s;--len:2.4s"><div class="say rise" style="--d:.15s;--e:.75s"><p class="line"><span class="w" style="--i:0">사실</span> <span class="w" style="--i:1"><em>한 줄</em></span></p></div></section>
+<!-- 02~05 작은 말 / 큰 낱말 (상품 페이지 사실). 가운데 장면의 수(A·B·C)는 맨 아래 script가 폴더 이름으로 정한다 — .say에 수를 적지 않는다.
+     끝 앞 컷만 D(through)로 고정. 이름표·조건(.sub)은 꼭 필요한 컷에만 — 예: 객실 종류·옵션 조건 (가격·시간은 넣지 않는다). 큰 낱말 크기는 --fs (머리 주석) -->
+<section class="scene" style="--at:2.8s;--len:2.6s"><div class="say" style="--d:.15s"><p class="label">✔ 객실</p><p class="line small">작은 말</p><p class="line big"><em>세글자</em></p><p class="sub">작은 조건</p></div></section>
+<section class="scene" style="--at:5.4s;--len:2.6s"><div class="say" style="--d:.15s"><p class="line small">작은 말</p><p class="line big" style="--fs:250px"><em>두자</em></p></div></section>
+<section class="scene" style="--at:8s;--len:2.6s"><div class="say" style="--d:.15s"><p class="line small">작은 말</p><p class="line big"><em>큰 낱말</em></p></div></section>
+<section class="scene" style="--at:10.6s;--len:2.4s"><div class="say through" style="--d:.15s"><p class="line small">작은 말</p><p class="line big"><em>큰 낱말</em></p></div></section>
 
 <!-- 06 끝 부탁: 프로필 링크 (유튜브·틱톡도 같은 영상) + 인스타는 아무 댓글에 DM. 이름은 화면·나레이션에 말하지 않는다 -->
 <section class="scene" style="--at:13s;--len:4.5s">
@@ -281,4 +336,51 @@ em,i{font-style:normal}
   <p class="dm fade" style="--d:1.4s;--y:1425px">인스타는 아무 댓글이나 남기면 숙소 정보를 DM으로 보내 드려요</p>
 </section>
 
+<!-- 타이포 수 정하기 (2026-11-18, 사람 승인: "배경음악처럼 폴더 이름에 따라 저절로 달라지게 … 이렇게 하자"). 지우지 않는다.
+     페이지를 열 때 한 번만 돈다 (시간에 따라 움직이는 JS가 아니다 — 움직임은 CSS가 한다). 씨앗 = <body data-typo> 또는 폴더 이름 (bgm.mjs musicSeed와 같은 해시).
+     ① 형광펜 기울기 --tilt ±3도 ② 수를 적지 않은 .say에 A(slam)·B(fly)·C(rise)를 붙인다 — 같은 수를 잇지 않고, B는 큰 낱말 세 글자 이하·장면 2초 이상만
+     ③ B는 글자를 <span class="c">로 나누고 방향을 정한다 ④ 이름표·수 효과음을 data-sfx에 더한다 (녹화 도구는 이 값을 페이지에서 읽는다)
+     ⑤ 큰 낱말 글꼴을 녹화 전에 받아 둔다 — 나중 장면에만 있는 글자는 다른 글꼴로 찍혔다. -->
+<script>
+(() => {
+  const body = document.body, sec = v => parseFloat(v) || 0, r2 = t => +t.toFixed(2);
+  const seed = body.dataset.typo || decodeURIComponent(location.pathname).split('/').slice(-2)[0];
+  let h = 2166136261;
+  for (const ch of seed) h = Math.imul(h ^ ch.codePointAt(0), 16777619);
+  const rnd = () => { h = Math.imul(h ^ (h >>> 15), 2246822507); h = Math.imul(h ^ (h >>> 13), 3266489909); return ((h ^= h >>> 16) >>> 0) / 4294967296; };
+  body.style.setProperty('--tilt', rnd() < .5 ? '-3deg' : '3deg');
+  const order = ['slam', 'fly', 'rise'];
+  for (let i = 2; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+  const cues = [];
+  let prev = '', k = 0;
+  for (const say of document.querySelectorAll('.say')) {
+    const cs = getComputedStyle(say), at = sec(cs.getPropertyValue('--at')), d = sec(cs.getPropertyValue('--d')), len = sec(cs.getPropertyValue('--len'));
+    const em = say.querySelector('.big em'), letters = em ? em.textContent.replace(/\s/g, '').length : 0;
+    let move = ['slam', 'fly', 'rise', 'through'].find(m => say.classList.contains(m));
+    if (!move) {
+      move = [...order.slice(k % 3), ...order.slice(0, k % 3)].find(m => m !== prev && (m !== 'fly' || (letters <= 3 && len >= 2)));
+      k++;
+      say.classList.add(move);
+    }
+    if (move === 'fly' && em) {
+      if (!em.querySelector('.c')) {
+        const text = em.textContent; em.textContent = '';
+        for (const c of text) em.append(c.trim() ? Object.assign(document.createElement('span'), { className: 'c', textContent: c }) : c);
+      }
+      const base = rnd() * 360;
+      em.querySelectorAll('.c').forEach((c, i) => {
+        const a = (base + i * 120 + (rnd() - .5) * 50) * Math.PI / 180, r = 650 + rnd() * 150;
+        c.style.cssText += `--i:${i};--fx:${Math.round(Math.cos(a) * r)}px;--fy:${Math.round(Math.sin(a) * r)}px;--fr:${Math.round((rnd() < .5 ? -1 : 1) * (100 + rnd() * 120))}deg`;
+      });
+    }
+    if (say.querySelector('.label') && move !== 'slam') cues.push(`${r2(at + d)} pop .3`); // A는 이름표가 쿵 뒤에 나와 쿵이 맡는다
+    if (move === 'slam') cues.push(`${r2(at + d + .25)} thud .65`);
+    if (move === 'rise') cues.push(`${r2(at + d + .18)} swoosh .3`);
+    if (move === 'through') cues.push(`${r2(at + d + .03)} pop .4`);
+    prev = move;
+  }
+  body.dataset.sfx = [body.dataset.sfx, ...cues].filter(Boolean).join(', ');
+  document.fonts.load("220px 'Black Han Sans'", [...document.querySelectorAll('.big')].map(e => e.textContent).join(''));
+})();
+</script>
 </body></html>
