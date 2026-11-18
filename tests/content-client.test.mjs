@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {execFileSync,spawnSync} from 'node:child_process';
-import {save,draft,shrinkVideo} from '../tools/register.mjs';
+import {save,draft,shrinkVideo,defaults,requestAdd,template} from '../tools/register.mjs';
 // Point the default endpoint at a test address so no test can reach the real server.
 const code = fs.readFileSync(new URL('../docs/js/config.js',import.meta.url),'utf8').replace(/apiUrl: '[^']*'/,"apiUrl: 'https://script.google.com/macros/s/test-default/exec'");
 function client(fetch) { const logs=[]; const window={}; const context=vm.createContext({window,fetch,crypto:{randomUUID},performance,AbortSignal,console:{info:(...values)=>logs.push(values)}});vm.runInContext(code,context);return {api:window.HikaryApi,logs}; }
@@ -41,7 +41,7 @@ test('HTML 권한 오류를 성공으로 처리하지 않는다',async()=>{
 });
 test('v3.0.0 화면: 대시보드·콘텐츠·소재 찾기, ✎ 세부정보(기록 합침), 게시, 로그인을 갖는다',()=>{
   const html=fs.readFileSync(new URL('../docs/index.html',import.meta.url),'utf8');
-  for(const id of ['side','menuButton','tabsBar','scrim','dashboardView','contentView','findView','requestCount','latest','todo','upcoming','statContents','statPosted','statWeek','entries','search','filters','refresh','detailDialog','detailTitle','detailMeta','d-productName','d-category','d-sourceUrl','d-affiliateUrl','d-inpockNo','d-inpockTitle','d-inpockImage','d-inpockSave','d-script','d-youtubeTitle','d-youtubeCount','d-youtubeBody','d-instagram','d-kittyKeyword','d-kittyDm','d-tiktok','d-notes','detailDelete','detailCancel','places','sidePublish','sideAffiliate','sidePage','detailVideo','quotaLeft','quotaBar','finderSource','finderLoad','finderSearch','finderKeyword','finderResults','linkForm','linkUrl','linkResult','linkOut','linkHint','linkName','linkPage','linkClaude','linkAsk','publishDialog','publishForm','publishVideo','publishDate','publishTime','publishPlaces','publishCode','publishSubmit','loginView','loginForm','loginId','loginPassword','loginKeep','loginMessage','accountButton','accountMenu','logoutHere','logoutAll','modeList','modeCal','listBox','calendarBox','calPrev','calNext','calRange','calToday','calWeek','calMonth','calSlots','weekGrid','monthWrap','monthGrid','dayPanel','pickDialog','pickTitle','pickList','pickClose','coupangTotals','coupangBars','coupangAxis','coupangNote','coupangRange','ordersRange','clicksRange','clicksHead','monthTotals','monthNote','productClicks','recentOrders','askDraft','askDraftVideo','askDraftAt','d-coverPlay']) assert.ok(html.includes(`id="${id}"`),id);
+  for(const id of ['side','menuButton','tabsBar','scrim','dashboardView','contentView','findView','requestCount','latest','todo','upcoming','statContents','statPosted','statWeek','entries','search','filters','refresh','detailDialog','detailTitle','detailMeta','d-productName','d-category','d-sourceUrl','d-affiliateUrl','d-inpockNo','d-inpockTitle','d-inpockImage','d-inpockSave','d-script','d-youtubeTitle','d-youtubeCount','d-youtubeBody','d-instagram','d-kittyKeyword','d-kittyDm','d-tiktok','d-notes','detailDelete','detailCancel','places','sidePublish','sideAffiliate','sidePage','detailVideo','quotaLeft','quotaBar','finderSource','finderLoad','finderSearch','finderKeyword','finderResults','linkForm','linkUrl','linkResult','linkOut','linkHint','linkName','linkPage','linkClaude','linkAsk','publishDialog','publishForm','publishVideo','publishDate','publishTime','publishPlaces','publishCode','publishSubmit','loginView','loginForm','loginId','loginPassword','loginKeep','loginMessage','accountButton','accountMenu','logoutHere','logoutAll','modeList','modeCal','listBox','calendarBox','calPrev','calNext','calRange','calToday','calWeek','calMonth','calSlots','weekGrid','monthWrap','monthGrid','dayPanel','pickDialog','pickTitle','pickList','pickClose','coupangTotals','coupangBars','coupangAxis','coupangNote','coupangRange','ordersRange','clicksRange','clicksHead','monthTotals','monthNote','productClicks','recentOrders','askDraft','askDraftVideo','askDraftAt','d-coverPlay','settingsView','setTabTemplates','setTabGeneral','setTemplates','setGeneral','tplSettings','tplCount','setPublishTime','setIgType','setSaveBar','setDirty','setUndo','setSave','pickHint']) assert.ok(html.includes(`id="${id}"`),id);
   assert.doesNotMatch(html,/id="(uploadDialog|views|ledgerView|finderView|requestBox)"/,'v2 화면은 남기지 않는다');
   for(const site of ['link.inpock.co.kr/inpockhome','kittychat.ai','publish.buffer.com','console.cloudinary.com','partners.coupang.com','www.coupang.com','docs.google.com/spreadsheets']) assert.ok(html.includes(site),site);
   assert.equal((html.match(/class="s" href="https:[^"]+" target="_blank" rel="noopener noreferrer"/g)||[]).length,7,'바로가기 7개는 모두 새 창');
@@ -125,4 +125,26 @@ test('v3.9.0 초안 영상은 가로 540으로 줄이고 소리를 남긴다',()
   const streams=JSON.parse(execFileSync('ffprobe',['-v','error','-show_entries','stream=codec_type,width,height','-of','json',target],{encoding:'utf8'})).streams;
   assert.deepEqual(streams.find(s=>s.codec_type==='video'),{codec_type:'video',width:540,height:960});assert.ok(streams.some(s=>s.codec_type==='audio'));
   fs.rmSync(dir,{recursive:true,force:true});
+});
+
+test('v3.10.0 템플릿 순서는 설정을 templates.js 위에 덮는다 — 번호는 줄 그대로, 새 템플릿은 맨 끝에 보이기, 숨긴 건 기본값이 못 된다',()=>{
+  const context={window:{}};vm.runInNewContext(fs.readFileSync(new URL('../docs/js/templates.js',import.meta.url),'utf8'),context);
+  const order=context.window.HIKARY_TEMPLATE_ORDER;const ids=list=>list.map(t=>`${t.no}${t.id}${t.shown?'':'(숨김)'}${t.isDefault?'*':''}`).join(' ');
+  assert.equal(ids(order()),'1soda 2paper 3quiz 4photo 5tour 6vivid*','설정이 없으면 파일 순서와 파일 기본값');
+  assert.equal(ids(order({order:['vivid','photo','tour'],hidden:['soda','paper','ghost'],default:'photo'})),'6vivid 4photo* 5tour 1soda(숨김) 2paper(숨김) 3quiz','모르는 id는 건너뛰고 설정에 없는 템플릿은 맨 끝');
+  assert.equal(ids(order({order:['vivid','photo'],hidden:['vivid'],default:'vivid'})).split(' ').filter(s=>s.endsWith('*')).join(),'4photo*','숨긴 기본값 대신 보이는 첫 번째');
+  assert.equal(ids(order({order:['soda','vivid'],hidden:[],default:'nope'})).split(' ').filter(s=>s.endsWith('*')).join(),'6vivid*','모르는 기본값이면 파일 기본값');
+  for(const tpl of order()) assert.equal(typeof tpl.example,'string',`${tpl.id} example 자리`);
+});
+test('v3.10.0 등록 도구는 설정의 기본값을 읽고, 채팅 상품 요청에 그때의 템플릿·인스타 형식을 적는다',async()=>{
+  const sent=[];let values={};const send=async(action,payload)=>{sent.push([action,payload]);return action==='status'?{settings:{values,revision:'r'}}:{request:{id:'new',...payload}};};
+  assert.deepEqual(await defaults(send),{template:'vivid',templateName:'템플릿 6 생생',instagramType:'릴스',publishTime:'07:55'},'저장 전에는 templates.js 기본값 · 릴스 · 07:55');
+  values={templates:{order:['photo','vivid'],hidden:['vivid'],default:'photo'},instagramType:'캐러셀',publishTime:'08:10'};
+  assert.deepEqual(await defaults(send),{template:'photo',templateName:'템플릿 4 사진',instagramType:'캐러셀',publishTime:'08:10'});
+  await requestAdd('https://trip.coupang.com/tp/products/1','강릉 펜션',send);
+  assert.deepEqual(sent.at(-1),['request',{sourceUrl:'https://trip.coupang.com/tp/products/1',productName:'강릉 펜션',from:'채팅',template:'photo',instagramType:'캐러셀'}]);
+  const puts=[];const put=async(...args)=>{puts.push(args);return {};};
+  await template('vivid','frame.png',put);await template('vivid','clip.MP4',put);
+  assert.deepEqual(puts,[['frame.png','image','hikary/templates/vivid'],['clip.MP4','video','hikary/templates/vivid-example']]);
+  await assert.rejects(()=>template('../x','a.mp4',put),/템플릿 id/);
 });

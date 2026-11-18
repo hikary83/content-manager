@@ -1,4 +1,4 @@
-# HIKARY 콘텐츠 관리 v3.9.1
+# HIKARY 콘텐츠 관리 v3.10.0
 
 2026-11-06 · GitHub Pages + Google Apps Script + Google Sheets. 콘텐츠는 Claude에서 만든다.
 
@@ -6,14 +6,26 @@
 
 - 작업 기준은 저장소 맨 위 [CLAUDE.md](CLAUDE.md)(지시서)입니다. 어느 PC에서든 Claude가 이 파일을 먼저 읽습니다.
 - `docs/`: 「기록」(업로드 관리)·「상품 찾기」 두 탭. Pages 설정은 `main` / `/docs`.
-- `backend/`: Apps Script 서버. 웹이 쓰는 동작은 `status` · `list` · `save` · `delete` · `products` · `link` · `request` · `requests` · `requestUpdate` · `publish` · `studies` · `studyAdd` · `studyUpdate` · `studySync`(v3.7.0, `backend/Study.js` · v3.8.0 말머리), 시간 트리거 `syncPublishing`. Gemini 동작은 되돌리기 대비로 남아 있습니다.
-- `tools/register.mjs`: Claude가 만든 콘텐츠를 운영대장에 등록, 「게시」할 영상(`video`)과 커버(`cover`)를 Cloudinary에 올림. 요청 줄의 초안(`draft`)·채팅 상품 요청 줄(`request-add`)은 v3.9.0. `tools/carousel/`: 캐러셀 HTML → 1080×1350 PNG.
+- `backend/`: Apps Script 서버. 웹이 쓰는 동작은 `status` · `list` · `save` · `delete` · `products` · `link` · `request` · `requests` · `requestUpdate` · `publish` · `studies` · `studyAdd` · `studyUpdate` · `studySync`(v3.7.0, `backend/Study.js` · v3.8.0 말머리) · `settingsUpdate`(v3.10.0, `backend/Settings.js` — 읽기는 `status`), 시간 트리거 `syncPublishing`. Gemini 동작은 되돌리기 대비로 남아 있습니다.
+- `tools/register.mjs`: Claude가 만든 콘텐츠를 운영대장에 등록, 「게시」할 영상(`video`)과 커버(`cover`)를 Cloudinary에 올림. 요청 줄의 초안(`draft`)·채팅 상품 요청 줄(`request-add`)은 v3.9.0. 설정의 기본값(`template-default`)·템플릿 예시 영상(`template <id> <clip.mp4>`)은 v3.10.0. `tools/carousel/`: 캐러셀 HTML → 1080×1350 PNG.
 - `scripts/preview-mock.mjs`: 가짜 데이터로 웹 확인 (http://127.0.0.1:4175/). `scripts/preview-content.mjs`: 실제 서버로 웹 확인 (http://127.0.0.1:4173/).
 - `scripts/reel/`: 사진 4장 + `video-job.json` → ffmpeg 무자막 MP4.
 - `contents/`: 만든 파일 보관 폴더. git에서 제외합니다(저장소가 공개).
 - `app/`, `worker/`, `db/` 등은 이전 Sites/React 코드입니다. Pages 배포에는 포함하지 않습니다. 백업 태그: `legacy-chatgpt-sites-2026-08-11`.
 
 ## 최초 연결
+
+### v3.10.0 「설정」 메뉴 (2026-11-18, 서버 2.22.0)
+
+- 사람: "탬플릿이 점점 많아지니깐 탬플릿 설정 메뉴가 필요하지 않을까??" · "일반에 예약시간이랑 인스타 기본값 설정만 넣고 쓰면서 채워나가자."
+- 왼쪽 메뉴 맨 아래 「⚙ 설정」 (휴대폰은 ☰ 메뉴·오른쪽 위 프로필 메뉴). 탭 둘:
+  - **템플릿**: 순서(PC는 ⠿ 끌기, 휴대폰은 ▲▼) · 「요청 창에 보이기」 스위치 · 「기본값」 하나 · ▶ 예시 영상(템플릿마다 3~5초, 누를 때만 받음 — 없으면 「예시 영상 준비 중」). 기본값은 숨길 수 없고, 숨긴 건 기본값이 못 되고, 하나는 보여야 해요. 숨겨도 그 템플릿으로 만든 콘텐츠·요청은 그대로예요.
+  - **일반**: 게시 기본 시각(그 전에는 07:55 고정 — 「게시」 창과 캘린더 「＋」가 써요, 「가장 늦은 예약·게시일 다음 날」 규칙은 그대로) · 인스타 형식 기본값(릴스/캐러셀 — 요청 창에서 미리 골라짐, 이미 보낸 요청·등록된 콘텐츠는 그대로).
+- 바꾼 것은 모였다가 「저장」 한 번에 서버로 가요 (「되돌리기」로 버림). 운영대장 새 탭 「설정」에 키마다 한 줄(`templates` · `publishTime` · `instagramType`)로 남아 어느 기기에서나 같고, 시트 「버전 기록」으로 되돌릴 수 있어요. 두 기기가 서로 덮어쓰면 「다른 곳에서 설정이 바뀌었어요」로 막아요.
+- 템플릿 번호는 고정이에요 — `docs/js/templates.js`의 줄 순서(「템플릿 6 생생」). 설정은 그 위에 순서·숨김·기본값만 덮어요. 새 템플릿은 맨 아래 줄로 더하고, 설정에 없으면 맨 끝에 「보이기」로 들어와요. 덮는 규칙은 `HIKARY_TEMPLATE_ORDER`(templates.js) 한 곳이고 등록 도구도 같은 것을 써요.
+- 예시 영상: 모션팀이 `node tools/register.mjs template <id> <clip.mp4>`로 올리고(`hikary/templates/<id>-example`), 나온 주소를 templates.js 그 줄의 `example`에 넣어요.
+- 등록 도구: `template-default`가 지금 기본값(템플릿 · 인스타 · 게시 시각)을 알려 주고, `request-add`(채팅 상품)는 그때의 기본 템플릿·인스타 형식을 요청 줄에 적어요.
+- 배포: 서버 먼저(2.22.0), 그다음 웹. 웹만 먼저 올라가도 깨지지 않아요(설정이 없으면 예전 기본값).
 
 ### v3.9.1 콘텐츠 목록은 No. 큰 순서 (2026-11-17, 화면만)
 

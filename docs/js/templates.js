@@ -4,12 +4,32 @@
 // A new template is one more line here; the request window grows a card. Cards turn pages (●○○ · ‹ › · swipe, v3.8.2):
 // up to 6 a page on a computer (all on one page: no dots), 3 on a phone (2 under 380 px), shared evenly (7 → 4 + 3).
 // The window opens on the page with the picked card.
+// v3.10.0 (server 2.22.0) 「설정 → 템플릿」: this file stays the list and the numbers — 「템플릿 6 생생」 is the sixth line, so lines are
+// never reordered and a new template goes at the bottom. The owner's order, hidden ones and default (ledger tab 「설정」) are laid over
+// it by HIKARY_TEMPLATE_ORDER below; `default: true` only counts until a default is saved there.
+// example = a 3–5 second clip the 「설정」 menu plays on ▶ (모션팀: node tools/register.mjs template <id> <clip.mp4> prints the address).
+// Empty shows 「예시 영상 준비 중」.
 window.HIKARY_TEMPLATES = Object.freeze([
-  { id: 'soda', name: '소다', note: '장면마다 색이 바뀌는 배경, 둥근 사진 창', preview: 'https://res.cloudinary.com/btosslpq/image/upload/v1794373135/hikary/templates/soda.png' },
-  { id: 'paper', name: '페이퍼', note: '밝은 종이 바탕, 한 단어씩 진해지는 자막', preview: 'https://res.cloudinary.com/btosslpq/image/upload/v1794373138/hikary/templates/paper.png' },
-  { id: 'quiz', name: '퀴즈', note: '「어디게?」 이름은 끝까지 숨겨요', preview: 'https://res.cloudinary.com/btosslpq/image/upload/v1794373141/hikary/templates/quiz.png' },
-  { id: 'photo', name: '사진', note: '실제 사진을 당기고 밀어 영상처럼 · 큰 사진 필요', preview: 'https://res.cloudinary.com/btosslpq/image/upload/v1794373144/hikary/templates/photo.png' },
-  { id: 'tour', name: '투어', note: '숙소를 한 바퀴 · 방마다 한 컷, 실내는 2.5D', preview: 'https://res.cloudinary.com/btosslpq/image/upload/v1794466929/hikary/templates/tour.png' },
+  { id: 'soda', name: '소다', note: '장면마다 색이 바뀌는 배경, 둥근 사진 창', preview: 'https://res.cloudinary.com/btosslpq/image/upload/v1794373135/hikary/templates/soda.png', example: '' },
+  { id: 'paper', name: '페이퍼', note: '밝은 종이 바탕, 한 단어씩 진해지는 자막', preview: 'https://res.cloudinary.com/btosslpq/image/upload/v1794373138/hikary/templates/paper.png', example: '' },
+  { id: 'quiz', name: '퀴즈', note: '「어디게?」 이름은 끝까지 숨겨요', preview: 'https://res.cloudinary.com/btosslpq/image/upload/v1794373141/hikary/templates/quiz.png', example: '' },
+  { id: 'photo', name: '사진', note: '실제 사진을 당기고 밀어 영상처럼 · 큰 사진 필요', preview: 'https://res.cloudinary.com/btosslpq/image/upload/v1794373144/hikary/templates/photo.png', example: '' },
+  { id: 'tour', name: '투어', note: '숙소를 한 바퀴 · 방마다 한 컷, 실내는 2.5D', preview: 'https://res.cloudinary.com/btosslpq/image/upload/v1794466929/hikary/templates/tour.png', example: '' },
   // v3.8.2 생생 (2026-11-16): 투어 + 따뜻한 물 첫 컷 · 퀴즈 아닌 첫 한마디 · 사진 속 김·물결·불빛·불꽃 효과. preview는 260 시험본 첫 컷 (첫 실제 상품이 나오면 바꾼다)
-  { id: 'vivid', name: '생생', note: '숙소 · 따뜻한 물 먼저 · 김·물결·불빛이 살아 움직여요', preview: 'https://res.cloudinary.com/btosslpq/image/upload/v1794820074/hikary/templates/vivid.png', default: true }
+  { id: 'vivid', name: '생생', note: '숙소 · 따뜻한 물 먼저 · 김·물결·불빛이 살아 움직여요', preview: 'https://res.cloudinary.com/btosslpq/image/upload/v1794820074/hikary/templates/vivid.png', example: '', default: true }
 ]);
+
+// Every template in the owner's order, each with no (its line), shown and isDefault. setting = { order, hidden, default } from the
+// server, or nothing. Ids the setting does not list (a new template) go last, shown; ids this file no longer has are skipped.
+// The default is the saved one while it is shown, else this file's default, else the first shown. The web and tools/register.mjs share it.
+window.HIKARY_TEMPLATE_ORDER = setting => {
+  const all = window.HIKARY_TEMPLATES.map((tpl, index) => ({ ...tpl, no: index + 1 }));
+  const byId = Object.fromEntries(all.map(tpl => [tpl.id, tpl]));
+  const saved = setting && Array.isArray(setting.order) ? setting : null;
+  const order = saved ? [...new Set([...saved.order.filter(id => byId[id]), ...all.map(tpl => tpl.id)])] : all.map(tpl => tpl.id);
+  const hidden = new Set(saved && Array.isArray(saved.hidden) ? saved.hidden : []);
+  const shown = order.filter(id => !hidden.has(id));
+  const fileDefault = (all.find(tpl => tpl.default) || all[0] || {}).id;
+  const chosen = saved && shown.includes(saved.default) ? saved.default : shown.includes(fileDefault) ? fileDefault : shown[0];
+  return order.map(id => ({ ...byId[id], shown: !hidden.has(id), isDefault: id === chosen }));
+};

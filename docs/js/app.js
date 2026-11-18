@@ -35,7 +35,12 @@
   // v2.8.0 「게시」 (server 2.6.0): the video places go through Buffer; the carousel stays manual.
   // ERROR_LABELS are the line prefixes the server writes into 「게시 오류」 (backend/Publish.js PUBLISH_LABELS).
   const PUBLISH = PLATFORMS.filter(([key]) => key !== 'carousel');
-  const POST_TIME = '07:55'; // v3.6.1: 「게시」's default time (was 08:45) — people watch on the way to work (2026-11-13)
+  // v3.10.0 (server 2.22.0) 「설정」: the owner's settings from the ledger tab 「설정」, read with status — the request window's templates,
+  // the Instagram format picked first and 「게시」's default time. Nothing saved yet: templates.js's default, 릴스, 07:55.
+  let settings = { values: {}, revision: '' };
+  // v3.6.1: 「게시」's default time (was 08:45) — people watch on the way to work (2026-11-13). v3.10.0: set in 「설정 → 일반」.
+  const postTime = () => settings.values.publishTime || '07:55';
+  const igDefault = () => settings.values.instagramType || '릴스';
   const ERROR_LABELS = { youtube: 'YouTube', instagram: '인스타 릴스', tiktok: 'TikTok' };
   const STATE = { 업로드완료: 'done', 보류: 'hold', 예약됨: 'sched', 오류: 'err' };
   const errorFor = (row, key) => ERROR_LABELS[key] && (row.publishError || '').split('\n').find(line => line.startsWith(ERROR_LABELS[key] + ': '))?.slice(ERROR_LABELS[key].length + 2) || '';
@@ -427,7 +432,7 @@
     $('pickTitle').textContent = `${date.getMonth() + 1}월 ${date.getDate()}일에 올릴 콘텐츠`;
     const choices = rows.filter(openToPublish);
     $('pickList').replaceChildren(...(choices.length ? choices.map(row => {
-      const item = button('', () => { $('pickDialog').close(); openPublish(row, { date: day, time: POST_TIME }); }, 'pick-item');
+      const item = button('', () => { $('pickDialog').close(); openPublish(row, { date: day, time: postTime() }); }, 'pick-item');
       const text = element('span', 'pick-text'); text.append(element('b', '', label(row)), element('small', row.videoUrl ? 'ok' : 'none', row.videoUrl ? '영상 준비됨' : '영상 없음 — 루미에게 「영상 올려줘」'));
       item.append(thumb(row), text); return item;
     }) : [emptyBox('올릴 콘텐츠가 없어요', '모두 올렸거나 예약해 뒀어요.')]));
@@ -770,7 +775,7 @@
     const used = rows.flatMap(other => PLATFORMS.filter(([key]) => ['예약됨', '업로드완료'].includes(other[key + 'Status'])).map(([key]) => (other[key + 'Date'] || '').slice(0, 10)));
     const last = [...used, (row.createdAt || '').slice(0, 10)].filter(day => /^\d{4}-\d{2}-\d{2}$/.test(day)).sort().at(-1);
     let at = own;
-    if (!at) { at = last ? new Date(`${last}T${POST_TIME}`) : new Date(); at.setDate(at.getDate() + 1); at.setHours(...POST_TIME.split(':').map(Number), 0, 0); while (!ahead(at)) at.setDate(at.getDate() + 1); }
+    if (!at) { at = last ? new Date(`${last}T${postTime()}`) : new Date(); at.setDate(at.getDate() + 1); at.setHours(...postTime().split(':').map(Number), 0, 0); while (!ahead(at)) at.setDate(at.getDate() + 1); }
     const chosen = preset && new Date(`${preset.date}T${preset.time}`);
     const usePreset = chosen && chosen > Date.now() + 2 * 60000;
     $('publishDate').value = usePreset ? preset.date : at.toLocaleDateString('sv-SE'); $('publishTime').value = usePreset ? preset.time : at.toTimeString().slice(0, 5); $('publishCode').value = '';
@@ -840,6 +845,7 @@
     }));
   }
   function useStatus(status) {
+    if (status.settings && !status.settings.error) applySettings(status.settings); // v3.10.0 (server 2.22.0) 「설정」
     // v3.5.2 (server 2.14.0): since when the server rests after Buffer's 「too many」 — shown in 할 일.
     const limitedAt = status.publishing?.limitedAt || '';
     if (limitedAt !== bufferLimitedAt) { bufferLimitedAt = limitedAt; renderDashboard(); }
@@ -916,18 +922,27 @@
   // v3.4.0: a window first — the template (cards from templates.js), the Instagram format and a word to Lumi. Resolves true once sent.
   let asking = null;
   const tplPerPage = () => !matchMedia('(max-width:640px)').matches ? 6 : innerWidth < 380 ? 2 : 3; // a computer shows all six on one page
-  const tplCards = TEMPLATES.map((tpl, index) => {
-    const card = element('label', 'tpl'); const radio = Object.assign(document.createElement('input'), { type: 'radio', name: 'askTemplate', value: tpl.id, defaultChecked: !!tpl.default });
-    const img = element('img'); img.src = /^https:\/\/res\.cloudinary\.com\//.test(tpl.preview) ? tpl.preview.replace('/image/upload/', '/image/upload/w_240,q_auto,f_auto/') : tpl.preview; img.alt = ''; // not lazy: a closed dialog never starts a lazy image
-    const name = element('b'); name.append(element('i', '', String(index + 1)), document.createTextNode(tpl.name));
-    card.append(radio, img, name, element('span', '', tpl.note)); if (tpl.default) card.append(element('em', 'def', '기본'));
-    return card;
-  });
-  paged('askTemplates', tplCards, { size: tplPerPage, keep: true, even: true });
+  const tplThumb = url => /^https:\/\/res\.cloudinary\.com\//.test(url) ? url.replace('/image/upload/', '/image/upload/w_240,q_auto,f_auto/') : url;
+  // v3.10.0: the cards follow 「설정 → 템플릿」 — the owner's order, hidden ones left out, the saved default picked first; the number stays
+  // the template's line in templates.js. Made again each time the window opens, so a new setting shows at once. keep: a request already
+  // sent whose template was hidden later still shows that one card, so the window does not pretend it asked for another.
+  let tplCards = [];
+  function buildTemplateCards(keep = '') {
+    tplCards = window.HIKARY_TEMPLATE_ORDER(settings.values.templates).filter(tpl => tpl.shown || tpl.id === keep).map(tpl => {
+      const card = element('label', 'tpl'); const radio = Object.assign(document.createElement('input'), { type: 'radio', name: 'askTemplate', value: tpl.id, defaultChecked: tpl.isDefault });
+      const img = element('img'); img.src = tplThumb(tpl.preview); img.alt = ''; // not lazy: a closed dialog never starts a lazy image
+      const name = element('b'); name.append(element('i', '', String(tpl.no)), document.createTextNode(tpl.name));
+      card.append(radio, img, name, element('span', '', tpl.note)); if (tpl.isDefault) card.append(element('em', 'def', '기본'));
+      return card;
+    });
+    paged('askTemplates', tplCards, { size: tplPerPage, keep: true, even: true });
+  }
+  buildTemplateCards();
   // item: a request already sent — the window shows its choices, saved with requestUpdate while it waits (server 2.11.0).
   function ask(payload, item = null, play = false) {
     return new Promise(resolve => {
       asking = { payload, item, resolve };
+      buildTemplateCards(item?.template); // v3.10.0: Instagram's first pick is set on the radios by applySettings, so reset() lands on it
       const form = $('askForm'); form.reset(); const locked = !!item && item.status !== '대기';
       $('askName').value = (item || payload).productName || '';
       if (item) {
@@ -1083,8 +1098,89 @@
   $('s-topic').onchange = () => void task(async () => { const topic = $('s-topic').value; await updateStudy([studyNow.id], { topic }); studyNow.topic = topic; await loadStudies(); toast(topic ? `말머리를 「${topic}」로 바꿨어요.` : '말머리를 비웠어요.'); });
   $('studyDelete').onclick = () => { if (!confirm('이 링크를 스터디에서 지울까요? 슬랙 메시지는 그대로 남아요.')) return; void task(async () => { await updateStudy([studyNow.id], { delete: true }); $('studyDialog').close(); await loadStudies(); toast('지웠어요.'); }); };
 
+  // ── v3.10.0 (server 2.22.0) 「설정」 (사람: "탬플릿 설정 메뉴가 필요하지 않을까??" · "일반에 예약시간이랑 인스타 기본값 설정만 넣고
+  // 쓰면서 채워나가자", 2026-11-18). 템플릿: order (drag on a computer, ▲▼ on a phone), 「요청 창에 보이기」, one default, a ▶ example
+  // clip (templates.js example — loaded only when pressed). 일반: 게시 기본 시각, 인스타 형식 기본값. Changes gather in a draft and go to the
+  // server in one settingsUpdate with 「저장」 (「되돌리기」 drops them); the ledger tab 「설정」 keeps them for every device.
+  // The default cannot be hidden, a hidden one cannot be the default, and one stays shown (the server checks the same).
+  let setTab = 'templates', draft = null;
+  const clone = value => JSON.parse(JSON.stringify(value));
+  const savedSettings = () => {
+    const list = window.HIKARY_TEMPLATE_ORDER(settings.values.templates);
+    return { templates: { order: list.map(tpl => tpl.id), hidden: list.filter(tpl => !tpl.shown).map(tpl => tpl.id), default: (list.find(tpl => tpl.isDefault) || {}).id || '' }, publishTime: postTime(), instagramType: igDefault() };
+  };
+  const working = () => draft || savedSettings();
+  // What 「저장」 would send, and how many things that is (each hidden switch counts on its own, like the bar says).
+  function settingChanges() {
+    const now = working(), base = savedSettings(); const changes = {}; let count = 0;
+    for (const key of ['templates', 'publishTime', 'instagramType']) if (JSON.stringify(now[key]) !== JSON.stringify(base[key])) changes[key] = now[key];
+    if (changes.templates) {
+      const a = now.templates, b = base.templates;
+      count += (a.order.join() !== b.order.join() ? 1 : 0) + (a.default !== b.default ? 1 : 0) + a.hidden.filter(id => !b.hidden.includes(id)).length + b.hidden.filter(id => !a.hidden.includes(id)).length;
+    }
+    return { changes, count: count + (changes.publishTime ? 1 : 0) + (changes.instagramType ? 1 : 0) };
+  }
+  function editSettings(change) { draft = clone(working()); change(draft); renderSettings(); }
+  function moveTemplate(id, to) { editSettings(next => { const order = next.templates.order; order.splice(order.indexOf(id), 1); order.splice(to, 0, id); }); }
+  function applySettings(next) {
+    if (next) settings = next;
+    for (const radio of document.querySelectorAll('input[name=askIg]')) radio.defaultChecked = radio.value === igDefault();
+    $('pickHint').textContent = `아직 다 올리지 않은 콘텐츠예요. 고르면 그날 ${postTime()}로 「게시」 창이 열려요.`;
+    if (view === 'settings') renderSettings(); // a draft being edited stays as it is
+  }
+  function renderSettings() {
+    const now = working(); const all = window.HIKARY_TEMPLATE_ORDER(); const byId = Object.fromEntries(all.map(tpl => [tpl.id, tpl]));
+    for (const [tab, button, pane] of [['templates', 'setTabTemplates', 'setTemplates'], ['general', 'setTabGeneral', 'setGeneral']]) {
+      $(button).classList.toggle('on', setTab === tab); $(button).setAttribute('aria-selected', setTab === tab); $(pane).hidden = setTab !== tab;
+    }
+    const order = now.templates.order.filter(id => byId[id]); const last = order.length - 1;
+    $('tplSettings').replaceChildren(...order.map((id, index) => {
+      const tpl = byId[id]; const hidden = now.templates.hidden.includes(id); const isDefault = now.templates.default === id;
+      const row = element('div', `tset${hidden ? ' off' : ''}`); row.dataset.id = id; row.draggable = true;
+      const grip = element('span', 'grip', '⠿'); grip.title = '끌어서 순서 바꾸기';
+      const media = element('div', 'tset-media'); const img = element('img'); img.src = tplThumb(tpl.preview); img.alt = ''; media.append(img);
+      const clip = playable(tpl.example);
+      if (clip) media.append(Object.assign(button('▶', () => {
+        const video = element('video'); Object.assign(video, { src: clip, autoplay: true, muted: true, loop: true, playsInline: true }); video.setAttribute('playsinline', '');
+        media.replaceChildren(video); media.classList.add('playing');
+      }, 'play'), { ariaLabel: `${tpl.name} 예시 보기` }));
+      const name = element('b'); name.append(element('i', '', `템플릿 ${tpl.no}`), document.createTextNode(tpl.name));
+      if (isDefault) name.append(element('em', 'def', '기본')); if (hidden) name.append(element('em', 'hid', '숨김'));
+      const text = element('div', 'tset-text'); text.append(name, element('span', '', tpl.note), element('small', '', clip ? '예시 ▶ 누르면 재생 (누를 때만 받아요)' : '예시 영상 준비 중'));
+      const pick = element('label', 'defpick'); const radio = Object.assign(document.createElement('input'), { type: 'radio', name: 'tplDefault', checked: isDefault, disabled: hidden });
+      radio.onchange = () => editSettings(next => { next.templates.default = id; }); pick.append(radio, document.createTextNode('기본값'));
+      pick.title = hidden ? '숨긴 템플릿은 기본값이 될 수 없어요' : '요청 창에서 미리 골라져 있고, 채팅으로 받은 상품도 이걸로 만들어요';
+      const shown = element('label', 'switch'); const check = Object.assign(document.createElement('input'), { type: 'checkbox', checked: !hidden, disabled: isDefault });
+      check.onchange = () => editSettings(next => { next.templates.hidden = check.checked ? next.templates.hidden.filter(other => other !== id) : [...next.templates.hidden, id]; });
+      shown.append(check, element('span', 'knob'), document.createTextNode('요청 창에 보이기')); if (isDefault) shown.title = '기본값은 숨길 수 없어요';
+      const updown = element('span', 'updown');
+      updown.append(Object.assign(button('▲', () => moveTemplate(id, index - 1), 'ibtn'), { disabled: index === 0, ariaLabel: '위로' }), Object.assign(button('▼', () => moveTemplate(id, index + 1), 'ibtn'), { disabled: index === last, ariaLabel: '아래로' }));
+      const controls = element('div', 'tset-ctrl'); controls.append(pick, shown, updown);
+      row.append(grip, element('span', 'pos', String(index + 1)), media, text, controls);
+      row.addEventListener('dragstart', event => { row.classList.add('dragging'); event.dataTransfer.setData('text/plain', id); });
+      row.addEventListener('dragend', () => row.classList.remove('dragging'));
+      row.addEventListener('dragover', event => { event.preventDefault(); row.classList.add('drop'); });
+      row.addEventListener('dragleave', () => row.classList.remove('drop'));
+      row.addEventListener('drop', event => { event.preventDefault(); row.classList.remove('drop'); const from = event.dataTransfer.getData('text/plain'); if (from && from !== id && byId[from]) moveTemplate(from, index); });
+      return row;
+    }));
+    $('tplCount').textContent = `${order.length}개 중 ${order.filter(id => !now.templates.hidden.includes(id)).length}개 보임`;
+    if ($('setPublishTime').value !== now.publishTime) $('setPublishTime').value = now.publishTime;
+    $('setIgType').replaceChildren(...['릴스', '캐러셀'].map(type => Object.assign(button(type, () => editSettings(next => { next.instagramType = type; }), type === now.instagramType ? 'on' : ''), { role: 'radio', ariaChecked: String(type === now.instagramType) })));
+    const { count } = settingChanges(); $('setSaveBar').hidden = !count; $('setDirty').textContent = `바뀐 것 ${count}개 · 저장하면 요청 창과 「게시」에 바로 반영돼요`;
+  }
+  $('setTabTemplates').onclick = () => { setTab = 'templates'; renderSettings(); };
+  $('setTabGeneral').onclick = () => { setTab = 'general'; renderSettings(); };
+  $('setPublishTime').onchange = () => { if (/^\d{2}:\d{2}$/.test($('setPublishTime').value)) editSettings(next => { next.publishTime = $('setPublishTime').value; }); };
+  $('setUndo').onclick = () => { draft = null; renderSettings(); };
+  $('setSave').onclick = () => void task(async () => {
+    const { changes } = settingChanges(); if (!Object.keys(changes).length) return;
+    const saved = await HikaryApi.request('settingsUpdate', { changes, revision: settings.revision });
+    draft = null; applySettings(saved); renderSettings(); toast('설정을 저장했어요 · 요청 창과 「게시」에 바로 반영돼요');
+  });
+
   // ── frame: views by hash, ☰ (drawer on a phone, hide the menu on a wide screen), profile menu.
-  const VIEWS = ['dashboard', 'content', 'find', 'study'];
+  const VIEWS = ['dashboard', 'content', 'find', 'study', 'settings'];
   function go(next) {
     view = VIEWS.includes(next) ? next : next === 'finder' ? 'find' : 'dashboard'; // #finder from v2 bookmarks
     const moved = $(view + 'View').hidden; // the menu asked for is not the one on screen
@@ -1093,8 +1189,9 @@
     if (moved) void refreshQuietly();
     for (const node of document.querySelectorAll('[data-view]')) node.classList.toggle('on', node.dataset.view === view);
     if (location.hash !== '#' + view) history.replaceState(null, '', '#' + view);
-    closeDrawer();
+    closeDrawer(); $('accountMenu').hidden = true; // v3.10.0: the profile menu's 「설정」 is a link inside it
     if (view === 'find' && !busy && HikaryApi.hasSession()) HikaryApi.request('status').then(useStatus).catch(() => {}); // the hourly count frees up over time
+    if (view === 'settings') { renderSettings(); if (HikaryApi.hasSession()) HikaryApi.request('status').then(useStatus).catch(() => {}); } // v3.10.0: the latest saved settings
   }
   window.addEventListener('hashchange', () => go(location.hash.slice(1)));
   const narrow = () => matchMedia('(max-width:860px)').matches;

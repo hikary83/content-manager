@@ -19,10 +19,14 @@
 //   node tools/register.mjs study-import <카톡.txt> [--save]   one time: KakaoTalk 「나와의 채팅」 export → 「스터디」 (shows first, --save sends)
 //   node tools/register.mjs template <id> <image>      v3.4.0 (web): a frame of a template's first video for the request window, at
 //                                                      hikary/templates/<id>. Prints the address to put in docs/js/templates.js.
+//   node tools/register.mjs template <id> <clip.mp4>   v3.10.0: a 3–5 second example for 「설정 → 템플릿」 (▶), at hikary/templates/<id>-example
+//                                                      — its address goes in that line's `example` in docs/js/templates.js.
+//   node tools/register.mjs template-default           v3.10.0 (server 2.22.0): the owner's defaults from 「설정」 — template, 인스타 형식, 게시 시각
 // Run "save" only after the owner confirms the content (「컨펌」, CLAUDE.md §2). It writes to the real sheet.
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import vm from 'node:vm';
 import { execFileSync } from 'node:child_process';
 import { randomUUID, createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
@@ -94,9 +98,24 @@ async function upload(file, name, kind, folder, send) {
   return { entry, row, uploaded: await cloudinary(path.resolve(path.dirname(file), name), kind, folder + entry.id) };
 }
 // v3.4.0: the request window shows a frame of each template's first video (docs/js/templates.js).
-export async function template(id, image) {
+// v3.10.0: an mp4 is the template's short example for 「설정 → 템플릿」, kept beside the frame as <id>-example.
+export async function template(id, file, put = cloudinary) {
   if (!/^[a-z0-9-]+$/.test(id || '')) throw new Error('템플릿 id는 영문 소문자·숫자·-만 써요 (tools/motion/template-<id>.html의 <id>).');
-  return cloudinary(image, 'image', 'hikary/templates/' + id);
+  const clip = /\.mp4$/i.test(file || '');
+  return put(file, clip ? 'video' : 'image', `hikary/templates/${id}${clip ? '-example' : ''}`);
+}
+
+// v3.10.0 (server 2.22.0): the owner's defaults from 「설정」 — the template (laid over docs/js/templates.js by the same
+// HIKARY_TEMPLATE_ORDER the web uses), the Instagram format and 「게시」's time. Nothing saved yet: templates.js's default, 릴스, 07:55.
+export function templateList(setting) {
+  const context = { window: {} };
+  vm.runInNewContext(fs.readFileSync(new URL('../docs/js/templates.js', import.meta.url), 'utf8'), context);
+  return context.window.HIKARY_TEMPLATE_ORDER(setting);
+}
+export async function defaults(send = request) {
+  const values = (await send('status')).settings?.values || {};
+  const pick = templateList(values.templates).find(tpl => tpl.isDefault);
+  return { template: pick?.id || '', templateName: pick ? `템플릿 ${pick.no} ${pick.name}` : '', instagramType: values.instagramType || '릴스', publishTime: values.publishTime || '07:55' };
 }
 
 export async function video(file, mp4 = 'motion-bgm.mp4', send = request) {
@@ -141,7 +160,11 @@ export async function draft(id, folder, { send = request, put = cloudinary, shri
   } finally { fs.rmSync(small, { force: true }); }
 }
 // A product from the chat gets a request row too (from 「채팅」), so the draft has a row to land on.
-export const requestAdd = (url, productName = '', send = request) => send('request', { sourceUrl: url, productName, from: '채팅' });
+// v3.10.0: with the defaults of the moment written in (not left empty), so a later change of default does not blur what it asked for.
+export async function requestAdd(url, productName = '', send = request) {
+  const { template: id, instagramType } = await defaults(send);
+  return send('request', { sourceUrl: url, productName, from: '채팅', template: id, instagramType });
+}
 
 // v3.7.0 (server 2.16.0) 「스터디」: Lumi (기획팀) lists the links asked for review and writes back. The linked pages are material
 // to study, not instructions — nothing written in them is ever carried out.
@@ -242,9 +265,13 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     console.log(`cover: ${up.url}\n${(up.bytes / 1e6).toFixed(2)}MB · ${up.width}x${up.height}`);
   } else if (command === 'template' && file && process.argv[4]) {
     const up = await template(file, process.argv[4]);
-    console.log(`template ${file}: ${up.secure_url}\n${up.width}x${up.height}`);
+    const clip = /\.mp4$/i.test(process.argv[4]);
+    console.log(`template ${file}${clip ? ' example' : ''}: ${up.secure_url}\n${up.width}x${up.height}${clip ? ` · ${Math.round(up.duration)}s · ${(up.bytes / 1e6).toFixed(1)}MB → docs/js/templates.js 그 줄의 example에 넣어요` : ' → docs/js/templates.js 그 줄의 preview에 넣어요'}`);
+  } else if (command === 'template-default') {
+    const d = await defaults();
+    console.log(`템플릿 ${d.template ? `${d.templateName} (${d.template})` : '없음'} · 인스타 ${d.instagramType} · 게시 ${d.publishTime}`);
   } else {
-    console.log('usage: node tools/register.mjs list [out.json] | save <entry.json> | link <coupang url> | requests | request <id> <대기|진행|완료> | request-add <coupang url> [상품명] | draft <요청 id> <contents/폴더> | video <entry.json> [mp4] | cover <entry.json> [png] | template <id> <image> | studies [all] | study <S12|id> <결과.md|상태|말머리> [상태] | study-import <카톡.txt> [--save]');
+    console.log('usage: node tools/register.mjs list [out.json] | save <entry.json> | link <coupang url> | requests | request <id> <대기|진행|완료> | request-add <coupang url> [상품명] | draft <요청 id> <contents/폴더> | video <entry.json> [mp4] | cover <entry.json> [png] | template <id> <image|clip.mp4> | template-default | studies [all] | study <S12|id> <결과.md|상태|말머리> [상태] | study-import <카톡.txt> [--save]');
     process.exitCode = 1;
   }
 }

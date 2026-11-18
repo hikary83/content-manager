@@ -44,6 +44,8 @@ function products({ source, categoryId, keyword }) {
   const result = { label: name, fetchedAt: new Date().toISOString(), products: Array.from({ length: count }, (_, i) => ({ productId: String(9000000 + i), productName: `${name.replace(/ 베스트| \(골드박스\)/, '')} 예시 상품 ${i + 1}${i % 3 ? '' : ' — 상품명이 길면 두 줄까지만 보이고 나머지는 말줄임으로 잘립니다'}`, productPrice: (i + 1) * 7900, productImage: i === 4 ? '' : swatch(i * 37), productUrl: 'https://link.coupang.com/re/AFFSDP?example=' + i, categoryName: name, isRocket: i % 2 === 0, isFreeShipping: true })) };
   saved.set(key, result); return { ...result, fromCache: false, usage: usage() };
 }
+// v3.10.0 mock 「설정」 (server 2.22.0): starts with nothing saved, like a fresh ledger — templates.js's default, 릴스, 07:55.
+const settingValues = {}; let settingRevision = 0;
 // v2.7.0 mock: the Partners link (counts like a product call, kept for reuse) and the sheet tab 「요청」.
 const requests = [{ id: 'mock-request-1', requestedAt: '2026-11-11 10:20', status: '대기', productName: '예시 요청 상품 (목업)', sourceUrl: 'https://www.coupang.com/vp/products/123', affiliateUrl: 'https://link.coupang.com/a/mockreq', note: '사우나 장면 꼭 넣어줘', from: '소재 찾기 · 오늘의 특가', template: 'photo', instagramType: '캐러셀' },
   // v3.9.0 mock: a request with Lumi's draft (Cloudinary's public demo video and image stand in) — shown first
@@ -152,7 +154,15 @@ function act({ action, payload, token }) {
     return { request: requests[at] };
   }
   if (action === 'status') return { version: '2.18.0 (mock)', aiConfigured: false, coupang: { configured: true, usage: usage(), categories: CATEGORIES }, publishing: { buffer: true, video: true, code: true, limitedAt: '', limitedUntil: '',
-    quota: { at: new Date(Date.now() - 600e3).toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 16), windows: [{ name: '15m', r: 149, q: 150, t: 900 }, { name: '24h', r: 96, q: 600, t: 80431 }, { name: '30d', r: 2086, q: 3000, t: 2358233 }] } } }; // 24h low → orange
+    quota: { at: new Date(Date.now() - 600e3).toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 16), windows: [{ name: '15m', r: 149, q: 150, t: 900 }, { name: '24h', r: 96, q: 600, t: 80431 }, { name: '30d', r: 2086, q: 3000, t: 2358233 }] } }, // 24h low → orange
+    settings: { values: { ...settingValues }, revision: 'r' + settingRevision } };
+  if (action === 'settingsUpdate') { // v3.10.0 mock (server 2.22.0 Settings.js): same revision guard, only the three known keys
+    if (payload.revision !== 'r' + settingRevision) throw new Error('다른 곳에서 설정이 바뀌었어요. 새로고침한 뒤 다시 저장해주세요.');
+    const keys = Object.keys(payload.changes || {}); if (!keys.length || keys.some(key => !['templates', 'publishTime', 'instagramType'].includes(key))) throw new Error('바꿀 설정이 올바르지 않아요.');
+    if (payload.changes.publishTime !== undefined && !/^([01]\d|2[0-3]):[0-5]\d$/.test(payload.changes.publishTime)) throw new Error('게시 기본 시각은 07:55처럼 HH:mm으로 넣어주세요.');
+    Object.assign(settingValues, payload.changes); settingRevision++;
+    return { values: { ...settingValues }, revision: 'r' + settingRevision };
+  }
   if (action === 'publish') { // v2.8.0 mock: code 「mock」, every chosen place is scheduled
     if (payload.code !== 'mock') throw new Error('게시 비밀번호가 맞지 않아요. (목업 비밀번호: mock)');
     const at = rows.findIndex(item => item.id === payload.id);

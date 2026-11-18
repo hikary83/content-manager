@@ -57,9 +57,9 @@ label>input,label>select,label>textarea{margin-top:6px;font-weight:400;color:var
 .account-menu .who img{width:40px;height:40px;border-radius:50%;background:#fde7ef;padding:4px;object-fit:contain}
 .account-menu .who b{display:block;font-size:14px;color:var(--ink)}
 .account-menu .who small{font-size:12px;color:var(--muted)}
-.account-menu button{display:flex;align-items:center;gap:14px;padding:10px 16px;font-size:14px;color:var(--ink);text-align:left}
-.account-menu button i{width:18px;text-align:center;font-style:normal;color:var(--muted)}
-.account-menu button:hover{background:#3a3a3a}
+.account-menu button,.account-menu a.menu-set{display:flex;align-items:center;gap:14px;padding:10px 16px;font-size:14px;color:var(--ink);text-align:left}
+.account-menu button i,.account-menu a.menu-set i{width:18px;text-align:center;font-style:normal;color:var(--muted)}
+.account-menu button:hover,.account-menu a.menu-set:hover{background:#3a3a3a}
 .account-menu .sub{font-size:12px;color:var(--muted);padding:0 16px 6px 48px}
 
 .side{position:sticky;top:56px;height:calc(100vh - 56px);border-right:1px solid var(--line);padding:18px 10px 14px;display:flex;flex-direction:column;overflow:auto;background:var(--bg)}
@@ -651,3 +651,62 @@ dialog.study-dialog{width:min(720px,calc(100vw - 24px))}
 .dbadge.no{background:#333;color:#aaa}
 .dtext{white-space:pre-wrap;min-width:0}
 .dwait{margin:0;padding:12px 14px;border:1px dashed var(--line2);border-radius:10px;color:var(--muted);font-size:13.5px}
+
+/* v3.10.0 「설정」: 템플릿 (drag ⠿ on a computer, ▲▼ on a phone · 기본값 · 요청 창에 보이기 · ▶ example) and 일반, one save bar for both */
+.account-menu a.menu-set{text-decoration:none}
+.nav a.nav-set{margin-top:10px}
+.set-tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:4px 0 14px}
+.set-tabs button{background:none;border:0;border-bottom:2px solid transparent;color:var(--muted);font-weight:700;font-size:14px;padding:10px 14px;cursor:pointer}
+.set-tabs button.on{color:var(--ink);border-bottom-color:var(--ink)}
+.tset-head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;margin-bottom:12px;max-width:980px}
+.tset-head p{margin:0;color:var(--muted);font-size:13px;line-height:1.6}
+.tpl-set{display:grid;gap:8px;max-width:980px}
+.tset{display:grid;grid-template-columns:20px 22px auto minmax(0,1fr) auto;align-items:center;gap:14px;padding:10px 14px;border:1px solid var(--line);border-radius:12px;background:#181818;transition:box-shadow .15s,transform .15s}
+.tset .grip{cursor:grab;color:var(--dim);font-size:18px;text-align:center;user-select:none}
+.tset .pos{color:var(--dim);font-weight:800;font-size:13px;text-align:center}
+.tset-media{position:relative;width:56px;aspect-ratio:9/16;border-radius:8px;overflow:hidden;background:#2a2a2a}
+.tset-media.playing{width:132px}
+.tset-media img,.tset-media video{width:100%;height:100%;object-fit:cover;display:block}
+.tset-media .play{width:30px;height:30px;font-size:12px;padding-left:2px}
+.tset-text{display:grid;gap:4px;min-width:0}
+.tset-text b{display:flex;align-items:center;gap:8px;font-size:15px}
+.tset-text b i{font-style:normal;font-size:11.5px;color:var(--dim);font-weight:700}
+.tset-text span{font-size:13px;color:var(--muted)}
+.tset-text small{font-size:11.5px;color:var(--dim)}
+.tset .def{background:var(--accent);color:#fff;font-size:10.5px;font-weight:800;font-style:normal;border-radius:999px;padding:1px 8px}
+.tset .hid{background:#3a3a3a;color:#bbb;font-size:10.5px;font-weight:800;font-style:normal;border-radius:999px;padding:1px 8px}
+.tset.off .tset-media,.tset.off .tset-text{opacity:.45}
+.tset.dragging{transform:rotate(-1deg) scale(1.015);box-shadow:0 18px 40px rgba(0,0,0,.65);border-color:var(--accent);background:#202020;position:relative;z-index:2}
+.tset.drop{box-shadow:0 -4px 0 var(--accent)}
+.tset-ctrl{display:flex;align-items:center;gap:20px}
+.defpick{display:flex;gap:6px;align-items:center;font-size:13px;color:var(--muted);cursor:pointer}
+.defpick input{accent-color:var(--accent);width:16px;height:16px;margin:0}
+.switch{position:relative;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);cursor:pointer}
+.switch input{position:absolute;opacity:0;width:1px;height:1px}
+.switch .knob{width:40px;height:22px;border-radius:999px;background:#3a3a3a;position:relative;transition:background .15s;flex:none}
+.switch .knob::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .15s}
+.switch input:checked+.knob{background:#2fbf71}
+.switch input:checked+.knob::after{transform:translateX(18px)}
+.switch input:disabled+.knob{opacity:.55}
+.switch input:focus-visible+.knob{outline:2px solid var(--ink);outline-offset:2px}
+.updown{display:none;gap:6px}
+.gset{display:flex;align-items:center;justify-content:space-between;gap:20px;max-width:980px;padding:16px;border:1px solid var(--line);border-radius:12px;background:#181818;margin-bottom:8px}
+.gtext{display:grid;gap:4px;min-width:0}
+.gtext b{font-size:15px}
+.gtext small{font-size:12.5px;color:var(--muted);line-height:1.5}
+.gset input[type=time]{width:140px;flex:none;font-size:16px;color-scheme:dark}
+.gset .seg{flex:none}
+.savebar{position:sticky;bottom:12px;max-width:980px;display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;padding:12px 16px;border-radius:12px;background:#262626;border:1px solid var(--line2);box-shadow:0 10px 30px rgba(0,0,0,.5);font-size:13.5px;font-weight:700}
+.savebar .r{display:flex;gap:8px}
+@media(max-width:640px){
+  .tset-head{flex-direction:column;align-items:flex-start}
+  .tset{grid-template-columns:22px auto minmax(0,1fr);grid-template-areas:"pos media text" "ctrl ctrl ctrl";gap:10px 12px;padding:10px 12px}
+  .tset .grip{display:none}
+  .tset .pos{grid-area:pos}.tset-media{grid-area:media}.tset-text{grid-area:text}
+  .tset-ctrl{grid-area:ctrl;justify-content:space-between;gap:10px;border-top:1px solid var(--line);padding-top:10px}
+  .updown{display:flex}
+  .gset{flex-direction:column;align-items:stretch}
+  .gset input[type=time]{width:100%}
+  .savebar{bottom:76px;flex-direction:column;align-items:stretch}
+  .savebar .r{justify-content:flex-end}
+}
