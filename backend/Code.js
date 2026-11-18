@@ -1,5 +1,5 @@
 /* HIKARY only. No credentials or endpoints from kic-worktools. */
-var SERVICE_VERSION = '2.21.0';
+var SERVICE_VERSION = '2.22.0';
 // Columns 1-14 are the original ledger. 15-21 (v1.7.0), 22-27 (v2.2.0), 28-30 (v2.3.0), 31-36 (v2.6.0), 37 (v2.9.0), 38 (v2.10.0), 39-40 (v2.13.0) and 41 (v2.15.0) are appended so existing rows never move.
 // v2.2.0: one row per product. Instagram columns are the reel; the card news (carousel) has its own upload columns.
 // v2.3.0: KittyChat keyword and DM text, and a small Inpock thumbnail as a data URL. 「카드뉴스 문구」 is no longer filled.
@@ -45,7 +45,7 @@ function doPost(event) {
     var data;
     if (action === 'login') data = login_(payload);
     else if (action === 'logout') { if (who !== 'session') throw userError_('브라우저에서 로그인한 세션만 로그아웃할 수 있어요.'); data = logout_(input.token, payload); }
-    else if (action === 'status') { getContentSheet_(); data = { version: SERVICE_VERSION, aiConfigured: !!PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY'), coupang: coupangStatus_(), publishing: publishStatus_() }; }
+    else if (action === 'status') { getContentSheet_(); data = { version: SERVICE_VERSION, aiConfigured: !!PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY'), coupang: coupangStatus_(), publishing: publishStatus_(), settings: statusSettings_() }; } // v2.22.0 settings (Settings.js)
     else if (action === 'list') data = { entries: readEntries_() };
     else if (action === 'save') data = saveEntry_(payload);
     else if (action === 'delete') data = deleteEntry_(payload);
@@ -55,6 +55,7 @@ function doPost(event) {
     else if (action === 'request') data = addRequest_(payload); // v2.5.0: 루미한테 요청하기 (Requests.js)
     else if (action === 'requests') data = readRequests_();
     else if (action === 'requestUpdate') data = updateRequest_(payload, who); // v2.21.0: a draft only with the tool key
+    else if (action === 'settingsUpdate') data = updateSettings_(payload); // v2.22.0: 「설정」 menu (Settings.js)
     else if (action === 'studies') data = readStudies_(); // v2.16.0: 스터디 (Study.js)
     else if (action === 'studyAdd') data = addStudies_(payload);
     else if (action === 'studyUpdate') data = updateStudies_(payload, who);
@@ -71,7 +72,7 @@ function doPost(event) {
     // Do not log exception text: UrlFetch errors can contain credentials or URLs.
     result = { ok: false, requestId: requestId, error: safeError_(error), auth: !!(error && error.auth) };
   }
-  console.info(JSON.stringify({ requestId: requestId, action: ['login','logout','status','list','save','delete','products','link','report','request','requests','requestUpdate','studies','studyAdd','studyUpdate','studySync','publish','analyze','image','generate','reference','carousel'].indexOf(action) >= 0 ? action : 'unknown', elapsedMs: Date.now() - started, ok: result.ok }));
+  console.info(JSON.stringify({ requestId: requestId, action: ['login','logout','status','list','save','delete','products','link','report','request','requests','requestUpdate','settingsUpdate','studies','studyAdd','studyUpdate','studySync','publish','analyze','image','generate','reference','carousel'].indexOf(action) >= 0 ? action : 'unknown', elapsedMs: Date.now() - started, ok: result.ok }));
   return jsonResponse_(result);
 }
 

@@ -35,7 +35,7 @@ function runtime({ legacy = false } = {}) {
     UrlFetchApp: { fetch() { fetches++; throw new Error('unexpected network'); } },
     CacheService: { getScriptCache: () => ({ get: key => cache.get(key) ?? null, put: (key, value) => cache.set(key, value) }) }
   });
-  for (const name of ['Code','Product','Gemini','Coupang','Requests','Publish','Auth','Study']) vm.runInContext(readFileSync(new URL(`../backend/${name}.js`,import.meta.url),'utf8'),context);
+  for (const name of ['Code','Product','Gemini','Coupang','Requests','Publish','Auth','Study','Settings']) vm.runInContext(readFileSync(new URL(`../backend/${name}.js`,import.meta.url),'utf8'),context);
   props.set('TOOL_KEY', TOOL);
   const raw = context.doPost; context.doPost = event => { const body = JSON.parse(event.postData.contents); if (!('token' in body)) body.token = TOOL; return raw({ postData: { contents: JSON.stringify(body) } }); };
   return { context, rows, props, tabs, cache, writes: () => writes, fetches: () => fetches };
@@ -791,4 +791,45 @@ test('v2.21.0 초안은 완료·지우기 하면 Cloudinary에서 지우고, 실
 test('v2.21.0 「요청」 탭이 없으면 10분 정리가 탭을 만들지 않는다', () => {
   const env = runtime(); env.context.METRICS_HOUR = 24;
   env.context.syncPublishing(); assert.equal(env.tabs.has('요청'), false);
+});
+
+// v2.22.0 「설정」 (Settings.js): templates · publishTime · instagramType, one key a row in the tab 「설정」, read with status.
+test('v2.22.0 설정은 status로 읽고(탭이 없으면 만들지 않음), 처음 저장할 때 「설정」 탭을 만들어 키마다 한 줄로 남긴다', () => {
+  const env = runtime(); const call = (action, payload, token) => JSON.parse(env.context.doPost({ postData: { contents: JSON.stringify({ action, payload, ...(token !== undefined && { token }) }) } }).text);
+  const first = call('status', {}).data.settings;
+  assert.deepEqual(first.values, {}); assert.ok(first.revision); assert.equal(env.tabs.has('설정'), false, '읽기만으로는 탭을 만들지 않는다');
+  const templates = { order: ['vivid', 'photo', 'tour', 'quiz', 'paper', 'soda'], hidden: ['soda', 'paper'], default: 'vivid' };
+  const saved = call('settingsUpdate', { changes: { templates, publishTime: '07:30', instagramType: '캐러셀' }, revision: first.revision }).data;
+  assert.deepEqual(saved.values, { templates, publishTime: '07:30', instagramType: '캐러셀' }); assert.notEqual(saved.revision, first.revision);
+  const tab = env.tabs.get('설정').rows; assert.deepEqual(tab[0], ['키', '값', '바꾼 때']);
+  assert.deepEqual(tab.slice(1).map(row => [row[0], row[1]]), [['templates', JSON.stringify(templates)], ['publishTime', '07:30'], ['instagramType', '캐러셀']]);
+  assert.match(tab[1][2], /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
+  // the same key again keeps one row; an old revision is refused (another device saved in between)
+  const again = call('settingsUpdate', { changes: { publishTime: '08:10' }, revision: saved.revision }).data;
+  assert.equal(again.values.publishTime, '08:10'); assert.equal(env.tabs.get('설정').rows.length, 4);
+  assert.match(call('settingsUpdate', { changes: { publishTime: '09:00' }, revision: saved.revision }).error, /다른 곳에서 설정이 바뀌었어요/);
+  assert.deepEqual(call('status', {}).data.settings, again);
+  // a logged-in browser may save its owner's settings
+  env.props.set('LOGIN_ID', 'hikary'); env.props.set('LOGIN_PASSWORD', 'pass-word-123');
+  const token = call('login', { id: 'hikary', password: 'pass-word-123' }, null).data.token;
+  assert.equal(call('settingsUpdate', { changes: { instagramType: '릴스' }, revision: again.revision }, token).data.values.instagramType, '릴스');
+  assert.equal(call('settingsUpdate', { changes: { instagramType: '릴스' }, revision: again.revision }, null).auth, true, '로그인 없이는 못 쓴다');
+});
+test('v2.22.0 설정 값은 모양을 검사한다 — 시각 HH:mm, 릴스·캐러셀, 기본 템플릿은 보이는 것, 하나는 보이게, 모르는 키는 거절', () => {
+  const env = runtime(); const call = payload => JSON.parse(env.context.doPost({ postData: { contents: JSON.stringify({ action: 'settingsUpdate', payload }) } }).text);
+  const revision = JSON.parse(env.context.doPost({ postData: { contents: JSON.stringify({ action: 'status', payload: {} }) } }).text).data.settings.revision;
+  for (const [changes, message] of [
+    [{ publishTime: '7:55' }, /HH:mm/], [{ publishTime: '24:00' }, /HH:mm/], [{ instagramType: '스토리' }, /릴스나 캐러셀/],
+    [{ templates: { order: ['vivid', 'photo'], hidden: ['vivid'], default: 'vivid' } }, /기본 템플릿은/],
+    [{ templates: { order: ['vivid'], hidden: [], default: 'photo' } }, /기본 템플릿은/],
+    [{ templates: { order: ['vivid', 'vivid'], hidden: [], default: 'vivid' } }, /모양/], [{ templates: { order: ['../x'], hidden: [], default: '../x' } }, /모양/],
+    [{ theme: 'dark' }, /바꿀 설정/], [{}, /바꿀 설정/]
+  ]) assert.match(call({ changes, revision }).error, message, JSON.stringify(changes));
+  assert.equal(env.tabs.has('설정'), false, '거절한 저장은 탭도 만들지 않는다');
+  // hidden ids outside the order are dropped; an id the web does not know yet is kept as it is
+  const saved = call({ changes: { templates: { order: ['vivid', 'neon'], hidden: ['ghost'], default: 'neon' } }, revision }).data;
+  assert.deepEqual(saved.values.templates, { order: ['vivid', 'neon'], hidden: [], default: 'neon' });
+  // a broken cell typed by hand reads as unset, the rest still reads
+  env.tabs.get('설정').rows.push(['publishTime', '아침', '2026-11-18 09:00']);
+  assert.deepEqual(Object.keys(JSON.parse(env.context.doPost({ postData: { contents: JSON.stringify({ action: 'status', payload: {} }) } }).text).data.settings.values), ['templates']);
 });
