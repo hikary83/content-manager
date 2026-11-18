@@ -25,6 +25,8 @@ window.HIKARY_TEMPLATES = Object.freeze([
 // Every template in the owner's order, each with no (its line), shown and isDefault. setting = { order, hidden, default } from the
 // server, or nothing. Ids the setting does not list (a new template) go last, shown; ids this file no longer has are skipped.
 // The default is the saved one while it is shown, else this file's default, else the first shown. The web and tools/register.mjs share it.
+// v3.11.0 (server 2.23.0): the owner's names / notes ({ id: text }) replace name / note; fileName / fileNote keep this file's, for
+// 「원래 이름으로」. The id and the number stay — 「템플릿 6」 is the sixth line whatever it is called.
 window.HIKARY_TEMPLATE_ORDER = setting => {
   const all = window.HIKARY_TEMPLATES.map((tpl, index) => ({ ...tpl, no: index + 1 }));
   const byId = Object.fromEntries(all.map(tpl => [tpl.id, tpl]));
@@ -34,5 +36,7 @@ window.HIKARY_TEMPLATE_ORDER = setting => {
   const shown = order.filter(id => !hidden.has(id));
   const fileDefault = (all.find(tpl => tpl.default) || all[0] || {}).id;
   const chosen = saved && shown.includes(saved.default) ? saved.default : shown.includes(fileDefault) ? fileDefault : shown[0];
-  return order.map(id => ({ ...byId[id], shown: !hidden.has(id), isDefault: id === chosen }));
+  const text = (map, id) => saved && map && typeof map === 'object' && typeof map[id] === 'string' ? map[id].trim() : '';
+  return order.map(id => ({ ...byId[id], name: text(saved?.names, id) || byId[id].name, note: text(saved?.notes, id) || byId[id].note,
+    fileName: byId[id].name, fileNote: byId[id].note, shown: !hidden.has(id), isDefault: id === chosen }));
 };

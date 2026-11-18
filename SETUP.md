@@ -1,4 +1,4 @@
-# HIKARY 콘텐츠 관리 v3.10.0
+# HIKARY 콘텐츠 관리 v3.11.0
 
 2026-11-06 · GitHub Pages + Google Apps Script + Google Sheets. 콘텐츠는 Claude에서 만든다.
 
@@ -14,6 +14,19 @@
 - `app/`, `worker/`, `db/` 등은 이전 Sites/React 코드입니다. Pages 배포에는 포함하지 않습니다. 백업 태그: `legacy-chatgpt-sites-2026-08-11`.
 
 ## 최초 연결
+
+### v3.11.0 대시보드 「Cloudinary 사용량」 카드 · 템플릿 이름 바꾸기 (2026-11-18, 서버 2.23.0)
+
+- **템플릿 이름 바꾸기** (사람: "설정에서 템플릿명도 바꿀수 있을까??"): 설정 → 템플릿에서 이름(또는 ✎)을 누르면 그 자리에서 이름과 한 줄 설명을 고쳐요. 「원래 이름으로」는 templates.js 값으로 되돌려요. 모아서 「저장」하는 흐름 그대로예요.
+  - 설정 `templates`에 `names: {id: 이름}` · `notes: {id: 설명}`(바꾼 것만)으로 남아요. 이름 20자 · 설명 40자까지, 빈 칸은 원래 이름이에요. 번호와 id는 그대로예요 (「템플릿 6」은 계속 6).
+  - 바꾼 이름이 보이는 곳: 요청 창 카드 · 「콘텐츠」 요청 줄의 「템플릿 N 이름」 · 설정 목록(「원래 이름 ○○」도 같이) · 등록 도구 `template-default`.
+
+- 「Buffer 남은 횟수」 바로 아래예요 (사람: "buffer 아래 넣자~"). 최근 30일 크레딧 막대 — 「25 중 1.59 · 6%」처럼 — 와 그 아래 저장 · 전송 · 변환(각각 쓴 크레딧). 오른쪽 위 「갱신 11.17」은 Cloudinary가 마지막으로 셈한 날이고, 서버가 받아 온 시각은 마우스를 올리면 보여요.
+- 80%를 넘으면 막대가 주황이 되고 대시보드 「할 일」에도 떠요.
+- 서버(`backend/Publish.js` `cloudinaryUsage_`)가 Cloudinary 관리 API의 계정 사용량(`/usage`)을 같은 스크립트 속성(`CLOUDINARY_CLOUD_NAME`·`CLOUDINARY_API_KEY`·`CLOUDINARY_API_SECRET`)으로 읽어요. `status`가 부를 때 6시간에 한 번만 읽고 스크립트 속성 `CLOUDINARY_USAGE`에 저장해 둬요. 웹은 Cloudinary를 직접 부르지 않아요.
+- 못 읽으면 카드에 「불러오지 못했어요」가 뜨고 `status`는 그대로 돌아요. 실패는 1시간 뒤에 다시 읽어요.
+- 무료 요금제 답(2026-11-18 확인): `plan` "Free" · `last_updated`(날짜) · `credits` { usage, limit 25, used_percent } · `storage`·`bandwidth`(바이트) · `transformations`(횟수)와 각각의 `credits_usage`.
+- 배포: 서버 먼저(2.23.0), 그다음 웹.
 
 ### v3.10.0 「설정」 메뉴 (2026-11-18, 서버 2.22.0)
 

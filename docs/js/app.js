@@ -127,6 +127,7 @@
   const num = n => Number(n).toLocaleString('ko-KR');
   const totalViews = row => ['youtube', 'instagram', 'tiktok'].reduce((sum, key) => sum + (Number(viewsOf(row, key)) || 0), 0);
   let bufferQuota = null; // v3.6.0: Buffer's RateLimit header after the server's last call
+  let cloudUsage = null; // v3.11.0 (server 2.23.0): Cloudinary's usage, read by the server at most every 6 hours
   const label = (row, prefix = true) => `${prefix && row.inpockNo ? 'No.' + row.inpockNo + ' ' : ''}${row.productName}`;
   // One platform mark; the dot shows the state (green up, orange scheduled, red error, grey on hold, dim not yet).
   // href (v3.5.3, the 콘텐츠 list): a place with a post link opens that post in a new window instead of the ✎ window.
@@ -289,8 +290,8 @@
   function requestRow(item) {
     const tr = element('div', 'tr req'); const box = element('div', 'item'); const text = element('div');
     tr.onclick = event => { if (!event.target.closest('button,a')) void ask({ sourceUrl: item.sourceUrl }, item); }; // v3.4.1: change it while it waits
-    const tplIndex = TEMPLATES.findIndex(tpl => tpl.id === item.template);
-    const picked = [tplIndex >= 0 ? `템플릿 ${tplIndex + 1} ${TEMPLATES[tplIndex].name}` : '', item.instagramType ? `인스타 ${item.instagramType}` : ''].filter(Boolean).join(' · ');
+    const tpl = window.HIKARY_TEMPLATE_ORDER(settings.values.templates).find(one => one.id === item.template); // v3.11.0: the owner's name
+    const picked = [tpl ? `템플릿 ${tpl.no} ${tpl.name}` : '', item.instagramType ? `인스타 ${item.instagramType}` : ''].filter(Boolean).join(' · ');
     text.append(element('b', '', item.productName || item.sourceUrl.replace(/^https:\/\//, '').split('?')[0]), element('small', '', `${shortDate(item.requestedAt)} 요청 · ${picked || item.from || '루미한테 요청'}`));
     text.title = [item.from, item.note && `루미에게: ${item.note}`].filter(Boolean).join('\n');
     // v3.9.0: Lumi's draft — its cover with ▶ instead of 「⋯」; ▶ opens the request window playing it (the rest of the row only opens it).
@@ -564,6 +565,7 @@
     const add = (text, ...actions) => { const line = element('div', 'trow'); line.append(element('span', '', text), ...actions); items.push(line); };
     const tick = (row, key) => button('체크', () => { openDetail(row); showTab(key); });
     if (bufferLimitedAt) add(`Buffer 호출 한도에 걸려 ${bufferLimitedAt.slice(11)}부터 결과 받기를 쉬는 중 — 올라간 기록이 늦게 채워져요`, link('Buffer ↗', 'https://publish.buffer.com', 'btn sm'));
+    if (cloudHigh()) add(`Cloudinary 크레딧 ${Math.round(cloudUsage.credits.percent)}% 썼어요 (최근 30일 ${credit(cloudUsage.credits.limit)} 중 ${credit(cloudUsage.credits.used)}) — 콘솔에서 확인해 주세요`, link('Cloudinary ↗', 'https://console.cloudinary.com', 'btn sm')); // v3.11.0
     for (const row of rows) {
       const no = row.inpockNo ? `No.${row.inpockNo}` : row.productName;
       for (const [key, name] of PUBLISH) if (row[key + 'Status'] === '오류') add(`${no} ${name} 게시 오류`, button('보기', () => openDetail(row, key)));
@@ -844,8 +846,33 @@
       line.append(element('span', 'ql', words[w.name] || w.name), bar, right); return line;
     }));
   }
+  // v3.11.0 (server 2.23.0): the Cloudinary account's usage under 「Buffer 남은 횟수」 — credits of the rolling 30 days as a bar (orange from
+  // 80%, also in 할 일), then storage · bandwidth · transformations. The server reads it at most every 6 hours; 「갱신」 is Cloudinary's own
+  // last refresh, and the time the server read it shows on hover.
+  const CLOUD_HIGH = 80;
+  const cloudHigh = () => !!cloudUsage?.credits && cloudUsage.credits.percent >= CLOUD_HIGH;
+  const credit = n => String(Math.round(n * 100) / 100);
+  const bytesText = n => n >= 1e9 ? `${(n / 1e9).toFixed(2)}GB` : n >= 1e6 ? `${Math.round(n / 1e6)}MB` : `${Math.round(n / 1e3)}KB`;
+  function renderCloudUsage() {
+    const usage = cloudUsage; if (!usage) return;
+    if (usage.error || !usage.credits) {
+      $('cloudUsageAt').textContent = ''; $('cloudUsageAt').title = usage.at ? `서버가 ${usage.at}에 읽으려다 못 했어요 · 1시간 뒤 다시 읽어요` : '';
+      $('cloudUsage').replaceChildren(emptyBox('불러오지 못했어요', 'Cloudinary 콘솔에서 직접 볼 수 있어요. 서버가 1시간 뒤에 다시 읽어요.')); return;
+    }
+    $('cloudUsageAt').textContent = usage.updated ? `갱신 ${shortDate(usage.updated)}` : '';
+    $('cloudUsageAt').title = `Cloudinary ${usage.plan} 요금제 · 최근 30일 크레딧 · 서버가 받아 온 시각 ${usage.at} (6시간마다)`;
+    const line = element('div', `qrow${cloudHigh() ? ' low' : ''}`); const bar = element('span', 'qbar'); const fill = element('i'); fill.style.width = `${Math.min(100, usage.credits.percent)}%`; bar.append(fill);
+    const right = element('span', 'qn'); right.append(element('b', '', `${credit(usage.credits.limit)} 중 ${credit(usage.credits.used)}`), element('small', '', `${Math.round(usage.credits.percent)}% · 크레딧`));
+    line.append(element('span', 'ql', '30일'), bar, right);
+    const parts = element('div', 'cparts');
+    for (const [name, value, used] of [['저장', bytesText(usage.storage.bytes), usage.storage.credits], ['전송', bytesText(usage.bandwidth.bytes), usage.bandwidth.credits], ['변환', `${num(usage.transformations.count)}회`, usage.transformations.credits]]) {
+      const part = element('span'); part.append(element('small', '', name), element('b', '', value), element('em', '', `${credit(used)} 크레딧`)); parts.append(part);
+    }
+    $('cloudUsage').replaceChildren(line, parts);
+  }
   function useStatus(status) {
     if (status.settings && !status.settings.error) applySettings(status.settings); // v3.10.0 (server 2.22.0) 「설정」
+    if ('cloudinary' in status) { const high = cloudHigh(); cloudUsage = status.cloudinary; renderCloudUsage(); if (cloudHigh() !== high) renderDashboard(); } // v3.11.0
     // v3.5.2 (server 2.14.0): since when the server rests after Buffer's 「too many」 — shown in 할 일.
     const limitedAt = status.publishing?.limitedAt || '';
     if (limitedAt !== bufferLimitedAt) { bufferLimitedAt = limitedAt; renderDashboard(); }
@@ -1103,27 +1130,42 @@
   // clip (templates.js example — loaded only when pressed). 일반: 게시 기본 시각, 인스타 형식 기본값. Changes gather in a draft and go to the
   // server in one settingsUpdate with 「저장」 (「되돌리기」 drops them); the ledger tab 「설정」 keeps them for every device.
   // The default cannot be hidden, a hidden one cannot be the default, and one stays shown (the server checks the same).
-  let setTab = 'templates', draft = null;
+  // v3.11.0 (server 2.23.0) 이름 바꾸기 (사람: "설정에서 템플릿명도 바꿀수 있을까??"): the name opens in place with its one-line note;
+  // 「원래 이름으로」 drops the owner's text. Kept as names / notes ({ id: text }) beside the order, only the renamed ones, sorted so a
+  // draft compares equal to the saved setting. The number and the id never change.
+  let setTab = 'templates', draft = null, renaming = '';
   const clone = value => JSON.parse(JSON.stringify(value));
+  const texts = map => Object.fromEntries(Object.entries(map && typeof map === 'object' ? map : {}).map(([id, text]) => [id, String(text).replace(/\s+/g, ' ').trim()]).filter(([, text]) => text).sort(([a], [b]) => (a < b ? -1 : 1)));
   const savedSettings = () => {
-    const list = window.HIKARY_TEMPLATE_ORDER(settings.values.templates);
-    return { templates: { order: list.map(tpl => tpl.id), hidden: list.filter(tpl => !tpl.shown).map(tpl => tpl.id), default: (list.find(tpl => tpl.isDefault) || {}).id || '' }, publishTime: postTime(), instagramType: igDefault() };
+    const list = window.HIKARY_TEMPLATE_ORDER(settings.values.templates); const saved = settings.values.templates || {};
+    return { templates: { order: list.map(tpl => tpl.id), hidden: list.filter(tpl => !tpl.shown).map(tpl => tpl.id), default: (list.find(tpl => tpl.isDefault) || {}).id || '', names: texts(saved.names), notes: texts(saved.notes) }, publishTime: postTime(), instagramType: igDefault() };
   };
   const working = () => draft || savedSettings();
-  // What 「저장」 would send, and how many things that is (each hidden switch counts on its own, like the bar says).
+  // What 「저장」 would send, and how many things that is (each hidden switch and each renamed name or note counts on its own).
   function settingChanges() {
     const now = working(), base = savedSettings(); const changes = {}; let count = 0;
     for (const key of ['templates', 'publishTime', 'instagramType']) if (JSON.stringify(now[key]) !== JSON.stringify(base[key])) changes[key] = now[key];
     if (changes.templates) {
-      const a = now.templates, b = base.templates;
-      count += (a.order.join() !== b.order.join() ? 1 : 0) + (a.default !== b.default ? 1 : 0) + a.hidden.filter(id => !b.hidden.includes(id)).length + b.hidden.filter(id => !a.hidden.includes(id)).length;
+      const a = now.templates, b = base.templates; const differ = (x, y) => [...new Set([...Object.keys(x), ...Object.keys(y)])].filter(id => x[id] !== y[id]).length;
+      count += (a.order.join() !== b.order.join() ? 1 : 0) + (a.default !== b.default ? 1 : 0) + a.hidden.filter(id => !b.hidden.includes(id)).length + b.hidden.filter(id => !a.hidden.includes(id)).length
+        + differ(a.names, b.names) + differ(a.notes, b.notes);
     }
     return { changes, count: count + (changes.publishTime ? 1 : 0) + (changes.instagramType ? 1 : 0) };
+  }
+  function updateSaveBar() { const { count } = settingChanges(); $('setSaveBar').hidden = !count; $('setDirty').textContent = `바뀐 것 ${count}개 · 저장하면 요청 창과 「게시」에 바로 반영돼요`; }
+  // Typing changes the draft without drawing the list again (the field keeps its focus); the same text as templates.js counts as none.
+  function writeName(tpl, name, note) {
+    draft = draft || clone(working());
+    draft.templates.names = texts({ ...draft.templates.names, [tpl.id]: name.trim() === tpl.name ? '' : name });
+    draft.templates.notes = texts({ ...draft.templates.notes, [tpl.id]: note.trim() === tpl.note ? '' : note });
+    updateSaveBar();
   }
   function editSettings(change) { draft = clone(working()); change(draft); renderSettings(); }
   function moveTemplate(id, to) { editSettings(next => { const order = next.templates.order; order.splice(order.indexOf(id), 1); order.splice(to, 0, id); }); }
   function applySettings(next) {
+    const changed = next && next.revision !== settings.revision;
     if (next) settings = next;
+    if (changed) render(); // v3.11.0: request rows show the template's name, which the owner may have changed
     for (const radio of document.querySelectorAll('input[name=askIg]')) radio.defaultChecked = radio.value === igDefault();
     $('pickHint').textContent = `아직 다 올리지 않은 콘텐츠예요. 고르면 그날 ${postTime()}로 「게시」 창이 열려요.`;
     if (view === 'settings') renderSettings(); // a draft being edited stays as it is
@@ -1136,7 +1178,7 @@
     const order = now.templates.order.filter(id => byId[id]); const last = order.length - 1;
     $('tplSettings').replaceChildren(...order.map((id, index) => {
       const tpl = byId[id]; const hidden = now.templates.hidden.includes(id); const isDefault = now.templates.default === id;
-      const row = element('div', `tset${hidden ? ' off' : ''}`); row.dataset.id = id; row.draggable = true;
+      const row = element('div', `tset${hidden ? ' off' : ''}${renaming === id ? ' renaming' : ''}`); row.dataset.id = id; row.draggable = renaming !== id;
       const grip = element('span', 'grip', '⠿'); grip.title = '끌어서 순서 바꾸기';
       const media = element('div', 'tset-media'); const img = element('img'); img.src = tplThumb(tpl.preview); img.alt = ''; media.append(img);
       const clip = playable(tpl.example);
@@ -1144,9 +1186,23 @@
         const video = element('video'); Object.assign(video, { src: clip, autoplay: true, muted: true, loop: true, playsInline: true }); video.setAttribute('playsinline', '');
         media.replaceChildren(video); media.classList.add('playing');
       }, 'play'), { ariaLabel: `${tpl.name} 예시 보기` }));
-      const name = element('b'); name.append(element('i', '', `템플릿 ${tpl.no}`), document.createTextNode(tpl.name));
-      if (isDefault) name.append(element('em', 'def', '기본')); if (hidden) name.append(element('em', 'hid', '숨김'));
-      const text = element('div', 'tset-text'); text.append(name, element('span', '', tpl.note), element('small', '', clip ? '예시 ▶ 누르면 재생 (누를 때만 받아요)' : '예시 영상 준비 중'));
+      const label = now.templates.names[id] || tpl.name, note = now.templates.notes[id] || tpl.note; const renamed = !!(now.templates.names[id] || now.templates.notes[id]);
+      const name = element('b'); const text = element('div', 'tset-text');
+      if (renaming === id) {
+        const nameBox = Object.assign(element('input', 'tname'), { value: label, maxLength: 20, ariaLabel: '템플릿 이름', placeholder: tpl.name });
+        const noteBox = Object.assign(element('input', 'tnote'), { value: note, maxLength: 40, ariaLabel: '한 줄 설명', placeholder: tpl.note });
+        nameBox.oninput = noteBox.oninput = () => writeName(tpl, nameBox.value, noteBox.value);
+        const done = () => { renaming = ''; renderSettings(); };
+        for (const box of [nameBox, noteBox]) box.onkeydown = event => { if (event.key === 'Enter') { event.preventDefault(); done(); } };
+        const original = Object.assign(button('원래 이름으로', () => { renaming = ''; editSettings(next => { delete next.templates.names[id]; delete next.templates.notes[id]; }); }, 'btn sm'), { disabled: !renamed, title: `${tpl.name} · ${tpl.note}` });
+        const tools = element('span', 'rename-tools'); tools.append(button('완료', done, 'btn sm white'), original, element('small', '', '이름 20자 · 설명 40자까지 · 번호는 그대로'));
+        name.append(element('i', '', `템플릿 ${tpl.no}`), nameBox); text.append(name, noteBox, tools);
+      } else {
+        const title = Object.assign(button(label, () => { renaming = id; renderSettings(); }, 'tname-btn'), { title: '눌러서 이름·설명 바꾸기' });
+        name.append(element('i', '', `템플릿 ${tpl.no}`), title, Object.assign(button('✎', () => { renaming = id; renderSettings(); }, 'ibtn rename'), { ariaLabel: `${label} 이름 바꾸기` }));
+        if (isDefault) name.append(element('em', 'def', '기본')); if (hidden) name.append(element('em', 'hid', '숨김'));
+        text.append(name, element('span', '', note), element('small', '', [renamed ? `원래 이름 ${tpl.name}` : '', clip ? '예시 ▶ 누르면 재생 (누를 때만 받아요)' : '예시 영상 준비 중'].filter(Boolean).join(' · ')));
+      }
       const pick = element('label', 'defpick'); const radio = Object.assign(document.createElement('input'), { type: 'radio', name: 'tplDefault', checked: isDefault, disabled: hidden });
       radio.onchange = () => editSettings(next => { next.templates.default = id; }); pick.append(radio, document.createTextNode('기본값'));
       pick.title = hidden ? '숨긴 템플릿은 기본값이 될 수 없어요' : '요청 창에서 미리 골라져 있고, 채팅으로 받은 상품도 이걸로 만들어요';
@@ -1167,16 +1223,17 @@
     $('tplCount').textContent = `${order.length}개 중 ${order.filter(id => !now.templates.hidden.includes(id)).length}개 보임`;
     if ($('setPublishTime').value !== now.publishTime) $('setPublishTime').value = now.publishTime;
     $('setIgType').replaceChildren(...['릴스', '캐러셀'].map(type => Object.assign(button(type, () => editSettings(next => { next.instagramType = type; }), type === now.instagramType ? 'on' : ''), { role: 'radio', ariaChecked: String(type === now.instagramType) })));
-    const { count } = settingChanges(); $('setSaveBar').hidden = !count; $('setDirty').textContent = `바뀐 것 ${count}개 · 저장하면 요청 창과 「게시」에 바로 반영돼요`;
+    updateSaveBar();
+    if (renaming) $('tplSettings').querySelector('.tname')?.focus();
   }
   $('setTabTemplates').onclick = () => { setTab = 'templates'; renderSettings(); };
   $('setTabGeneral').onclick = () => { setTab = 'general'; renderSettings(); };
   $('setPublishTime').onchange = () => { if (/^\d{2}:\d{2}$/.test($('setPublishTime').value)) editSettings(next => { next.publishTime = $('setPublishTime').value; }); };
-  $('setUndo').onclick = () => { draft = null; renderSettings(); };
+  $('setUndo').onclick = () => { draft = null; renaming = ''; renderSettings(); };
   $('setSave').onclick = () => void task(async () => {
     const { changes } = settingChanges(); if (!Object.keys(changes).length) return;
     const saved = await HikaryApi.request('settingsUpdate', { changes, revision: settings.revision });
-    draft = null; applySettings(saved); renderSettings(); toast('설정을 저장했어요 · 요청 창과 「게시」에 바로 반영돼요');
+    draft = null; renaming = ''; applySettings(saved); renderSettings(); toast('설정을 저장했어요 · 요청 창과 「게시」에 바로 반영돼요');
   });
 
   // ── frame: views by hash, ☰ (drawer on a phone, hide the menu on a wide screen), profile menu.

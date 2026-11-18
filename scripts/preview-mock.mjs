@@ -155,7 +155,11 @@ function act({ action, payload, token }) {
   }
   if (action === 'status') return { version: '2.18.0 (mock)', aiConfigured: false, coupang: { configured: true, usage: usage(), categories: CATEGORIES }, publishing: { buffer: true, video: true, code: true, limitedAt: '', limitedUntil: '',
     quota: { at: new Date(Date.now() - 600e3).toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 16), windows: [{ name: '15m', r: 149, q: 150, t: 900 }, { name: '24h', r: 96, q: 600, t: 80431 }, { name: '30d', r: 2086, q: 3000, t: 2358233 }] } }, // 24h low → orange
-    settings: { values: { ...settingValues }, revision: 'r' + settingRevision } };
+    settings: { values: { ...settingValues }, revision: 'r' + settingRevision },
+    // v3.11.0 mock (server 2.23.0): made-up Cloudinary usage in the server's shape (not the real account's numbers)
+    cloudinary: { fetchedAt: Date.now() - 3600e3, at: new Date(Date.now() - 3600e3).toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 16), plan: 'Free',
+      updated: new Date(Date.now() - 864e5).toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' }), credits: { used: 3.2, limit: 25, percent: 12.8 },
+      storage: { bytes: 420000000, credits: 0.39 }, bandwidth: { bytes: 2100000000, credits: 1.96 }, transformations: { count: 860, credits: 0.86 } } };
   if (action === 'settingsUpdate') { // v3.10.0 mock (server 2.22.0 Settings.js): same revision guard, only the three known keys
     if (payload.revision !== 'r' + settingRevision) throw new Error('다른 곳에서 설정이 바뀌었어요. 새로고침한 뒤 다시 저장해주세요.');
     const keys = Object.keys(payload.changes || {}); if (!keys.length || keys.some(key => !['templates', 'publishTime', 'instagramType'].includes(key))) throw new Error('바꿀 설정이 올바르지 않아요.');

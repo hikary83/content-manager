@@ -710,3 +710,22 @@ dialog.study-dialog{width:min(720px,calc(100vw - 24px))}
   .savebar{bottom:76px;flex-direction:column;align-items:stretch}
   .savebar .r{justify-content:flex-end}
 }
+
+/* v3.11.0 Cloudinary 사용량: under the credit bar, three small boxes — 저장 · 전송 · 변환 (each with the credits it spent) */
+.cparts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.cparts span{display:grid;gap:2px;padding:8px 10px;border-radius:10px;background:var(--raise);min-width:0}
+.cparts small{font-size:11px;color:var(--muted)}
+.cparts b{font-size:14px;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cparts em{font-style:normal;font-size:10.5px;color:var(--dim)}
+
+/* v3.11.0 설정 → 템플릿 이름 바꾸기: the name is a quiet button (✎ beside it); editing shows the name and the note as fields */
+.tname-btn{background:none;border:0;padding:0;font:inherit;font-weight:800;font-size:15px;color:var(--ink);cursor:text;text-align:left}
+.tname-btn:hover{text-decoration:underline dotted;text-underline-offset:4px}
+.tset .rename{width:24px;height:24px;font-size:11px;opacity:.55}
+.tset .rename:hover,.tset .rename:focus-visible{opacity:1}
+.tset.renaming{border-color:var(--line2);background:#1d1d1d}
+.tset-text input.tname{font-size:15px;font-weight:800;padding:6px 10px;width:min(240px,100%)}
+.tset-text input.tnote{font-size:13px;padding:6px 10px;width:100%;max-width:440px}
+.rename-tools{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.rename-tools small{color:var(--dim);font-size:11.5px}
+.tset-text b i{white-space:nowrap}
