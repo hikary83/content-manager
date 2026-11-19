@@ -45,7 +45,8 @@
        | .say.rise     | C 솟아오름    | 흰 선 아래에서 솟음 → 선 아래로 다시 들어감                 | 가운데 장면 — 저절로                       |
        | .say.through  | D 뚫고 지나감 | 툭 튀어나옴 → 끝 0.42초에 6배로 커지며 다음 장면으로        | 끝 장면(모아 보기 격자) 바로 앞 컷 — 고정  |
      **가운데 장면의 수는 저절로 정해진다** (2026-11-18, 배경음악처럼): .say에 수를 적지 않으면 맨 아래 script가 폴더 이름을 씨앗으로
-       A·B·C 순서를 정한다 — 같은 수를 잇지 않고, B는 큰 낱말이 세 글자 이하이고 장면이 2초 이상일 때만. 형광펜 기울기(±3도)와 B 글자가 날아오는 방향도 씨앗으로 정한다.
+       A·B·C 순서를 정한다 — 같은 수를 잇지 않고, B는 큰 낱말이 세 글자 이하이고 장면이 2초 이상일 때만. B 글자가 날아오는 방향도 씨앗으로 정한다.
+       형광펜은 늘 반듯하다 (0도 — 2026-11-19 사람: "반듯한게 좋을꺼 같애". 그 전에는 씨앗으로 ±3도 기울었다).
        같은 폴더는 다시 녹화해도 같고, 폴더가 다르면 달라진다. 컨텐츠팀은 고르지 않는다.
        꼭 바꾸고 싶으면: ① 다른 조합을 보려면 <body data-typo="아무 글자">로 씨앗만 바꾼다 ② 한 장면만 정하려면 그 .say에 slam·fly·rise를 직접 적는다 (적은 것은 그대로 두고 나머지만 고른다).
        브라우저 미리보기에도 같은 수가 보인다.
@@ -121,11 +122,11 @@ em,i{font-style:normal}
 .say.dark .line{text-shadow:0 0 4px rgba(0,0,0,.95),0 4px 16px rgba(0,0,0,.8),0 0 60px rgba(0,0,0,.65)} /* 밝은 사진 위 */
 .say .label{animation:pop .45s cubic-bezier(.3,1.6,.5,1) calc(var(--at) + var(--d,0s)) both}
 .say .sub{animation:fade .5s ease calc(var(--at) + var(--d,0s) + .8s) both}
-/* 형광펜: 큰 낱말 <em> 뒤 띠(::before)가 0.18초에 쓸린다 — 글자 아래 42%, ±3도 (--tilt, 맨 아래 script가 씨앗으로 정한다). --e = 띠가 들어오는 때 (수마다 기본값) */
+/* 형광펜: 큰 낱말 <em> 뒤 띠(::before)가 0.18초에 쓸린다 — 글자 아래 42%, 반듯하게 (2026-11-19, 그 전에는 ±3도). --e = 띠가 들어오는 때 (수마다 기본값) */
 .big em{position:relative;isolation:isolate;display:inline-block;padding:0 .06em;margin:0 -.03em}
 .big em::before{content:"";position:absolute;z-index:-1;left:-.02em;right:-.02em;top:47%;height:42%;border-radius:.05em;background:var(--point);
-  transform:rotate(var(--tilt,-3deg)) scaleX(0);transform-origin:0 50%;animation:band .18s cubic-bezier(.5,0,.2,1) calc(var(--at) + var(--d,0s) + var(--e,.5s)) both}
-@keyframes band{to{transform:rotate(var(--tilt,-3deg)) scaleX(1)}}
+  transform:scaleX(0);transform-origin:0 50%;animation:band .18s cubic-bezier(.5,0,.2,1) calc(var(--at) + var(--d,0s) + var(--e,.5s)) both}
+@keyframes band{to{transform:scaleX(1)}}
 /* 움직임(수). 들어오는 움직임은 안쪽(.big·.c·em)에, 나가는 움직임은 바깥 상자(.ask·.say)에 — 한 요소에 transform 애니메이션 둘이 겹치지 않게.
    나가기는 장면 끝(--at + --len) 0.22~0.42초 전에 시작하고 forwards로만 채운다 */
 /* 착지 (첫 장면): 0초에 125%로 꽉 차 있다가(0초 프레임에 글자가 다 보인다) 0.36초에 찌그러지며 내려앉음 → 위로 튕겨 나감 */
@@ -338,7 +339,7 @@ em,i{font-style:normal}
 
 <!-- 타이포 수 정하기 (2026-11-18, 사람 승인: "배경음악처럼 폴더 이름에 따라 저절로 달라지게 … 이렇게 하자"). 지우지 않는다.
      페이지를 열 때 한 번만 돈다 (시간에 따라 움직이는 JS가 아니다 — 움직임은 CSS가 한다). 씨앗 = <body data-typo> 또는 폴더 이름 (bgm.mjs musicSeed와 같은 해시).
-     ① 형광펜 기울기 --tilt ±3도 ② 수를 적지 않은 .say에 A(slam)·B(fly)·C(rise)를 붙인다 — 같은 수를 잇지 않고, B는 큰 낱말 세 글자 이하·장면 2초 이상만
+     ① (예전 형광펜 기울기 자리 — 2026-11-19부터 반듯) ② 수를 적지 않은 .say에 A(slam)·B(fly)·C(rise)를 붙인다 — 같은 수를 잇지 않고, B는 큰 낱말 세 글자 이하·장면 2초 이상만
      ③ B는 글자를 <span class="c">로 나누고 방향을 정한다 ④ 이름표·수 효과음을 data-sfx에 더한다 (녹화 도구는 이 값을 페이지에서 읽는다)
      ⑤ 큰 낱말 글꼴을 녹화 전에 받아 둔다 — 나중 장면에만 있는 글자는 다른 글꼴로 찍혔다. -->
 <script>
@@ -348,7 +349,7 @@ em,i{font-style:normal}
   let h = 2166136261;
   for (const ch of seed) h = Math.imul(h ^ ch.codePointAt(0), 16777619);
   const rnd = () => { h = Math.imul(h ^ (h >>> 15), 2246822507); h = Math.imul(h ^ (h >>> 13), 3266489909); return ((h ^= h >>> 16) >>> 0) / 4294967296; };
-  body.style.setProperty('--tilt', rnd() < .5 ? '-3deg' : '3deg');
+  rnd(); // 예전 형광펜 기울기를 뽑던 자리. 지우면 뒤의 수 순서·날아오는 방향이 폴더마다 바뀌니 그대로 한 번 뽑고 버린다 (2026-11-19)
   const order = ['slam', 'fly', 'rise'];
   for (let i = 2; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
   const cues = [];
