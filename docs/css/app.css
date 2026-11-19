@@ -113,7 +113,6 @@ h1 .right{margin-left:auto;display:flex;gap:8px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px}
 .card h2{display:flex;align-items:center;gap:8px;font-size:16px;margin:0 0 12px}
 .card h2 small{font-weight:400;color:var(--muted);font-size:12px}
-.card h2 .updated{margin-left:auto;color:var(--dim);white-space:nowrap}
 .empty{display:grid;gap:4px;text-align:center;padding:36px 16px;color:var(--muted);font-size:14px}
 .empty strong{color:var(--ink);font-size:15px}
 

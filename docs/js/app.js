@@ -490,7 +490,7 @@
     }));
     $('coupangAxis').replaceChildren(...(days.length ? [days[0], days[Math.floor(days.length / 2)], days.at(-1)].map(day => element('span', '', tick(day))) : []));
     const failed = Object.keys(report.errors || {});
-    $('coupangUpdated').textContent = `최근 업데이트 ${tick(report.endDate)}`; // v3.8.5: like the site — the last day counted
+    $('coupangUpdated').textContent = `${tick(report.endDate)} 기준`; // v3.8.5: the last day counted · v3.11.2: one 「… 기준」 next to every card title
     $('coupangUpdated').title = `파트너스 계정 전체 · 쿠팡에서 받아 온 시각 ${shortDate(new Date(report.fetchedAt).toLocaleString('sv-SE').slice(0, 16))} · 쿠팡은 하루 한 번 집계해서 오늘 숫자는 내일 들어와요`;
     // 상품별 클릭 and the list's 쿠팡 클릭 column keep the 30 days too (clicks are not empty at the start of a month).
     $('coupangRange').textContent = `최근 30일 · ${span(days)}`; $('clicksRange').textContent = `최근 30일 · ${span(days)} · HIKARY 콘텐츠`; $('clicksHead').textContent = '쿠팡 클릭 · 30일';
@@ -847,7 +847,7 @@
     }));
   }
   // v3.11.0 (server 2.23.0): the Cloudinary account's usage under 「Buffer 남은 횟수」 — credits of the rolling 30 days as a bar (orange from
-  // 80%, also in 할 일), then storage · bandwidth · transformations. The server reads it at most every 6 hours; 「갱신」 is Cloudinary's own
+  // 80%, also in 할 일), then storage · bandwidth · transformations. The server reads it at most every 6 hours; 「… 기준」 is Cloudinary's own
   // last refresh, and the time the server read it shows on hover.
   const CLOUD_HIGH = 80;
   const cloudHigh = () => !!cloudUsage?.credits && cloudUsage.credits.percent >= CLOUD_HIGH;
@@ -859,7 +859,7 @@
       $('cloudUsageAt').textContent = ''; $('cloudUsageAt').title = usage.at ? `서버가 ${usage.at}에 읽으려다 못 했어요 · 1시간 뒤 다시 읽어요` : '';
       $('cloudUsage').replaceChildren(emptyBox('불러오지 못했어요', 'Cloudinary 콘솔에서 직접 볼 수 있어요. 서버가 1시간 뒤에 다시 읽어요.')); return;
     }
-    $('cloudUsageAt').textContent = usage.updated ? `갱신 ${shortDate(usage.updated)}` : '';
+    $('cloudUsageAt').textContent = usage.updated ? `${shortDate(usage.updated)} 기준` : '';
     $('cloudUsageAt').title = `Cloudinary ${usage.plan} 요금제 · 최근 30일 크레딧 ${Math.round(usage.credits.percent)}% · 서버가 받아 온 시각 ${usage.at} (6시간마다)`;
     const line = element('div', `qrow${cloudHigh() ? ' low' : ''}`); const bar = element('span', 'qbar'); const fill = element('i'); fill.style.width = `${Math.min(100, usage.credits.percent)}%`; bar.append(fill);
     // v3.11.1 (사람: "1.61 / 25 크레딧 이라고만 하자."): one line, used / limit; the percent stays in the hover text and in 할 일.
