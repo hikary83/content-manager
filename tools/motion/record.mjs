@@ -1,10 +1,15 @@
-// Records an animated HTML page to a 1080×1920 MP4 next to it (motion.html → motion.mp4 with sound effects and
+// Records an animated HTML page to an MP4 next to it (motion.html → motion.mp4 with sound effects and
 // the narration in narration.md, and motion-bgm.mp4 with background music too — see sfx.mjs, voice.mjs, bgm.mjs).
 //   node tools/motion/record.mjs contents/<folder>/motion.html
-// The page sets its length with <body data-duration="18">. Every CSS animation is paused and seeked to each
-// frame's time before the screenshot, so the video is identical however fast or slow this PC is.
+// The page sets its length with <body data-duration="18"> (up to 1200 s = 20 min) and its size with
+// <body data-size="1920x1080"> (no data-size = 1080×1920, the vertical shorts; same attribute as carousel/render.mjs).
+// Every CSS animation is paused and seeked to each frame's time before the screenshot, so the video is identical
+// however fast or slow this PC is.
+// The video is recorded a minute at a time into <name>.parts/ and joined at the end. If a long recording stops, run the
+// same command again: finished minutes are kept and it carries on (the parts are dropped when the page changes).
 // 2.5D photos (<img data-depth="in">, depth.mjs) are made into frames first and swapped in before each screenshot.
 // Uses the installed Chrome (or Edge, or CHROME=<path>) over a DevTools pipe (no port is opened) and ffmpeg.
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -16,9 +21,12 @@ import { musicSeed, addMusic, describe } from './bgm.mjs';
 import { voiceTrack } from './voice.mjs';
 import { DEPTH_QUERY, depthScenes, swapFrames } from './depth.mjs';
 
-const W = 1080, H = 1920, FPS = 30;
+const FPS = 30, PART = 60 * FPS, MAX_SECONDS = 1200; // a part file per minute of video
 const file = path.resolve(process.argv[2] || '');
 if (!process.argv[2] || !fs.existsSync(file)) throw new Error('사용: node tools/motion/record.mjs <motion.html>');
+const html = fs.readFileSync(file, 'utf8');
+const [W, H] = (html.match(/<body[^>]*\sdata-size="(\d+)x(\d+)"/)?.slice(1) || [1080, 1920]).map(Number);
+if (W % 2 || H % 2 || Math.min(W, H) < 240 || Math.max(W, H) > 3840) throw new Error(`data-size="${W}x${H}"는 쓸 수 없어요. 「1920x1080」처럼 짝수로, 240~3840 안에서 적어요.`);
 const chrome = [process.env.CHROME, 'C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome']
   .find(candidate => candidate && fs.existsSync(candidate));
 if (!chrome) throw new Error('Chrome 또는 Edge를 찾지 못했어요. CHROME 환경 변수로 경로를 알려주세요.');
@@ -86,7 +94,7 @@ try {
     return evaluate('document.fonts.ready.then(() => Number(document.body.dataset.duration))');
   };
   const seconds = await open();
-  if (!(seconds >= 1 && seconds <= 60)) throw new Error('<body data-duration="18">처럼 1~60초 길이를 적어주세요.');
+  if (!(seconds >= 1 && seconds <= MAX_SECONDS)) throw new Error(`<body data-duration="18">처럼 1~${MAX_SECONDS}초 길이를 적어주세요.`);
   // 2.5D photos (<img data-depth>, see depth.mjs): frames are made first, then swapped in before each screenshot.
   // Making them takes a while, so the page is opened again afterwards (same reason as the narration note above).
   let depth = [];
@@ -99,28 +107,47 @@ try {
   const frames = Math.round(seconds * FPS);
   const cues = parseCues(await evaluate('document.body.dataset.sfx || ""')); // checked before the long recording
 
-  encoder = spawn('ffmpeg', ['-v', 'error', '-y', '-f', 'image2pipe', '-framerate', String(FPS), '-c:v', 'mjpeg', '-i', '-',
-    '-c:v', 'libx264', '-preset', 'medium', '-crf', '18', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', out], { stdio: ['pipe', 'ignore', 'pipe'] });
-  let log = '';
-  encoder.stderr.on('data', data => { log += data; });
-  encoder.stdin.on('error', () => {}); // a dead encoder is reported by `encoded` below
-  const encoded = new Promise((resolve, reject) => encoder.on('close', code => code === 0 ? resolve() : reject(new Error(`ffmpeg 실패: ${log.slice(-1500)}`))));
-
-  for (let i = 0; i < frames; i++) {
-    if (depth.length) await evaluate(swapFrames(depth, i, FPS));
-    await evaluate(`document.getAnimations().forEach(a => { a.pause(); a.currentTime = ${i * 1000 / FPS}; });
-      new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))`);
-    const { data } = await page('Page.captureScreenshot', { format: 'jpeg', quality: 95 });
-    if (!encoder.stdin.write(Buffer.from(data, 'base64'))) await Promise.race([new Promise(r => encoder.stdin.once('drain', r)), encoded]);
-    if (i % FPS === 0) console.log(`${i / FPS} / ${seconds}초`);
+  // Parts belong to this exact page: another page text, size or length starts over.
+  // ponytail: photos swapped under the same file names are not noticed — delete <name>.parts/ by hand after that.
+  const parts = out.replace(/\.mp4$/i, '') + '.parts', stamp = path.join(parts, 'page.sha1');
+  const key = crypto.createHash('sha1').update(html).update(`${W}x${H}@${FPS}`).digest('hex');
+  if (fs.existsSync(stamp) && fs.readFileSync(stamp, 'utf8') !== key) fs.rmSync(parts, { recursive: true, force: true });
+  fs.mkdirSync(parts, { recursive: true });
+  fs.writeFileSync(stamp, key);
+  const every = seconds > 60 ? 30 * FPS : FPS, started = Date.now();
+  const names = [];
+  for (let from = 0; from < frames; from += PART) {
+    const name = path.join(parts, `${String(from / PART).padStart(3, '0')}.mp4`);
+    names.push(name);
+    if (fs.existsSync(name)) { console.log(`${from / FPS}초부터 1분: 지난번에 찍어 둔 것을 써요`); continue; }
+    const temp = name.replace(/\.mp4$/, '.tmp.mp4');
+    encoder = spawn('ffmpeg', ['-v', 'error', '-y', '-f', 'image2pipe', '-framerate', String(FPS), '-c:v', 'mjpeg', '-i', '-',
+      '-c:v', 'libx264', '-preset', 'medium', '-crf', '18', '-pix_fmt', 'yuv420p', temp], { stdio: ['pipe', 'ignore', 'pipe'] });
+    let log = '';
+    encoder.stderr.on('data', data => { log += data; });
+    encoder.stdin.on('error', () => {}); // a dead encoder is reported by `encoded` below
+    const encoded = new Promise((resolve, reject) => encoder.on('close', code => code === 0 ? resolve() : reject(new Error(`ffmpeg 실패: ${log.slice(-1500)}`))));
+    for (let i = from; i < Math.min(frames, from + PART); i++) {
+      if (depth.length) await evaluate(swapFrames(depth, i, FPS));
+      await evaluate(`document.getAnimations().forEach(a => { a.pause(); a.currentTime = ${i * 1000 / FPS}; });
+        new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))`);
+      const { data } = await page('Page.captureScreenshot', { format: 'jpeg', quality: 95 });
+      if (!encoder.stdin.write(Buffer.from(data, 'base64'))) await Promise.race([new Promise(r => encoder.stdin.once('drain', r)), encoded]);
+      if (i % every === 0) console.log(`${i / FPS} / ${seconds}초${i ? ` (${Math.round((Date.now() - started) / 1000)}초 지남)` : ''}`);
+    }
+    encoder.stdin.end();
+    await encoded;
+    fs.renameSync(temp, name); // only a finished minute gets its real name, so a stop never leaves half a part to reuse
   }
-  encoder.stdin.end();
-  await encoded;
+  const list = path.join(parts, 'list.txt');
+  fs.writeFileSync(list, names.map(name => `file '${name.replace(/\\/g, '/').replace(/'/g, "'\\''")}'`).join('\n'));
+  run('ffmpeg', ['-v', 'error', '-y', '-f', 'concat', '-safe', '0', '-i', list, '-c', 'copy', '-movflags', '+faststart', out]);
   const info = probe(out), video = info.streams.find(s => s.codec_type === 'video');
   if (video?.width !== W || video?.height !== H || Math.abs(Number(info.format.duration) - frames / FPS) > 0.1) throw new Error('출력 영상 길이·해상도 검증 실패');
+  fs.rmSync(parts, { recursive: true, force: true });
   addSound(out, cues, voice);
   console.log(`완료: ${out} (${frames / FPS}초, 효과음 ${cues.length}개${voice ? ', 나레이션' : ''})`);
-  const seed = musicSeed(file, fs.readFileSync(file, 'utf8'));
+  const seed = musicSeed(file, html);
   if (seed) { const music = addMusic(out, seed, voice); console.log(`배경음악 버전: ${music.out} (${describe(music.picks)})`); }
 } finally {
   encoder?.kill();
