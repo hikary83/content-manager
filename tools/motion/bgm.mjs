@@ -8,6 +8,10 @@
 // The photo template cuts its hook on two beats at 108bpm. When the folder-name track has another tempo, find a seed
 // that plays at 108 and put it in data-bgm (No.255 「bulmeong40」, No.256 「hanok40」, 2026-11-11):
 //   node tools/motion/bgm.mjs --find 108 hanok   → hanok5 → A키 108bpm … (seeds hanok1…hanok60)
+// Long videos (60 s or more, 2026-11-19 — 사람: 10분에 같은 8초 코드가 72번 돌아 지루하다) change every 16 bars (30~40 s):
+// drums out, another instrument and arpeggio, back to the theme, busier hats with the arpeggio an octave up, and the last part a
+// whole tone higher. Key and tempo stay. A second random stream picks the parts, so the first 16 bars are the notes they always
+// were, and anything shorter than 60 s (the shorts, data-bgm seeds like bulmeong40·hanok40) is the same track byte for byte.
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -33,6 +37,32 @@ const BEATS = { // beat positions in a 4-beat bar
   bounce: { kick: [0, 1.5, 2], snap: [1, 3], hat: [0.5, 1, 1.5, 2.5, 3, 3.5] },
 };
 
+const LONG = 60, SECTION = 16; // seconds from which a track changes parts · bars in a part
+
+const rng = text => {
+  let h = 2166136261;
+  for (const ch of text) h = Math.imul(h ^ ch.codePointAt(0), 16777619);
+  return () => { h = Math.imul(h ^ (h >>> 15), 2246822507); h = Math.imul(h ^ (h >>> 13), 3266489909); return ((h ^= h >>> 16) >>> 0) / 4294967296; };
+};
+
+// The parts of a long track. Part 0 is `base` (the track as it always was); a short tail (under 8 bars) joins the part before it.
+function parts(seed, bars, base) {
+  let count = Math.ceil(bars / SECTION);
+  if (count > 1 && bars % SECTION && bars % SECTION < 8) count--;
+  const r = rng(`${seed}#parts`), other = (list, not) => { const rest = list.filter(x => x !== not); return rest[Math.floor(r() * rest.length)]; };
+  const kinds = ['break', 'alt', 'main', 'lift'];
+  for (let i = kinds.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [kinds[i], kinds[j]] = [kinds[j], kinds[i]]; }
+  const kind = {
+    main: () => base,
+    break: () => ({ ...base, drums: false, bass: 0.14 }), // drums out, softer bass
+    alt: () => ({ ...base, tone: other(Object.keys(TONES), base.tone), arp: other(ARPS, base.arp) }), // picked anew each time round
+    lift: () => ({ ...base, hat: BEATS.bounce.hat, up: 12 }), // busier hats, arpeggio an octave up
+  };
+  const plan = Array.from({ length: count }, (_, s) => s ? kind[kinds[(s - 1) % kinds.length]]() : base);
+  if (count > 1) plan[count - 1] = { ...kind.lift(), shift: 2 };
+  return plan;
+}
+
 export function musicSeed(page, html) {
   const set = html.match(/<body[^>]*\sdata-bgm="([^"]*)"/)?.[1]?.trim();
   return set === 'off' ? null : set || path.basename(path.dirname(path.resolve(page)));
@@ -40,9 +70,7 @@ export function musicSeed(page, html) {
 
 // Returns a 16-bit stereo WAV and what the seed picked.
 export function makeMusic(seed, seconds) {
-  let h = 2166136261;
-  for (const ch of seed) h = Math.imul(h ^ ch.codePointAt(0), 16777619);
-  const rnd = () => { h = Math.imul(h ^ (h >>> 15), 2246822507); h = Math.imul(h ^ (h >>> 13), 3266489909); return ((h ^= h >>> 16) >>> 0) / 4294967296; };
+  const rnd = rng(seed);
   const pick = list => list[Math.floor(rnd() * list.length)];
   const key = pick(Object.keys(KEYS)), chords = pick(Object.keys(PROGS)), tone = pick(Object.keys(TONES)),
     beat = pick(Object.keys(BEATS)), arp = pick(ARPS), bpm = 96 + 4 * Math.floor(rnd() * 7);
@@ -60,37 +88,44 @@ export function makeMusic(seed, seconds) {
   const bass = f => t => (sin(f, t) + 0.3 * sin(2 * f, t)) * Math.exp(-t * 3) * Math.min(1, t / 0.01);
   const kick = t => Math.sin(2 * Math.PI * (50 * t + 70 / 30 * (1 - Math.exp(-30 * t)))) * Math.exp(-t * 9);
 
-  const bars = Math.ceil(D / BAR);
+  const bars = Math.ceil(D / BAR), base = { tone, arp, beat, drums: true, bass: 0.22, hat: null, up: 0, shift: 0 };
+  const plan = D >= LONG ? parts(seed, bars, base) : [base];
   for (let k = 0; k < bars; k++) {
+    const s = Math.min(Math.floor(k / SECTION), plan.length - 1), p = plan[s];
     const t0 = k * BAR, [r, major] = PROGS[chords][k % 4];
     let root = 60 + KEYS[key] + r;
     if (root > 64) root -= 12;
     if (root < 53) root += 12;
+    root += p.shift; // after the octave fold, so the last part really goes up
     const chord = [root, root + (major ? 4 : 3), root + 7], tones = [...chord.map(m => m + 12), root + 24];
     chord.forEach(m => note(t0, BAR, pad(hz(m), BAR), 0.05));
-    arp.forEach((a, i) => a !== null && note(t0 + i * B / 2, 0.8, TONES[tone](hz(tones[a])), 0.16, i % 2 ? 0.3 : -0.3));
+    p.arp.forEach((a, i) => a !== null && note(t0 + i * B / 2, 0.8, TONES[p.tone](hz(tones[a] + p.up)), 0.16, i % 2 ? 0.3 : -0.3));
+    if (s && k === s * SECTION && p.drums) note(t0, 1.4, hit(4), 0.06); // a soft crash where a new part comes in with drums
     if (k === 0 || k === bars - 1) continue; // first and last bar: melody only
-    [0, 2].forEach(b => note(t0 + b * B, B * 1.8, bass(hz(root - 12)), 0.22));
-    BEATS[beat].kick.forEach(b => note(t0 + b * B, 0.35, kick, 0.45));
-    BEATS[beat].snap.forEach(b => note(t0 + b * B, 0.2, hit(22), 0.07));
-    BEATS[beat].hat.forEach(b => note(t0 + b * B, 0.08, hit(60), 0.05, 0.2));
+    [0, 2].forEach(b => note(t0 + b * B, B * 1.8, bass(hz(root - 12)), p.bass));
+    if (!p.drums) continue;
+    BEATS[p.beat].kick.forEach(b => note(t0 + b * B, 0.35, kick, 0.45));
+    BEATS[p.beat].snap.forEach(b => note(t0 + b * B, 0.2, hit(22), 0.07));
+    (p.hat || BEATS[p.beat].hat).forEach(b => note(t0 + b * B, 0.08, hit(60), 0.05, 0.2));
   }
 
+  // A long track is levelled on its first part, so it opens exactly as loud as the short track; later parts are clamped.
+  const levelled = plan.length > 1 ? Math.min(N, Math.floor(SECTION * BAR * SR)) : N;
   let peak = 1e-9;
   for (let i = 0; i < N; i++) {
     const t = i / SR, g = Math.min(1, t / 0.3) * Math.min(1, (D - t) / 2); // fade in 0.3s, out 2s
     L[i] = Math.tanh(L[i] * g); R[i] = Math.tanh(R[i] * g);
-    peak = Math.max(peak, Math.abs(L[i]), Math.abs(R[i]));
+    if (i < levelled) peak = Math.max(peak, Math.abs(L[i]), Math.abs(R[i]));
   }
-  const wav = Buffer.alloc(44 + N * 4), gain = 0.89 / peak;
+  const wav = Buffer.alloc(44 + N * 4), gain = 0.89 / peak, clamp = v => Math.max(-1, Math.min(1, v));
   wav.write('RIFF', 0); wav.writeUInt32LE(36 + N * 4, 4); wav.write('WAVEfmt ', 8); wav.writeUInt32LE(16, 16);
   wav.writeUInt16LE(1, 20); wav.writeUInt16LE(2, 22); wav.writeUInt32LE(SR, 24); wav.writeUInt32LE(SR * 4, 28);
   wav.writeUInt16LE(4, 32); wav.writeUInt16LE(16, 34); wav.write('data', 36); wav.writeUInt32LE(N * 4, 40);
   for (let i = 0; i < N; i++) {
-    wav.writeInt16LE(Math.round(L[i] * gain * 32767), 44 + i * 4);
-    wav.writeInt16LE(Math.round(R[i] * gain * 32767), 46 + i * 4);
+    wav.writeInt16LE(Math.round(clamp(L[i] * gain) * 32767), 44 + i * 4);
+    wav.writeInt16LE(Math.round(clamp(R[i] * gain) * 32767), 46 + i * 4);
   }
-  return { wav, picks: { key, bpm, chords, tone, beat } };
+  return { wav, picks: { key, bpm, chords, tone, beat, parts: plan.length } };
 }
 
 // motion.mp4 → motion-bgm.mp4 with the music under whatever sound the video already has.
@@ -103,10 +138,12 @@ export function addMusic(video, seed, voice) {
     const music = path.join(dir, 'music.wav');
     fs.writeFileSync(music, wav);
     const duck = voice ? '[m][2:a]sidechaincompress=threshold=0.02:ratio=8:attack=30:release=400[d];' : '';
+    // apad: the sound runs on in silence, so -shortest ends with the video's last frame. Without it the mix (a few
+    // hundredths of a second shorter than the video) cut 1~4 last frames: No.265 525 → 521, 10 minutes 18000 → 17996 (2026-11-19).
     const audio = info.streams.some(s => s.codec_type === 'audio')
-      ? ['-filter_complex', `[1:a]volume=${VOLUME}[m];${duck}[0:a][${voice ? 'd' : 'm'}]amix=inputs=2:normalize=0:duration=first,alimiter=limit=0.95[a]`, '-map', '[a]']
-      : ['-map', '1:a'];
-    run('ffmpeg', ['-v', 'error', '-y', '-i', video, '-i', music, ...(voice ? ['-i', voice] : []), '-map', '0:v', ...audio,
+      ? `[1:a]volume=${VOLUME}[m];${duck}[0:a][${voice ? 'd' : 'm'}]amix=inputs=2:normalize=0:duration=first,alimiter=limit=0.95,apad[a]`
+      : '[1:a]apad[a]';
+    run('ffmpeg', ['-v', 'error', '-y', '-i', video, '-i', music, ...(voice ? ['-i', voice] : []), '-map', '0:v', '-filter_complex', audio, '-map', '[a]',
       '-c:v', 'copy', '-c:a', 'aac', '-b:a', '160k', '-shortest', '-movflags', '+faststart', out]);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
@@ -114,7 +151,7 @@ export function addMusic(video, seed, voice) {
   return { out, picks };
 }
 
-export const describe = ({ key, bpm, chords, tone, beat }) => `${key}키 ${bpm}bpm ${chords} · ${tone} · ${beat}`;
+export const describe = ({ key, bpm, chords, tone, beat, parts = 1 }) => `${key}키 ${bpm}bpm ${chords} · ${tone} · ${beat}${parts > 1 ? ` · ${parts}구간` : ''}`;
 
 // Seeds prefix1…prefixN whose track plays at `bpm` (a 50 ms render is enough to read what the seed picks).
 export const findSeeds = (bpm, prefix, count = 60) => Array.from({ length: count }, (_, i) => `${prefix}${i + 1}`)
