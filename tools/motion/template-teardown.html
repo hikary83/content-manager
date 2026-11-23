@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><title>HIKARY 모션 템플릿 · 뜯어 보기</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Black+Han+Sans&display=block">
+<style>
+/* 뜯어 보기 (템플릿 8, id teardown, 2026-11-23 — 기획팀 지시, 사람 승인 "맡겨" · 2차 "아쉬운 점 보완해서 수정해보자"). 일상템 소개용.
+   상품 사진을 이음매에서 조각으로 벌려 조각마다 이름표를 단 뒤, 특징 사진 카드 2~3장 → 쿠팡 후기 비율 → 다시 맞춰지며 끝 부탁. 18~20초.
+   스터디 S6(기계를 부품으로 쪼개 쌓은 입체 그림)에서 「쪼개 보이기」 연출만 참고했다. 그 스킬은 깔지 않았고 부품을 그리지 않는다.
+   첫 시험본: contents/_test/teardown-mooa/ (MOOA 트라이탄 텀블러 블러쉬 핑크 — 3단 분리 + 끼워진 실리콘 홀더).
+   맞는 상품: 구성품이 또렷한 일상템 — 분리되는 텀블러·보틀, 밀폐용기 세트, 도시락, 휴대용 블렌더·선풍기, 칸 나뉜 정리함, 화장품 세트.
+     흰 바탕 상품 사진(통째, 이음매가 보이는 것)이나 흰 바탕 구성품 사진이 상품 페이지에 있어야 한다. 옵션 사진(색상별 대표 이미지)이 가장 큰 경우가 많다.
+   안 맞는 상품: 분리되지 않는 한 덩어리 · 흰 바탕 사진이 없는 것(생활 사진뿐) · 옷·식품·여행 → 퀴즈(3)·사진(4)·생생(6).
+   ■ 하지 말 것 (CLAUDE.md 3장 · 4장)
+     - 부품을 새로 그리지 않는다. 조각 = 실제 상품 사진이나 판매자 구성품 사진을 자르거나 오린 것만.
+     - 사진에 없는 속 구조·부품·재질을 만들지 않는다. 투명한 부품 너머로 비친 것(예: 트라이탄 너머 스텐 테두리)은 그 조각에 딸려 간다 — 지우거나 그려 넣지 않는다.
+       끼워진 채 찍힌 부품(홀더·커버)은 붙은 조각과 같이 간다 — 떼어 낸 모습을 지어내지 않는다.
+     - 이름표 = 상품 페이지 구성품 표기 (「포함 구성 요소」·상세 이미지의 부품 이름). 아래 작은 줄 = 상품 페이지 소재·구성 표기 (소재 표·「기본 포함」).
+       지어낸 이름(「밀폐 패킹」 같은 것)을 쓰지 않는다. 판매자가 부른 이름 그대로.
+     - 가격·할인율·옵션 용량처럼 바뀌거나 옵션마다 다른 숫자는 쓰지 않는다. 판매자 후기 인용(「육아맘 추천」 같은 상자)은 옮기지 않는다.
+     - 배경을 지우는 AI 모델은 깔지 않는다. 아래 cutout.py(가장자리 흰 바탕만 빼기)로 안 되면 기획팀에 먼저 묻는다.
+   ■ 쓰는 법: contents/<폴더>/motion.html로 복사 →
+     ① 사진: 흰 바탕 통째 사진을 상품 한 개만 남게 잘라 photo-1.png, 따로 있는 구성품(홀더·뚜껑 여분 등)은 photo-2.png…, 특징 카드 사진은 photo-3.jpg…
+        상품은 화면에서 크게 쓴다(아래 ③) — 원본 세로가 900px 넘는 사진을 고른다. 2배 넘게 키우면 흐리니, 작으면 옵션 사진·대표 이미지에서 더 큰 것을 찾는다.
+        특징 사진은 판매자 상세 이미지의 생활 사진·확대 사진을 글자가 들어가지 않게 잘라 쓴다 (카드 가로 770px — 작은 사진은 카드 --w를 줄인다).
+     ② 오리기: 가장자리에 이어진 흰 바탕만 뺀다 (AI 없음, 2.5D용 Pillow만 쓴다 — 새로 까는 것 없음). 결과를 진한 바탕에 얹어 본다.
+          ~/.hikary-depth/Scripts/python.exe tools/motion/cutout.py photo-1.png cut-1.png
+        ffmpeg colorkey(색만 보고 흰색 빼기)는 연분홍·연민트 몸통의 빛 부분까지 뚫어서 쓰지 않는다 (2차 시험에서 확인).
+     ③ 조각(.kit > .pc): 오린 사진 한 장을 이음매에서 띠로 나눈다. --W·--H = 사진 크기, 띠마다 --t = 위 끝 px · --h = 높이 px.
+        이음매는 사진에서 잰다 — 부품 경계의 어두운 줄·색이 바뀌는 줄 (사진에 보이는 겉 이음매에서만 자른다).
+        이음매가 반듯하지 않으면(옆에 다른 부품이 걸쳐 있으면) 띠마다 --clip(띠 상자 기준 inset·polygon)으로 깎는다 — 시험본: 차망 띠는 양옆 홀더 고리를 빼고
+        inset(0 73px 0 78px), 본체 띠는 고리 위끝(차망 띠와 48px 겹침)까지 U자 polygon. 두 띠가 같은 픽셀을 갖지 않게.
+        벌어짐 --ex·--ey(사진 px, 화면에서는 --s1배) · --er(기울기). 위 조각은 위로(−), 아래 조각은 아래로. 가운데 조각은 조금만.
+        크기: 상품이 세로 안전 영역(y 300~1480)을 채우게 — 통째(0초)는 세로 1100px 안팎(--s0), 벌어진 뒤는 맨 위 조각 위끝 y 310 · 맨 아래 조각 아래끝 y 1480이 되게 --s1·--y1을 맞춘다.
+        화면 자리: --x0,--y0,--s0(통째) → 1.2초에 --x1,--y1,--s1(벌어진 뒤, 왼쪽으로 옮겨 오른쪽에 이름표 자리).
+        가로로 넓은 상품(도시락·정리함)은 띠를 세로로 자르지 말고, 구성품 사진을 조각마다 따로 오려 .acc로 흩어 놓는다 (조각 하나 = 사진 한 장).
+     ④ 따로 있는 구성품(.acc): 옆에서 날아든다. 연한 색(흰·연민트 실리콘 같은 것)은 종이 바탕에 묻히니 tile을 붙여 포인트 색 판 위에 올린다 (예시는 01 장면 주석).
+     ⑤ 이름표(.ptag): 점이 조각 오른쪽 끝(--x)에 오게, 줄 길이 --lw(알약이 x 530쯤에서 시작하게), 높이 --y = 조각 가운데. 오른쪽 구성품을 가리킬 때는 .ptag.r.
+        조각 화면 자리 계산: 화면 x = --x1 + (사진 x − --W/2) × --s1 · 화면 y = --y1 + (사진 y − --H/2 + --ey) × --s1.
+     ⑥ 「…」 자리를 상품 페이지 사실로 바꾸고 → node tools/motion/record.mjs contents/<폴더>/motion.html → motion.mp4 + motion-bgm.mp4
+   ■ 대본 틀 (20초 — 기본 18~20초. 장면을 더하거나 빼면 --at·--len, 나레이션 줄, data-sfx를 같이 옮긴다):
+     | 시간       | 장면                         | 화면                                                         |
+     | 0~1.2      | 통째 (흰 바탕 상품, 크게)      | 첫 한마디 착지 (0초에 다 보인다) · 고지 — 1.2초에 위로 날아감     |
+     | 1.2~5.8    | 벌어짐 → 이름표 차례로        | 이름표는 나레이션이 부를 때 하나씩                              |
+     | 5.8~14.2   | 특징 사진 카드 셋, 2.8초씩     | 작은 말 / 큰 낱말 (수 A·B·C 저절로) · 카드 꼬리표 = 이름표 말   |
+     | 14.2~17.2  | 쿠팡 후기 카드                | 작은 말 / 큰 낱말 — D 뚫고 지나감                             |
+     | 17.2~20    | 다시 맞춰짐 → 끝 부탁          | 프로필 링크 No. + 인스타 댓글 키워드 DM · 고지                 |
+     특징이 둘이면 카드 하나를 빼고 뒤 장면을 2.8초 당긴다 (17.2초).
+   ■ 특징 고르는 법 — 특히 셋째 (2026-11-23, 1차 시험에서 가방 속 사진이 가장 약했다):
+     흔한 사용 장면(가방 속·책상 위·손에 든 모습)보다 **그 상품에서만 볼 수 있는 장면**을 고른다 — 각인·안쪽 구조·분리된 실제 모습·확대 사진.
+     시험본은 바닥 「SUS 316」 각인 확대(상세 이미지 「내면 304, 바닥 316 스테인리스」 단락)로 바꿨다. **상품 페이지에 실제로 있는 사진일 때만** 쓴다 — 없으면 다른 특징을 고른다.
+     세 장면이 같은 크기·같은 모양 카드로 이어지면 지루하니, 작은 확대 사진은 카드 --w를 줄여(560px) 모양을 바꾼다.
+   ■ 첫 3초 규칙 (CLAUDE.md 4장): ① 첫 한마디는 .ask.land라 0초 프레임에 다 보인다 ② 첫 장면 = 흰 바탕 상품을 화면 가운데 크게(세로 1100px 안팎)
+     — 종이 바탕과 오린 사진이라 빈 곳 없이 상품만 보인다 ③ 블러 전환 없음 ④ 1.2초에 조각이 벌어진다 (장면이 바뀌는 자리) ⑤ 고지 0초부터 맨 위.
+     첫 한마디: 「뜯어 보면 / 3단 분리」처럼 벌어짐을 예고하는 말 (사실일 때만). 상품이 커서 글자가 겹치니, 뚜껑·이음매를 가리지 않게 단색 몸통 위(--y 1000 안팎)에 둔다.
+     글자는 먹색이라 밝은 몸통 위에서만 읽힌다 — 검정·진한 몸통이면 상품을 조금 줄여(--s0) 위쪽 빈 곳(--y 300)에 둔다 (색 예시: contents/_test/teardown-color-dark/demo.png).
+     나레이션 첫 줄은 0.15초부터 그대로 읽고 1.2초 안팎에 끝낸다 (첫 한마디는 1.2초에 벌어짐과 함께 위로 날아간다).
+   ■ 자막 타이포: 생생(템플릿 6)과 같은 짜임이다 — 작은 주아 한 줄(.small) + 큰 낱말(.big, Black Han Sans, 네 글자 안쪽, 두 글자 250 · 세 글자 220 · 네 글자 170px).
+     밝은 종이 바탕이라 글자는 먹색(--ink), 형광펜은 --band. 가운데 장면의 수(A 쿵 · B 날아옴 · C 솟아오름)와 B 방향·효과음은 맨 아래 script가 폴더 이름으로 정한다.
+     B는 큰 낱말이 세 글자 이하일 때만. 다른 조합은 <body data-typo="아무 글자">, 한 장면만 정하려면 그 .say에 slam·fly·rise를 적는다. 후기 장면은 through 고정.
+     자막(.say)은 위(y 250~610), 카드는 그 아래(y 670~1410)라 겹치지 않는다. 큰 낱말이 250px면 작은 말을 한 줄로 짧게.
+   ■ 후기 카드: 쿠팡 상품 리뷰 화면의 별점 비율(최고·좋음·보통·별로·나쁨 %)과 후기 수를 그대로 옮기고, 확인한 날을 아래에 적는다.
+     큰 숫자 = 최고 + 좋음. 글 후기를 요약하지 않는다 (요약은 게시글로 — 3장). 「열에 아홉」처럼 말로 풀 때는 숫자보다 크게 말하지 않는다 (91% → 열에 아홉 ○, 열에 열 ×).
+   ■ 끝 부탁: 3장대로 댓글 키워드. 「인스타는」을 앞에 붙인다 (같은 영상이 유튜브·틱톡에도 올라간다).
+     「아무 댓글」 버전(사람이 아직 정하지 않음): <p class="dm fade" style="--d:1.6s">인스타는 아무 댓글이나 남기면 상품 정보를 DM으로 보내 드려요</p>
+   ■ 효과음 <body data-sfx>: 착지 thud · 벌어질 때 swoosh + click(1.2초) · 이름표마다 pop · 구성품 날아듦 swoosh · 카드마다 whoosh · 후기 막대 tick ·
+     맞춰질 때 whoosh → click + thud (17.72초) · 링크 ding. 수 효과음(A thud · C swoosh · D pop)은 script가 더한다 — 소리를 고치면 다시 녹화한다.
+   ■ 글씨는 x 60~900, y 200~1480 안에. 고지는 첫 장면·끝 장면 위(.disc).
+     **자막은 화면 가운데(540)**, 폭 180~900 — 첫 한마디·자막·링크 알약·DM 줄 모두. 특징 카드·통째·끝 장면 상품도 가운데 540에 맞춘다 (2026-11-23 사람: "정가운데로").
+     벌어진 조각만 이름표 자리 때문에 왼쪽(--x1 280)에 둔다. */
+/* 색 = 배경 톤까지 상품마다 바꾼다 (2026-11-23 사람: "배경은 아이템에 맞게 바뀌는 거지?" — 그렇다). 이 블록만 바꾸면 영상 전체가 바뀐다 (CLAUDE.md §4).
+   **배경 톤은 상품 대표 색에서 고른다**: --paper = 상품 몸통 색을 아주 옅게 (흰색 쪽으로 90% 넘게 섞은 색). 모눈 줄은 --ink에서 저절로 나온다.
+     연분홍 텀블러 → #f9eef1 · 소프트민트 → #eef3ef · 검정·회색 상품(초퍼·블렌더) → 옅은 회색 #eeeeec (검정 몸통이 또렷해진다).
+     상품이 흰색이면 --paper도 흰색 쪽이라 몸통이 묻힌다 → 옅은 회색이나 상세 이미지의 바탕 색으로 한 단계 진하게.
+   --point(카드 꼬리표·링크 알약·후기 막대·구성품 판 — 판매자 상세 이미지의 강조 색, 진한 색) · --on-point(그 위 글자)
+   --band(형광펜 — 먹색 글자 뒤에 깔리니 밝은 색. 상품 옵션 색·상세 이미지 색에서) · --ink(글자·이름표 바탕 — 거의 검정, 상품 색 쪽으로 조금)
+   후보는 node tools/colors.mjs <사진…>. 고른 이유를 초안과 같이 말한다. */
+:root{
+  --point:#3c73c3;
+  --on-point:#fff;
+  --band:#f6de7e;
+  --ink:#2b2327;
+  --paper:#f9eef1;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1080px;height:1920px;overflow:hidden}
+body{position:relative;background:var(--paper);font-family:Jua,sans-serif;font-synthesis:none;color:var(--ink);letter-spacing:-.5px;word-break:keep-all}
+em,i{font-style:normal}
+ul{list-style:none}
+
+.scene{position:absolute;inset:0;opacity:0;animation:show var(--len) linear var(--at)}
+@keyframes show{from,to{opacity:1}}
+.pop,.fade{animation-duration:.6s;animation-timing-function:cubic-bezier(.2,.8,.2,1);animation-fill-mode:both;animation-delay:calc(var(--at) + var(--d,0s))}
+.pop{animation-name:pop;animation-timing-function:cubic-bezier(.3,1.6,.5,1)} @keyframes pop{from{opacity:0;transform:scale(.3)}}
+.fade{animation-name:fade} @keyframes fade{from{opacity:0}}
+@keyframes up{from{opacity:0;transform:translateY(50px)}}
+
+/* 바탕: 옅은 종이 + 설계도 모눈 (영상 내내) */
+.grid{position:absolute;inset:0;background:
+  radial-gradient(60% 40% at 45% 52%,rgba(255,255,255,.9),rgba(255,255,255,0)),
+  linear-gradient(color-mix(in srgb,var(--ink) 7%,transparent) 2px,transparent 2px) 0 0/60px 60px,
+  linear-gradient(90deg,color-mix(in srgb,var(--ink) 7%,transparent) 2px,transparent 2px) 0 0/60px 60px}
+
+/* 장면 끝에 왼쪽으로 밀려 나가는 묶음 */
+.leave{position:absolute;inset:0;animation:outleft .26s cubic-bezier(.5,0,1,.5) calc(var(--at) + var(--len) - .28s) forwards}
+
+/* 조각: 오린 사진 한 장(.kit)을 이음매 띠(.pc)로 나눈다. kit 좌표 = 사진 px. 화면 자리·크기는 kit이, 벌어짐은 띠가 맡는다 */
+.kit{position:absolute;left:0;top:0;width:var(--W);height:var(--H);transform-origin:50% 50%;
+  transform:translate(calc(var(--x1) - var(--W) / 2),calc(var(--y1) - var(--H) / 2)) scale(var(--s1));
+  animation:kit var(--kd,.6s) cubic-bezier(.3,1.15,.5,1) calc(var(--at) + var(--kt,0s)) both}
+@keyframes kit{from{transform:translate(calc(var(--x0) - var(--W) / 2),calc(var(--y0) - var(--H) / 2)) scale(var(--s0))}}
+.pc{position:absolute;left:0;top:var(--t);width:var(--W);height:var(--h);
+  filter:drop-shadow(0 14px 16px rgba(30,43,38,.22));transform:translate(var(--ex,0px),var(--ey,0px)) rotate(var(--er,0deg));
+  animation:apart .55s cubic-bezier(.3,1.6,.5,1) calc(var(--at) + var(--pt,1.2s)) both,bob var(--bt,1.4s) ease-in-out calc(var(--at) + var(--pt,1.2s) + .55s) infinite alternate}
+@keyframes apart{from{transform:none}}
+/* 띠 그림. 이음매가 반듯하지 않으면(옆에 다른 부품이 걸쳐 있으면) --clip으로 띠를 깎는다 — 띠 상자 기준, 이웃 띠와 겹치지 않게 */
+.pc::before{content:"";position:absolute;inset:0;background:var(--img) 0 calc(var(--t) * -1)/var(--W) var(--H) no-repeat;clip-path:var(--clip,none)}
+/* 벌어진 뒤 조각이 박자를 달리해 살짝 뜬다 (translate 속성이라 transform 움직임과 겹치지 않는다 — 이름표가 다 나온 뒤에도 멈춰 보이지 않게) */
+@keyframes bob{to{translate:0 var(--bob,-9px)}}
+.pc:nth-child(2){--bt:1.7s;--bob:7px}.pc:nth-child(3){--bt:1.55s;--bob:-6px}.pc:nth-child(4){--bt:1.85s}
+.kit.join .pc{transform:none;animation:join .5s cubic-bezier(.55,0,.3,1.25) calc(var(--at) + var(--pt,.1s)) both}
+@keyframes join{from{transform:translate(var(--ex,0px),var(--ey,0px)) rotate(var(--er,0deg))}}
+/* 따로 있는 구성품(홀더 같은 것): 오린 사진 한 장이 옆에서 날아든다 */
+.acc{position:absolute;left:var(--x);top:var(--y);width:var(--w);height:var(--h);background:var(--img) center/contain no-repeat;
+  filter:drop-shadow(0 14px 16px rgba(30,43,38,.22));animation:accin .6s cubic-bezier(.3,1.4,.5,1) calc(var(--at) + var(--d,0s)) both,bob 1.6s ease-in-out calc(var(--at) + var(--d,0s) + .6s) infinite alternate}
+.acc.tile{background:var(--img) center/78% no-repeat,var(--point);border-radius:34px;filter:drop-shadow(0 14px 18px rgba(30,43,38,.28))} /* 밝은 구성품이 바탕에 묻힐 때 — 포인트 색 판 위에 */
+@keyframes accin{from{opacity:0;transform:translate(520px,140px) rotate(50deg) scale(.7)}}
+/* 이름표: 점 + 줄이 그어지고 알약이 튄다. 이름 = 상품 페이지 구성품 표기, 아래 작은 줄 = 상품 페이지 소재·구성 표기 */
+.ptag{position:absolute;left:var(--x);top:var(--y);height:110px;margin-top:-55px;display:flex;align-items:center}
+.ptag>i{width:var(--lw,70px);height:5px;border-radius:3px;background:var(--ink);position:relative;transform-origin:0 50%;animation:linein .22s cubic-bezier(.3,0,.2,1) calc(var(--at) + var(--d)) both}
+.ptag>i::before{content:"";position:absolute;left:-9px;top:-7px;width:19px;height:19px;border-radius:50%;background:var(--ink);box-shadow:0 0 0 5px var(--paper)}
+@keyframes linein{from{transform:scaleX(0)}}
+.ptag>span{margin-left:10px;padding:14px 26px 8px;border-radius:24px;background:var(--ink);color:#fff;font-size:50px;line-height:1.05;white-space:nowrap;
+  box-shadow:0 10px 24px rgba(30,43,38,.2);transform-origin:0 50%;animation:pop .4s cubic-bezier(.3,1.6,.5,1) calc(var(--at) + var(--d) + .12s) both}
+.ptag small{display:block;margin-top:4px;font-size:28px;color:var(--band)}
+.ptag.r{flex-direction:row-reverse}
+.ptag.r>i{transform-origin:100% 50%} .ptag.r>i::before{left:auto;right:-9px}
+.ptag.r>span{margin:0 10px 0 0;transform-origin:100% 50%}
+
+/* 특징 사진 카드: 흰 테두리 카드가 떨어지고 안의 사진이 천천히 다가간다. 꼬리표 = 이름표와 같은 말 */
+.card{position:absolute;left:var(--x,140px);top:var(--y,670px);width:var(--w,800px);padding:14px;border-radius:36px;background:#fff;
+  box-shadow:0 30px 70px rgba(30,43,38,.22);transform:rotate(var(--r,0deg));animation:cdrop .6s cubic-bezier(.3,1.3,.5,1) calc(var(--at) + var(--d,0s)) both}
+@keyframes cdrop{from{opacity:0;transform:translateY(-260px) rotate(calc(var(--r,0deg) * -3)) scale(1.06)}}
+.pic{position:relative;height:var(--h,710px);border-radius:24px;overflow:hidden}
+.pic::before{content:"";position:absolute;inset:0;background:var(--img) var(--pos,50% 50%)/cover;animation:kb var(--len) linear var(--at) both}
+@keyframes kb{from{transform:scale(var(--z0,1))}to{transform:scale(var(--z1,1.08))}}
+.ctag{position:absolute;left:-16px;top:-32px;padding:12px 28px 8px;border-radius:999px;background:var(--point);color:var(--on-point);font-size:38px;white-space:nowrap;
+  box-shadow:0 10px 24px rgba(30,43,38,.25);animation:pop .4s cubic-bezier(.3,1.6,.5,1) calc(var(--at) + var(--d,0s) + .35s) both}
+/* 후기 카드: 쿠팡 상품 리뷰 화면의 별점 비율 그대로 */
+.rv{padding:44px 50px 34px}
+.rvh{font-size:40px;color:#66716b}
+.rvbig{display:flex;align-items:center;gap:30px;margin:18px 0 22px}
+.rvbig>b{font-family:'Black Han Sans',sans-serif;font-weight:400;font-size:170px;line-height:.9;color:var(--point)}
+.rvbig>b small{font-size:90px}
+.rvbig p{font-size:50px;line-height:1.2}
+.rvbig p small{display:block;font-size:30px;color:#66716b}
+.bars li{display:grid;grid-template-columns:100px 1fr 100px;align-items:center;gap:20px;padding:10px 0;font-size:38px}
+.bars i{position:relative;height:28px;border-radius:14px;background:#e4ebe7;overflow:hidden}
+.bars i::before{content:"";position:absolute;left:0;top:0;bottom:0;width:calc(var(--p) * 1%);border-radius:14px;background:var(--point);transform-origin:0 50%;
+  animation:linein .5s cubic-bezier(.2,.8,.2,1) calc(var(--at) + var(--d)) both}
+.bars li:nth-child(n+3) i::before{background:#a3afa8}
+.bars em{text-align:right;color:#66716b}
+.rvsrc{margin-top:14px;font-size:26px;color:#87918b}
+
+/* 위: 고지 */
+.disc{position:absolute;left:60px;width:840px;top:200px;padding:12px 22px 10px;border-radius:18px;background:rgba(255,255,255,.8);color:rgba(30,43,38,.85);font-size:26px;line-height:1.4}
+/* 자막 타이포: 생생(템플릿 6)과 같은 짜임 — 밝은 바탕이라 글자는 먹색, 형광펜은 --band */
+.ask,.line,.sub{text-shadow:0 3px 0 rgba(255,255,255,.75)}
+.ask{position:absolute;left:180px;width:720px;top:var(--y,300px);text-align:center;font-size:104px;line-height:1.12}
+.ask b{display:block;font-weight:400;animation:up var(--dur,.5s) cubic-bezier(.2,.8,.2,1) var(--t) both}
+.say{position:absolute;left:180px;width:720px;top:var(--y,250px);text-align:center}
+.line{margin-top:16px;line-height:1.15}
+.ask .small{font-size:90px}
+.line.small{font-size:72px}
+.big{font-family:'Black Han Sans',sans-serif;font-size:var(--fs,220px);line-height:1;letter-spacing:-.02em}
+.line.big{margin-top:6px}
+.big em{position:relative;isolation:isolate;display:inline-block;padding:0 .06em;margin:0 -.03em}
+.big em::before{content:"";position:absolute;z-index:-1;left:-.02em;right:-.02em;top:47%;height:42%;border-radius:.05em;background:var(--band);
+  transform:scaleX(0);transform-origin:0 50%;animation:band .18s cubic-bezier(.5,0,.2,1) calc(var(--at) + var(--d,0s) + var(--e,.5s)) both}
+@keyframes band{to{transform:scaleX(1)}}
+.ask.land{--e:.22s;animation:outup .24s cubic-bezier(.5,0,1,.5) calc(var(--at) + var(--len) - .26s) forwards}
+.ask.land>span{display:block;transform-origin:50% 55%;animation:land .36s linear var(--at) both}
+@keyframes land{0%{transform:scale(1.25);animation-timing-function:cubic-bezier(.5,0,.9,.6)}55%{transform:scale(1.04,.9);animation-timing-function:ease-out}78%{transform:scale(.98,1.04)}100%{transform:none}}
+@keyframes outup{from{transform:none;opacity:1}to{transform:translateY(-520px) scale(.75);opacity:0}}
+.say.slam{--e:.45s;animation:outdown .26s cubic-bezier(.5,0,1,.5) calc(var(--at) + var(--len) - .28s) forwards}
+.say.slam .small{animation:pop .35s cubic-bezier(.3,1.6,.5,1) calc(var(--at) + var(--d,0s) + .25s) both}
+.say.slam .big{transform-origin:50% 85%;animation:slam .52s linear calc(var(--at) + var(--d,0s)) both}
+@keyframes slam{0%{transform:translateY(-1050px) scale(.9,1.3);animation-timing-function:cubic-bezier(.55,0,1,.7)}
+  48%{transform:translateY(0) scale(1.22,.74);animation-timing-function:cubic-bezier(.2,.8,.3,1)}70%{transform:scale(.95,1.07)}86%{transform:scale(1.02,.98)}100%{transform:none}}
+@keyframes outdown{from{transform:none}to{transform:translateY(1150px) rotate(9deg)}}
+.say.fly{--e:.5s;animation:outleft .22s cubic-bezier(.5,0,1,.5) calc(var(--at) + var(--len) - .24s) forwards}
+.say.fly .small{animation:up .3s cubic-bezier(.2,.8,.2,1) calc(var(--at) + var(--d,0s)) both}
+.say.fly .c{display:inline-block;animation:flyin .3s cubic-bezier(.2,.9,.3,1.12) calc(var(--at) + var(--d,0s) + .08s + var(--i) * .04s) both}
+@keyframes flyin{0%{opacity:0;transform:translate(var(--fx),var(--fy)) rotate(var(--fr)) scale(1.7)}30%{opacity:1}}
+@keyframes outleft{from{transform:none}to{transform:translateX(-1300px) skewX(16deg)}}
+.say.rise{--e:.5s}
+.say.rise .big{position:relative;clip-path:inset(-40% -30% 14% -30%)}
+.say.rise .big::after{content:"";position:absolute;left:50%;bottom:14%;width:620px;height:9px;margin-left:-310px;border-radius:5px;background:var(--ink);
+  transform:scaleX(0);animation:rule .2s cubic-bezier(.3,0,.2,1) calc(var(--at) + var(--d,0s)) both}
+@keyframes rule{to{transform:scaleX(1)}}
+.say.rise .big em{animation:risein .36s cubic-bezier(.2,.9,.25,1.12) calc(var(--at) + var(--d,0s) + .18s) both,sinkout .2s cubic-bezier(.6,0,1,.6) calc(var(--at) + var(--len) - .24s) forwards}
+@keyframes risein{from{transform:translateY(90%)}}
+@keyframes sinkout{from{transform:none}to{transform:translateY(90%)}}
+.say.rise .small{animation-name:pop,outfade;animation-duration:.45s,.2s;animation-timing-function:cubic-bezier(.3,1.6,.5,1),ease-in;
+  animation-delay:calc(var(--at) + var(--d,0s)),calc(var(--at) + var(--len) - .24s);animation-fill-mode:both,forwards}
+@keyframes outfade{from{opacity:1;transform:none}to{opacity:0;transform:translateY(-50px)}}
+.say.through{--e:.4s;transform-origin:50% 66%;animation:through .42s cubic-bezier(.7,0,1,.6) calc(var(--at) + var(--len) - .42s) forwards}
+.say.through .small{animation:fade .3s ease calc(var(--at) + var(--d,0s)) both}
+.say.through .big{animation:pop .4s cubic-bezier(.3,1.7,.5,1) calc(var(--at) + var(--d,0s) + .05s) both}
+@keyframes through{0%{transform:none;opacity:1}60%{opacity:1}100%{transform:scale(6);opacity:0}}
+
+/* 끝: 프로필 링크 */
+.link{position:absolute;left:0;width:1080px;top:var(--y,1270px);display:flex;justify-content:center;animation-delay:calc(var(--at) + var(--d))}
+.link b{display:flex;align-items:center;gap:20px;padding:20px 22px 16px 44px;border-radius:999px;background:var(--point);color:var(--on-point);font-weight:400;font-size:62px;box-shadow:0 20px 50px rgba(30,43,38,.3);transform:rotate(-2deg)}
+.link i{display:grid;place-items:center;width:80px;height:80px;border-radius:50%;background:#fff;color:var(--point);font-size:56px;line-height:1;padding-top:6px}
+.dm{position:absolute;left:180px;width:720px;text-wrap:balance;top:var(--y,1405px);text-align:center;font-size:34px;color:rgba(30,43,38,.88)}
+/* 사진 자리 표시: 사진을 넣으면 ph 클래스를 뺀다 */
+.ph::after{content:attr(data-label) " 자리";position:absolute;inset:0;display:grid;place-items:center;border:4px dashed rgba(30,43,38,.25);border-radius:24px;color:rgba(30,43,38,.45);font-size:40px;text-align:center}
+.kit.ph::after{font-size:30px}
+</style></head>
+<body data-duration="20" data-voice="1.7b 또렷하고 경쾌하게, 광고 내레이션처럼" data-sfx="0.18 thud .6, 1.2 swoosh .55, 1.24 click .5, 2.3 pop .35, 3 pop .35, 3.7 pop .35, 4.42 pop .35, 5.8 whoosh .6, 8.6 whoosh .5, 11.4 whoosh .5, 14.2 whoosh .5, 14.9 tick .3, 15.05 tick .3, 15.2 tick .3, 15.35 tick .3, 15.5 tick .3, 17.2 whoosh .5, 17.72 click .55, 17.76 thud .5, 18.4 ding .5">
+<div class="grid"></div>
+
+<!-- 01 통째 → 벌어짐 → 이름표 (0~5.8초). 예시 숫자는 시험본(세로로 긴 텀블러 536×1240, 띠 셋 — 차망·본체 띠는 --clip으로 깎음)이다 — 사진에 맞게 바꾼다 (머리 주석 ③~⑤) -->
+<section class="scene" style="--at:0s;--len:5.8s"><div class="leave">
+  <div class="kit ph" data-label="조각 사진 (cut-1.png)" style="--img:url(cut-1.png);--W:536px;--H:1240px;--x0:540px;--y0:905px;--s0:.95;--x1:280px;--y1:945px;--s1:.84;--kt:1.2s">
+    <i class="pc" style="--t:0px;--h:176px;--ey:-150px;--er:-5deg"></i>
+    <i class="pc" style="--t:176px;--h:207px;--ey:-70px;--er:3deg;--clip:inset(0 73px 0 78px)"></i>
+    <i class="pc" style="--t:335px;--h:905px;--ey:40px;--clip:polygon(0 0,78px 0,78px 48px,463px 48px,463px 0,100% 0,100% 100%,0 100%)"></i>
+  </div>
+  <!-- 이름표: 이름 = 상품 페이지 구성품 표기 · 작은 줄 = 상품 페이지 소재·구성 표기. --d = 나레이션이 그 이름을 부르는 때 -->
+  <p class="ptag" style="--x:396px;--y:380px;--lw:124px;--d:2.3s"><i></i><span>구성품 1<small>소재 표기</small></span></p>
+  <p class="ptag" style="--x:402px;--y:601px;--lw:118px;--d:3s"><i></i><span>구성품 2<small>소재 표기</small></span></p>
+  <p class="ptag" style="--x:436px;--y:1150px;--lw:84px;--d:3.7s"><i></i><span>구성품 3<small>소재 표기</small></span></p>
+  <p class="ptag" style="--x:478px;--y:820px;--lw:42px;--d:4.4s"><i></i><span>구성품 4<small>기본 포함</small></span></p>
+  <!-- 따로 있는 구성품이면 (오른쪽에서 날아듦, 연한 색은 tile): <div class="acc tile" style="--img:url(cut-2.png);--x:690px;--y:1110px;--w:200px;--h:320px;--d:4.2s"></div>
+       그때 이름표는 .ptag.r로 판 왼쪽에 — <p class="ptag r" style="--x:410px;--y:1270px;--lw:46px;--d:4.4s">… · data-sfx에 「4.2 swoosh .4」를 더한다 -->
+</div></section>
+<section class="scene" style="--at:0s;--len:5.8s"><p class="disc">이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.</p></section>
+<!-- 첫 한마디 — 착지. 0초 프레임부터 두 줄 모두 보인다. 벌어짐을 예고하는 말 (사실일 때만). 상품의 단색 몸통 위(--y)에 — 1.2초에 벌어짐과 함께 위로 날아간다 -->
+<section class="scene" style="--at:0s;--len:1.45s"><p class="ask land" style="--y:1000px"><span><b class="small" style="--t:0s;--dur:0s">작은 말</b><b class="big" style="--t:0s;--dur:0s;--fs:170px"><em>큰 낱말</em></b></span></p></section>
+
+<!-- 02~04 특징 (5.8~14.2초) — 셋째는 그 상품에서만 볼 수 있는 장면(각인·안쪽·확대)으로 (머리 주석 「특징 고르는 법」).: 사진 카드 + 작은 말 / 큰 낱말. 수(A·B·C)는 script가 정한다 — .say에 적지 않는다. 꼬리표 = 이름표·상세 이미지의 그 기능 이름 -->
+<section class="scene" style="--at:5.8s;--len:2.8s">
+  <div class="leave"><div class="card" style="--r:-2deg;--d:.1s"><div class="pic ph" data-label="특징 사진 1" style="--img:url(photo-3.jpg);--pos:50% 50%"></div><p class="ctag">특징 1 이름</p></div></div>
+  <div class="say" style="--d:.15s"><p class="line small">작은 말</p><p class="line big" style="--fs:250px"><em>두자</em></p></div>
+</section>
+<section class="scene" style="--at:8.6s;--len:2.8s">
+  <div class="leave"><div class="card" style="--r:2deg;--d:.1s"><div class="pic ph" data-label="특징 사진 2" style="--img:url(photo-4.jpg);--pos:50% 50%"></div><p class="ctag">특징 2 이름</p></div></div>
+  <div class="say" style="--d:.15s"><p class="line small">작은 말</p><p class="line big" style="--fs:170px"><em>네 글자</em></p></div>
+</section>
+<section class="scene" style="--at:11.4s;--len:2.8s">
+  <div class="leave"><div class="card" style="--r:-2deg;--d:.1s;--x:260px;--w:560px"><div class="pic ph" data-label="특징 사진 3 (확대)" style="--img:url(photo-5.jpg);--h:632px"></div><p class="ctag">특징 3 이름</p></div></div>
+  <div class="say" style="--d:.15s"><p class="line small">작은 말</p><p class="line big"><em>세글자</em></p></div>
+</section>
+
+<!-- 05 쿠팡 구매자 후기 (14.2~17.2초): 상품 리뷰 화면의 별점 비율 그대로 + 확인한 날. 큰 숫자 = 최고 + 좋음 — D 뚫고 지나감으로 끝 장면에 -->
+<section class="scene" style="--at:14.2s;--len:3s">
+  <div class="leave"><div class="card rv" style="--r:1.5deg;--d:.1s">
+    <p class="rvh">쿠팡 구매자 후기 N개</p>
+    <div class="rvbig"><b>00<small>%</small></b><p>최고 · 좋음<small>최고 00% + 좋음 0%</small></p></div>
+    <ul class="bars">
+      <li style="--p:80;--d:.7s"><span>최고</span><i></i><em>80%</em></li>
+      <li style="--p:10;--d:.85s"><span>좋음</span><i></i><em>10%</em></li>
+      <li style="--p:5;--d:1s"><span>보통</span><i></i><em>5%</em></li>
+      <li style="--p:2;--d:1.15s"><span>별로</span><i></i><em>2%</em></li>
+      <li style="--p:3;--d:1.3s"><span>나쁨</span><i></i><em>3%</em></li>
+    </ul>
+    <p class="rvsrc">쿠팡 상품 리뷰 화면 기준 · YYYY-MM-DD</p>
+  </div></div>
+  <div class="say through" style="--d:.15s"><p class="line small">쿠팡 후기 열에 아홉</p><p class="line big" style="--fs:250px"><em>만족</em></p></div>
+</section>
+
+<!-- 06 다시 맞춰짐 + 끝 부탁 (17.2~20초): 01의 조각을 그대로 복사하고 kit에 join — 벌어진 자리에서 맞춰진다. 상품은 y 310~1160, 그 아래 끝 부탁 -->
+<section class="scene" style="--at:17.2s;--len:2.8s">
+  <div class="kit join ph" data-label="조각 사진 (cut-1.png)" style="--img:url(cut-1.png);--W:536px;--H:1240px;--x0:540px;--y0:733px;--s0:.7;--x1:540px;--y1:733px;--s1:.7;--kd:.01s">
+    <i class="pc" style="--t:0px;--h:176px;--ey:-150px;--er:-5deg"></i>
+    <i class="pc" style="--t:176px;--h:207px;--ey:-70px;--er:3deg;--clip:inset(0 73px 0 78px)"></i>
+    <i class="pc" style="--t:335px;--h:905px;--ey:40px;--clip:polygon(0 0,78px 0,78px 48px,463px 48px,463px 0,100% 0,100% 100%,0 100%)"></i>
+  </div>
+  <p class="ask" style="--y:1172px;font-size:80px"><b style="--t:17.75s">자세한 건</b></p>
+  <div class="link pop" style="--d:1.2s"><b>프로필 링크 No.○○○<i>+</i></b></div>
+  <p class="dm fade" style="--d:1.6s">인스타는 댓글에 '키워드' 남기면 DM으로 알려 드려요</p>
+  <!-- 「아무 댓글」 버전 (사람이 아직 정하지 않음 — 머리 주석 「끝 부탁」): <p class="dm fade" style="--d:1.6s">인스타는 아무 댓글이나 남기면 상품 정보를 DM으로 보내 드려요</p> -->
+</section>
+<section class="scene" style="--at:17.2s;--len:2.8s"><p class="disc">이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.</p></section>
+
+<!-- 타이포 수 정하기 — 생생(템플릿 6)과 같은 규칙 (2026-11-18, 사람 승인: "배경음악처럼 폴더 이름에 따라 저절로 달라지게 … 이렇게 하자"). 지우지 않는다.
+     페이지를 열 때 한 번만 돈다. 씨앗 = <body data-typo> 또는 폴더 이름. ① 수를 적지 않은 .say에 A(slam)·B(fly)·C(rise) — 같은 수를 잇지 않고, B는 큰 낱말 세 글자 이하·장면 2초 이상만
+     ② B는 글자를 <span class="c">로 나누고 방향을 정한다 ③ 수 효과음을 data-sfx에 더한다 (녹화 도구는 이 값을 페이지에서 읽는다) ④ 큰 글꼴을 녹화 전에 받아 둔다. -->
+<script>
+(() => {
+  const body = document.body, sec = v => parseFloat(v) || 0, r2 = t => +t.toFixed(2);
+  const seed = body.dataset.typo || decodeURIComponent(location.pathname).split('/').slice(-2)[0];
+  let h = 2166136261;
+  for (const ch of seed) h = Math.imul(h ^ ch.codePointAt(0), 16777619);
+  const rnd = () => { h = Math.imul(h ^ (h >>> 15), 2246822507); h = Math.imul(h ^ (h >>> 13), 3266489909); return ((h ^= h >>> 16) >>> 0) / 4294967296; };
+  const order = ['slam', 'fly', 'rise'];
+  for (let i = 2; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+  const cues = [];
+  let prev = '', k = 0;
+  for (const say of document.querySelectorAll('.say')) {
+    const cs = getComputedStyle(say), at = sec(cs.getPropertyValue('--at')), d = sec(cs.getPropertyValue('--d')), len = sec(cs.getPropertyValue('--len'));
+    const em = say.querySelector('.big em'), letters = em ? em.textContent.replace(/\s/g, '').length : 0;
+    let move = ['slam', 'fly', 'rise', 'through'].find(m => say.classList.contains(m));
+    if (!move) {
+      move = [...order.slice(k % 3), ...order.slice(0, k % 3)].find(m => m !== prev && (m !== 'fly' || (letters <= 3 && len >= 2)));
+      k++;
+      say.classList.add(move);
+    }
+    if (move === 'fly' && em) {
+      if (!em.querySelector('.c')) {
+        const text = em.textContent; em.textContent = '';
+        for (const c of text) em.append(c.trim() ? Object.assign(document.createElement('span'), { className: 'c', textContent: c }) : c);
+      }
+      const base = rnd() * 360;
+      em.querySelectorAll('.c').forEach((c, i) => {
+        const a = (base + i * 120 + (rnd() - .5) * 50) * Math.PI / 180, r = 650 + rnd() * 150;
+        c.style.cssText += `--i:${i};--fx:${Math.round(Math.cos(a) * r)}px;--fy:${Math.round(Math.sin(a) * r)}px;--fr:${Math.round((rnd() < .5 ? -1 : 1) * (100 + rnd() * 120))}deg`;
+      });
+    }
+    if (move === 'slam') cues.push(`${r2(at + d + .25)} thud .65`);
+    if (move === 'rise') cues.push(`${r2(at + d + .18)} swoosh .3`);
+    if (move === 'through') cues.push(`${r2(at + d + .03)} pop .4`);
+    prev = move;
+  }
+  body.dataset.sfx = [body.dataset.sfx, ...cues].filter(Boolean).join(', ');
+  document.fonts.load("220px 'Black Han Sans'", [...document.querySelectorAll('.big, .rvbig')].map(e => e.textContent).join(''));
+})();
+</script>
+</body></html>

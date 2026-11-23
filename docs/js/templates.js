@@ -19,7 +19,10 @@ window.HIKARY_TEMPLATES = Object.freeze([
   // 2026-11-18 타이포(작은 주아 + 큰 Black Han Sans 낱말)를 넣었다 — preview는 262 시험본 첫 장면 (typo-seed-a 0.6초)
   { id: 'vivid', name: '생생', note: '숙소 · 따뜻한 물 먼저 · 김·물결·불빛이 살아 움직여요', preview: 'https://res.cloudinary.com/btosslpq/image/upload/v1795062203/hikary/templates/vivid.png', example: 'https://res.cloudinary.com/btosslpq/video/upload/v1795062207/hikary/templates/vivid-example.mp4', default: true },
   // 2026-11-18 생생 한 줄 (사람: "이전꺼를 살려서 7번으로 하자"): 타이포를 넣기 전 생생. preview는 그때 생생 그림 (260 시험본 첫 컷)
-  { id: 'vivid-line', name: '생생 한 줄', note: '생생 그대로 · 가운데 한 줄 자막, 노란 핵심어', preview: 'https://res.cloudinary.com/btosslpq/image/upload/v1794985042/hikary/templates/vivid-line.png', example: 'https://res.cloudinary.com/btosslpq/video/upload/v1794985350/hikary/templates/vivid-line-example.mp4' }
+  { id: 'vivid-line', name: '생생 한 줄', note: '생생 그대로 · 가운데 한 줄 자막, 노란 핵심어', preview: 'https://res.cloudinary.com/btosslpq/image/upload/v1794985042/hikary/templates/vivid-line.png', example: 'https://res.cloudinary.com/btosslpq/video/upload/v1794985350/hikary/templates/vivid-line-example.mp4' },
+  // 2026-11-23 뜯어 보기 (사람: "좋네~ 뜯어보기 템플릿 등록 추가부터 하고"): 일상템 — 흰 바탕 상품 사진을 이음매에서 벌려 이름표.
+  // preview는 MOOA 텀블러 2차 시험본 5초 (벌어진 조각 + 이름표 넷), example은 0.2~4.7초 (통째 → 벌어짐 → 이름표)
+  { id: 'teardown', name: '뜯어 보기', note: '일상템 · 조각으로 벌려 이름표, 특징 카드 · 후기 비율', preview: 'https://res.cloudinary.com/btosslpq/image/upload/v1795398657/hikary/templates/teardown.png', example: 'https://res.cloudinary.com/btosslpq/video/upload/v1795398659/hikary/templates/teardown-example.mp4' }
 ]);
 
 // Every template in the owner's order, each with no (its line), shown and isDefault. setting = { order, hidden, default } from the
