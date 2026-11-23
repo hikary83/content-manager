@@ -20,7 +20,9 @@ function publishProps_() { return PropertiesService.getScriptProperties(); }
 function publishStatus_() {
   var props = publishProps_();
   var quota = null; try { quota = JSON.parse(props.getProperty('BUFFER_QUOTA') || 'null'); } catch (_) {}
-  return { buffer: !!props.getProperty('BUFFER_API_KEY'), video: !!cloudinary_(), code: !!props.getProperty('PUBLISH_CODE'), limitedAt: bufferLimitedAt_() || '', limitedUntil: CacheService.getScriptCache().get('BUFFER_LIMITED_UNTIL') || '', quota: quota };
+  var metricsError = null; try { metricsError = JSON.parse(props.getProperty('METRICS_ERROR') || 'null'); } catch (_) {}
+  return { buffer: !!props.getProperty('BUFFER_API_KEY'), video: !!cloudinary_(), code: !!props.getProperty('PUBLISH_CODE'), limitedAt: bufferLimitedAt_() || '', limitedUntil: CacheService.getScriptCache().get('BUFFER_LIMITED_UNTIL') || '', quota: quota,
+    metricsError: metricsError, metricsDay: props.getProperty('METRICS_DAY') || '' }; // v2.24.0
 }
 // v2.14.0: after 「too many」 the server rests — every call in between would be refused — and 「status」 says since when.
 // v2.15.0: as long as Buffer's Retry-After says (an hour when it says nothing; the cache keeps 6 hours at most, then one call
@@ -112,11 +114,23 @@ function bufferPost_(id) {
   try { return buffer_('query { post(input: { id: ' + q_(id) + ' })' + POST_FIELDS + ' }').post || null; }
   catch (error) { if (error.graphql) return null; throw error; }
 }
-// v2.14.0: several posts in one call (GraphQL aliases p0, p1, …) → { id: post or null }.
-function bufferPosts_(ids) {
-  var data = buffer_('query { ' + ids.map(function(id, i) { return 'p' + i + ': post(input: { id: ' + q_(id) + ' })' + POST_FIELDS; }).join(' ') + ' }', true);
-  var posts = {}; ids.forEach(function(id, i) { posts[id] = data['p' + i] || null; }); return posts;
+// v2.14.0: several posts in one call (GraphQL aliases p0, p1, …). v2.24.0: BUFFER_BATCH posts a call — Buffer refuses a query
+// with too many aliases (GraphQL Armor 「Query exceeds maximum allowed aliases」: 39 refused on 2026-11-21, about 30 still passed;
+// the limit is not published). → { posts: { id: post or null }, failed: [{ error, count }] }. A batch that failed is left out of
+// `posts` (its ids are missing, not null — null means Buffer no longer has the post) and the other batches still count.
+var BUFFER_BATCH = 20;
+function bufferPostBatches_(ids, fields) {
+  var posts = {}, failed = [];
+  for (var start = 0; start < ids.length; start += BUFFER_BATCH) {
+    var part = ids.slice(start, start + BUFFER_BATCH);
+    try {
+      var data = buffer_('query { ' + part.map(function(id, i) { return 'p' + i + ': post(input: { id: ' + q_(id) + ' })' + fields; }).join(' ') + ' }', true);
+      part.forEach(function(id, i) { posts[id] = data['p' + i] || null; });
+    } catch (error) { failed.push({ error: error, count: part.length }); } // after 「too many」 the next batches stop at the rest check, without a call
+  }
+  return { posts: posts, failed: failed };
 }
+function bufferPosts_(ids) { return bufferPostBatches_(ids, POST_FIELDS).posts; }
 // 「2026-11-12 08:45」 (Seoul) → ms; a missing time counts as due.
 function kstTime_(value) {
   var match = /^(\d{4}-\d{2}-\d{2})(?: (\d{2}:\d{2}))?$/.exec(String(value || ''));
@@ -309,7 +323,7 @@ function syncPublishing() {
       });
       if (entry.videoUrl && videoDone_(entry) && deleteVideo_(entry.videoUrl)) { entry.videoUrl = ''; entry.videoDate = ''; }
     });
-    try { syncMetrics_(entries, now); } catch (_) {} // Buffer busy or resting: the next run tries again (the day is not marked)
+    try { syncMetrics_(entries, now); } catch (error) { setMetricsError_(error, 0, 0); } // v2.24.0: no longer silent — 「status」 shows it
     entries.forEach(function(entry, index) { if (entry && JSON.stringify(entry) !== before[index]) writeEntry_(sheet, index + 2, entry); });
   } finally { lock.releaseLock(); }
 }
@@ -330,10 +344,11 @@ function syncMetrics_(entries, now) {
       if (entry[p + 'Status'] === '업로드완료' && entry[p + 'PostId'] && now - kstTime_(entry[p + 'Date']) < METRICS_DAYS * 864e5) asks.push({ entry: entry, p: p, id: entry[p + 'PostId'] });
     });
   });
-  // ponytail: one query for every place (about 90 aliases at three posts a day); split it if Buffer ever refuses the size.
-  var data = asks.length ? buffer_('query { ' + asks.map(function(ask, i) { return 'p' + i + ': post(input: { id: ' + q_(ask.id) + ' }) { sentAt metricsUpdatedAt metrics { type value } }'; }).join(' ') + ' }', true) : {};
-  asks.forEach(function(ask, i) {
-    var post = data['p' + i]; if (!post || !post.metrics || !post.metrics.length || !post.metricsUpdatedAt) return;
+  // v2.24.0: BUFFER_BATCH places a call (about five calls a day at three posts a day). Before, one call held every place, and
+  // from 2026-11-21 Buffer refused it as too many aliases; the refusal was swallowed, so 「지표」 stood still for three days.
+  var read = bufferPostBatches_(asks.map(function(ask) { return ask.id; }), ' { sentAt metricsUpdatedAt metrics { type value } }');
+  asks.forEach(function(ask) {
+    var post = read.posts[ask.id]; if (!post || !post.metrics || !post.metrics.length || !post.metricsUpdatedAt) return;
     var updated = new Date(post.metricsUpdatedAt).getTime();
     if (post.sentAt && updated - new Date(post.sentAt).getTime() < 3600e3) return;
     var numbers = {}; post.metrics.forEach(function(metric) { if (METRIC_TYPES.indexOf(metric.type) >= 0 && isFinite(metric.value)) numbers[metric.type] = Math.round(Number(metric.value) * 100) / 100; });
@@ -341,5 +356,18 @@ function syncMetrics_(entries, now) {
     stored.at = stored.at && typeof stored.at === 'object' ? stored.at : {}; stored.at[ask.p] = kst_(new Date(updated));
     ask.entry.metrics = JSON.stringify(stored);
   });
+  // The batches that answered are kept either way. Buffer refusing the query itself would refuse it again today, so the day is
+  // marked; a network error or 「too many」 is not, and a later run reads again.
+  // ponytail: a retry asks about every place again, the ones already read too — a few calls a day at most.
+  if (read.failed.length) {
+    setMetricsError_(read.failed[0].error, read.failed.reduce(function(sum, item) { return sum + item.count; }, 0), asks.length);
+    if (read.failed.every(function(item) { return item.error.graphql; })) publishProps_().setProperty('METRICS_DAY', day);
+    return;
+  }
+  publishProps_().setProperty('METRICS_ERROR', ''); // empty = no error (status reads it as null)
   publishProps_().setProperty('METRICS_DAY', day);
+}
+// v2.24.0: the last failed 「지표」 read — { at, message, missed, total } in 「status」 (publishing.metricsError) until a read works.
+function setMetricsError_(error, missed, total) {
+  publishProps_().setProperty('METRICS_ERROR', JSON.stringify({ at: kst_(new Date()), message: String(error && error.message || error).slice(0, 300), missed: missed, total: total }));
 }

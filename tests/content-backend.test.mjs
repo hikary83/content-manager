@@ -527,6 +527,45 @@ test('v2.15.0 지표는 하루 한 번(18시 뒤) 올라간 곳을 한 번에 �
   assert.equal(minutes(limitedUntil) - minutes(limitedAt), 2);
   assert.equal(env.props.get('METRICS_DAY'), undefined);
 });
+test('v2.24.0 지표는 20곳씩 나눠 묻고, 한 덩어리가 거절돼도 나머지는 남기며, 실패를 status에 남긴다', () => {
+  const { env, posts } = publishEnv();
+  // 14 products posted two days ago, three places each = 42 places to read.
+  const sentAt = new Date(Date.now() - 2 * 864e5), later = new Date(sentAt.getTime() + 6 * 3600e3);
+  const when = sentAt.toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 16);
+  const places = ['youtube', 'instagram', 'tiktok'];
+  const views = add => { for (let i = 0; i < 14; i++) places.forEach((p, k) => posts.set(`m${i}${p[0]}`, { status: 'sent', sentAt: sentAt.toISOString(), metricsUpdatedAt: later.toISOString(), metrics: [{ type: 'views', value: add + i * 3 + k }] })); };
+  for (let i = 0; i < 14; i++) env.context.saveEntry_({ ...sample(), productName: '상품 ' + i, ...Object.fromEntries(places.flatMap(p => [[p + 'Status', '업로드완료'], [p + 'Date', when], [p + 'PostId', `m${i}${p[0]}`]])) });
+  views(100);
+  // Buffer as from 2026-11-21: a query with more than 30 aliases is refused as a whole (HTTP 200, errors, no data).
+  const fetch = env.context.UrlFetchApp.fetch; const sizes = []; let refuse = () => false;
+  const refused = () => ({ getResponseCode: () => 200, getContentText: () => JSON.stringify({ errors: [{ message: 'GraphQL Armor Max Aliases Rejection: Syntax Error: Query exceeds maximum allowed aliases.', extensions: { code: 'GRAPHQL_VALIDATION_FAILED' } }] }) });
+  env.context.UrlFetchApp.fetch = (url, options) => {
+    const query = url === 'https://api.buffer.com' ? JSON.parse(options.payload).query : '';
+    const aliases = (query.match(/\bp\d+: post\(/g) || []).length;
+    if (query.includes('metricsUpdatedAt')) { sizes.push(aliases); if (refuse(query)) return refuse(query)(); }
+    return aliases > 30 ? refused() : fetch(url, options);
+  };
+  const status = () => JSON.parse(env.context.doPost({ postData: { contents: JSON.stringify({ action: 'status' }) } }).text).data.publishing;
+  const viewsOf = i => JSON.parse(env.context.readEntries_().find(e => e.productName === '상품 ' + i).metrics || '{}').youtube?.views;
+  env.context.METRICS_HOUR = 0; env.context.syncPublishing();
+  assert.deepEqual(sizes, [20, 20, 2], '20곳씩 나눠 묻는다');
+  assert.deepEqual([viewsOf(0), viewsOf(13)], [100, 139]);
+  assert.equal(status().metricsError, null); assert.ok(status().metricsDay);
+  // Next day the first batch is refused: the other 22 places still land, the refusal is in status, the day is marked (no retry today).
+  env.props.delete('METRICS_DAY'); sizes.length = 0; views(1000); refuse = query => query.includes('"m0y"') && refused;
+  env.context.syncPublishing();
+  assert.deepEqual([viewsOf(0), viewsOf(13)], [100, 1039], '거절된 덩어리는 그대로, 나머지는 새 숫자');
+  const failed = status().metricsError;
+  assert.match(failed.message, /aliases/); assert.deepEqual([failed.missed, failed.total], [20, 42]); assert.match(failed.at, /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
+  assert.ok(status().metricsDay, 'Buffer가 질문 자체를 거절하면 오늘은 다시 묻지 않는다');
+  env.context.syncPublishing(); assert.equal(sizes.length, 3, '같은 날 다시 부르지 않는다');
+  // A network failure is not Buffer's answer: the day stays open and a later run reads again; a full read clears the error.
+  env.props.delete('METRICS_DAY'); refuse = query => query.includes('"m0y"') && (() => { throw new Error('timeout'); });
+  env.context.syncPublishing();
+  assert.match(status().metricsError.message, /연결하지 못했어요/); assert.equal(env.props.get('METRICS_DAY'), undefined);
+  refuse = () => false; env.context.syncPublishing();
+  assert.equal(viewsOf(0), 1000); assert.equal(status().metricsError, null);
+});
 test('v2.13.0 인포크 등록일·키티챗 연결일은 날짜만 받고, 등록 도구가 칸 없이 저장해도 지킨다', () => {
   const env = runtime(); const input = sample();
   env.context.saveEntry_({ ...input, inpockLinkedAt: '2026-11-11', kittyLinkedAt: '' });

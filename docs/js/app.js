@@ -82,6 +82,7 @@
   let studies = [], studySlack = {}; // v3.7.0: the sheet tab 「스터디」 (newest first) and how the Slack read went
   let report = null; // v3.2.0: Coupang Partners report (server `report`, kept 6 hours there)
   let bufferLimitedAt = ''; // v3.5.2: server 2.14.0 status — since when it rests after Buffer's 「too many」
+  let metricsError = null; // v3.11.3: server 2.24.0 status — { at, message, missed, total } of the last failed 「지표」 read
   let busy = false;
   let filter = '전체', listPage = 0; // listPage: v3.8.1 foot pager
   let view = 'dashboard';
@@ -565,6 +566,10 @@
     const add = (text, ...actions) => { const line = element('div', 'trow'); line.append(element('span', '', text), ...actions); items.push(line); };
     const tick = (row, key) => button('체크', () => { openDetail(row); showTab(key); });
     if (bufferLimitedAt) add(`Buffer 호출 한도에 걸려 ${bufferLimitedAt.slice(11)}부터 결과 받기를 쉬는 중 — 올라간 기록이 늦게 채워져요`, link('Buffer ↗', 'https://publish.buffer.com', 'btn sm'));
+    else if (metricsError) { // the line above already says why while Buffer rests
+      add(`Buffer 지표를 못 받았어요 (${shortDate(metricsError.at)}${metricsError.total ? ` · ${metricsError.total}곳 중 ${metricsError.missed}곳` : ''}) — 조회수가 늦게 채워져요`);
+      items.at(-1).title = metricsError.message || '';
+    }
     if (cloudHigh()) add(`Cloudinary 크레딧 ${credit(cloudUsage.credits.used)} / ${credit(cloudUsage.credits.limit)} 썼어요 (${Math.round(cloudUsage.credits.percent)}%) — 콘솔에서 확인해 주세요`, link('Cloudinary ↗', 'https://console.cloudinary.com', 'btn sm')); // v3.11.0
     for (const row of rows) {
       const no = row.inpockNo ? `No.${row.inpockNo}` : row.productName;
@@ -877,6 +882,9 @@
     // v3.5.2 (server 2.14.0): since when the server rests after Buffer's 「too many」 — shown in 할 일.
     const limitedAt = status.publishing?.limitedAt || '';
     if (limitedAt !== bufferLimitedAt) { bufferLimitedAt = limitedAt; renderDashboard(); }
+    // v3.11.3 (server 2.24.0): the last failed 「지표」 read, until a read works — shown in 할 일.
+    const failed = status.publishing?.metricsError || null;
+    if (JSON.stringify(failed) !== JSON.stringify(metricsError)) { metricsError = failed; renderDashboard(); }
     bufferQuota = status.publishing?.quota || bufferQuota; renderBufferQuota();
     coupang = status.coupang || coupang; showQuota();
     if ($('finderSource').options.length || !coupang.categories.length) return;
