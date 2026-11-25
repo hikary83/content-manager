@@ -98,6 +98,30 @@ test('data-voice는 모델 뒤에 말투 — 없으면 0.6B, 말투는 1.7B만',
   assert.deepEqual(voiceOf('<body data-voice="1.7b">'),{size:'1.7b',instruct:''});
   assert.throws(()=>voiceOf('<body data-voice="0.6b 밝게">'),/1\.7b만/);
   assert.throws(()=>voiceOf('<body data-voice="3b">'),/data-voice/);
+  assert.deepEqual(voiceOf('<body data-voice="clone 혜경">'),{clone:'혜경'},'롱폼 복제 목소리 (2026-11-24)');
+  assert.throws(()=>voiceOf('<body data-voice="clone">'),/clone 혜경/,'목소리 이름이 있어야 한다');
+});
+test('2026-11-24 복제 목소리는 0.5초 안으로 붙은 줄을 3줄까지 묶어 이어 읽는다 — 조용한 틈에서 끊는다',async()=>{
+  const {groupLines}=await import(new URL('../tools/motion/voice.mjs',import.meta.url).href);
+  const lines=[[0.2,3.4],[3.6,6.2],[6.4,9.4],[12.1,15],[15.2,18.8],[19,23.4],[23.6,26],[26.2,29.8]].map(([at,end],i)=>({at,end,no:i+1})); // 30초 시험본
+  const nos=groups=>groups.map(g=>g.map(l=>l.no));
+  assert.deepEqual(nos(groupLines(lines)),[[1,2,3],[4,5,6],[7,8]],'틈(9.4~12.1) 앞뒤를 가르고, 5줄은 3+2');
+  assert.deepEqual(nos(groupLines(lines.slice(3,7))),[[4,5],[6,7]],'4줄은 2+2');
+  assert.deepEqual(nos(groupLines([{at:0,end:14.7,no:1},{at:15.2,end:16,no:2},{at:16.6,end:17,no:3}])),[[1,2],[3]],'0.5초는 같은 묶음, 0.6초는 새 묶음');
+});
+const voicePython=path.join(os.homedir(),'.hikary-voice','venv',process.platform==='win32'?'Scripts/python.exe':'bin/python');
+test('2026-11-24 목소리 폴더 이름이 한글(voices/혜경)이어도 ffmpeg·음성 파이썬이 읽는다',{skip:!ffmpeg&&'ffmpeg가 필요해요'},()=>{
+  const dir=path.join(fs.mkdtempSync(path.join(os.tmpdir(),'hikary-voices-')),'혜경');
+  try{
+    fs.mkdirSync(dir);const ref=path.join(dir,'ref.wav'),copy=path.join(dir,'다시.wav');
+    execFileSync('ffmpeg',['-v','error','-y','-f','lavfi','-i','sine=f=220:d=0.5','-ar','24000',ref]);
+    execFileSync('ffmpeg',['-v','error','-y','-i',ref,copy]); // voice_clone.py의 빨리 읽기(atempo)와 같은 길
+    assert.ok(fs.statSync(copy).size>20000);
+    if(fs.existsSync(voicePython)){ // qwen-tts는 참조를 librosa(soundfile)로 연다
+      const read=spawnSync(voicePython,['-I','-c','import sys, soundfile; print(soundfile.info(sys.argv[1]).samplerate)',ref],{encoding:'utf8'});
+      assert.equal(read.stdout.trim(),'24000',read.stderr);
+    }
+  }finally{fs.rmSync(path.dirname(dir),{recursive:true,force:true});}
 });
 test('2026-11-16 불빛 반짝임은 사진에 있는 밝은 점에만 — 어두운 바탕의 점 둘은 찾고, 빈 곳에는 찍지 않는다',async()=>{
   const {findLights,lightsHtml}=await import(pathToFileURL(fileURLToPath(new URL('../tools/motion/lights.mjs',import.meta.url))).href);
