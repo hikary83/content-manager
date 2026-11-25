@@ -26,6 +26,11 @@ export const sounds = {
   thud: "aevalsrc='0.9*sin(2*PI*(55+140*exp(-t*22))*t)*exp(-t*11)':d=0.35",
   ding: "aevalsrc='0.45*sin(2*PI*1320*t)*exp(-t*5)+0.25*sin(2*PI*1980*t)*exp(-t*7)':d=0.9",
   notify: "aevalsrc='0.4*sin(2*PI*988*t)*exp(-t*14)*lt(t,0.14)+0.4*sin(2*PI*1319*(t-0.14))*exp(-(t-0.14)*9)*gte(t,0.14)':d=0.6",
+  // 2026-11-25 (모션팀, 롱폼 EP01 「소리」 — 영상 안에서 처음 들리는 세상 소리라 또렷하게). 위 소리는 그대로 두고 더하기만 했다.
+  // alarm 따르릉: 탁상 알람 종 — 종 소리(2350 Hz + 어긋난 배음 둘)를 망치가 초당 18.5번 때린다 (때릴 때마다 딱 소리 + 울림). 1.15초 울리고 줄어든다.
+  alarm: "aevalsrc='0.34*(sin(2*PI*2350*t)+0.5*sin(2*PI*3180*t)+0.25*sin(2*PI*5650*t))*(0.3+0.7*exp(-mod(t,0.054)*42))*min(1,t/0.004)*if(lt(t,1.15),1,exp(-(t-1.15)*14))':d=1.5",
+  // clap 짝: 손뼉 한 번 — 짧은 잡음이 0.009초 간격으로 세 번 겹친다 (손바닥이 닿는 순간). random(0)이라 매번 같은 소리다. 「짝! 짝!」은 두 번 적는다.
+  clap: "aevalsrc='0.9*(random(0)*2-1)*(exp(-t*420)+0.8*gte(t,0.009)*exp(-(t-0.009)*380)+gte(t,0.018)*exp(-(t-0.018)*40))':d=0.22,bandpass=f=1400:width_type=h:w=2200,volume=1.5",
 };
 
 export function parseCues(text = '') {

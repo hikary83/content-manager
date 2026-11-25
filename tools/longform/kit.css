@@ -1,0 +1,264 @@
+/* 롱폼 연출 부품 모양 (모션팀, 2026-11-23~25) — 지난 시범 pilot.css + 카메라 · 살아 있는 움직임 · 아웃트로 · 자막 · 타이포. 쓰는 법은 kit.js 맨 위.
+   캐릭터 그림(cast.js)은 저장소 밖 contents/longform/_cast/에 있다. 여기 팔·다리 움직임(.walking .arm0 …)은 그 그림의 class를 움직인다. */
+*{margin:0;box-sizing:border-box}
+html,body{width:1920px;height:1080px;overflow:hidden}
+body{background:#000;font-family:Jua,sans-serif;font-synthesis:none;color:#2e2a3a}
+.stage{position:absolute;inset:0;overflow:hidden;background:#bfe6ff}
+/* 시간: .seg는 --at부터 --len 동안만 보인다. .mv는 --m0부터 --md 동안 한 번 움직인다 (겹치면 더해진다) */
+.seg{position:absolute;inset:0;opacity:0;animation:show var(--len) linear var(--at)}
+@keyframes show{from,to{opacity:1}}
+.mv{position:absolute;inset:0;transform-origin:var(--ox,960px) var(--oy,540px);animation:mv var(--md) var(--ease,linear) var(--m0) both}
+.mv.fw{animation-fill-mode:forwards}
+@keyframes mv{from{transform:translate(var(--x0,0px),var(--y0,0px)) rotate(var(--r0,0deg)) scale(var(--sx0,1),var(--sy0,1));opacity:var(--o0,1)}
+  to{transform:translate(var(--x1,0px),var(--y1,0px)) rotate(var(--r1,0deg)) scale(var(--sx1,1),var(--sy1,1));opacity:var(--o1,1)}}
+.a{position:absolute}
+
+/* 소라: 그림 속 그림자는 숨기고 땅에 따로 둔다 (점프하면 작아진다) */
+.actor{position:absolute}
+.actor svg>ellipse{display:none}
+.ghost{opacity:.38;filter:grayscale(1)}
+.shadow{position:absolute;width:160px;height:22px;border-radius:50%;background:rgba(46,42,58,.16)}
+.walking svg{animation:bob .25s ease-in-out infinite alternate}
+.walking .leg0{animation:wl0 .5s linear infinite}.walking .leg1{animation:wl1 .5s linear infinite}
+.walking .arm0{animation:wa0 .5s linear infinite}.walking .arm1{animation:wa1 .5s linear infinite}
+@keyframes bob{to{transform:translateY(-8px)}}
+@keyframes wl0{0%,100%{transform:rotate(2deg)}25%{transform:rotate(22deg)}75%{transform:rotate(-18deg)}}
+@keyframes wl1{0%,100%{transform:rotate(-2deg)}25%{transform:rotate(-22deg)}75%{transform:rotate(18deg)}}
+@keyframes wa0{0%,100%{transform:rotate(22deg)}25%{transform:rotate(4deg)}75%{transform:rotate(40deg)}}
+@keyframes wa1{0%,100%{transform:rotate(-22deg)}25%{transform:rotate(-40deg)}75%{transform:rotate(-4deg)}}
+.running svg{animation:bob .17s ease-in-out infinite alternate}
+.running .leg0{animation:rl0 .34s linear infinite}.running .leg1{animation:rl1 .34s linear infinite}
+.running .arm0{animation:ra0 .34s linear infinite}.running .arm1{animation:ra1 .34s linear infinite}
+@keyframes rl0{0%,100%{transform:rotate(34deg)}50%{transform:rotate(-38deg)}}
+@keyframes rl1{0%,100%{transform:rotate(-40deg)}50%{transform:rotate(32deg)}}
+@keyframes ra0{0%,100%{transform:rotate(55deg)}50%{transform:rotate(-80deg)}}
+@keyframes ra1{0%,100%{transform:rotate(-110deg)}50%{transform:rotate(40deg)}}
+.flail .arm0{animation:fl0 .3s ease-in-out infinite alternate}.flail .arm1{animation:fl1 .3s ease-in-out infinite alternate}
+@keyframes fl0{from{transform:rotate(120deg)}to{transform:rotate(160deg)}}
+@keyframes fl1{from{transform:rotate(-120deg)}to{transform:rotate(-160deg)}}
+
+/* 글자: 말풍선 · 화면 글자 · 아래 자막 (맨 아래 76px는 비운다 — 재생 막대) */
+.bubble{position:absolute;padding:18px 32px 12px;border-radius:36px;background:#fff;border:5px solid #2e2a3a;font-size:46px;line-height:1.15;white-space:nowrap;
+  box-shadow:0 8px 0 rgba(46,42,58,.12);transform-origin:var(--tx,20%) 130%;animation:pop .35s cubic-bezier(.3,1.6,.5,1) var(--at) both}
+.bubble::before,.bubble::after{content:"";position:absolute;bottom:-46px;border:22px solid transparent;border-top-color:#2e2a3a;left:var(--tail,46px)}
+.bubble::after{bottom:-35px;border-width:17px;border-top-color:#fff;left:calc(var(--tail,46px) + 5px)}
+.bubble.L{--tx:85%;--tail:calc(100% - 92px)}
+@keyframes pop{from{transform:scale(0)}}
+.big{position:absolute;left:0;right:0;text-align:center;font-family:'Black Han Sans',sans-serif;font-size:96px;line-height:1.05;color:#fff;
+  -webkit-text-stroke:12px #2e2a3a;paint-order:stroke fill;animation:pop .4s cubic-bezier(.3,1.6,.5,1) var(--at) both}
+.big em{font-style:normal;color:#ffd23f}
+/* 아래 자막 (나레이션과 같은 글, kit.js capOf) — 사람 (2026-11-24): "자막이 쫌 작은거 같애" → "아직 쫌 작은거 같애ㅠㅠ / 흰글자에 테두리는 굿"
+   주아 80px 한 줄, 흰 글자 + 진한 테두리 (상자 없음). 두 줄은 쓰지 않고 16자 안쪽 조각으로 끊어 바꿔 보인다.
+   테두리까지 글자 높이 78px = 화면의 7.2%, 글자 바닥은 화면 바닥에서 약 99px (맨 아래 76px 재생 막대 자리는 비운다).
+   벤치 1080p에서 잰 값 (테두리 포함 글자 높이): 사물궁이 4.7% · 은잡지 4.8% · 잡학게티 5.7% · IF 시나리오 6.1~7.7% (짧게 끊음) */
+.cap{position:absolute;left:50%;bottom:88px;transform:translateX(-50%);width:max-content;text-align:center;color:#fff;font-size:80px;line-height:1.1;white-space:nowrap;
+  -webkit-text-stroke:13px #2e2a3a;paint-order:stroke fill;text-shadow:0 6px 0 rgba(46,42,58,.35)}
+.tag{position:absolute;padding:6px 16px 3px;border-radius:12px;background:#2e2a3a;color:#fff;font-size:28px;white-space:nowrap}
+.title{position:absolute;inset:0;background:rgba(46,42,58,.78);display:grid;place-items:center}
+
+/* 배경 */
+.sky{position:absolute;inset:0}
+.ground{position:absolute;left:0;right:0;bottom:0}
+.tree{position:absolute;width:40px;background:#9b6b43;border:5px solid #2e2a3a;border-radius:8px}
+.tree::before{content:"";position:absolute;left:50%;bottom:calc(100% - 20px);width:var(--w,200px);height:var(--w,200px);margin-left:calc(var(--w,200px) / -2);border-radius:50%;background:#7ccf7a;border:5px solid #2e2a3a}
+.cloud{position:absolute;width:220px;height:70px;border-radius:40px;background:#fff}
+.cloud::before,.cloud::after{content:"";position:absolute;background:#fff;border-radius:50%}
+.cloud::before{width:100px;height:100px;left:34px;top:-46px}.cloud::after{width:80px;height:80px;left:110px;top:-30px}
+.ball{position:absolute;width:48px;height:48px;margin:-24px 0 0 -24px;border-radius:50%;border:5px solid #2e2a3a;background:radial-gradient(circle at 34% 32%,#ff9c8c 0 18%,#ef5b5b 20%)}
+.ball.ghost{background:none;border-style:dashed;opacity:.55;filter:none}
+.drop{position:absolute;width:18px;height:24px;margin:-12px 0 0 -9px;border-radius:50% 50% 50% 50%/60% 60% 40% 40%;background:#5bb8ff;border:3px solid #2e2a3a}
+.dust{position:absolute;width:70px;height:46px;margin:-23px 0 0 -35px;border-radius:50%;background:#d8c3a5;animation:dust .9s ease-out var(--t) both}
+@keyframes dust{from{transform:scale(.3);opacity:.9}to{transform:translate(-60px,-24px) scale(1.3);opacity:0}}
+.grain{position:absolute;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;background:#f2c94c;border:2px solid #b8902a}
+.line{position:absolute;height:0;border-top:6px solid #2e2a3a}
+.line.dash{border-top-style:dashed;opacity:.7}
+.arrow{position:absolute;width:var(--w,26px);background:var(--c,#ef5b5b);border:5px solid #2e2a3a;border-radius:6px}
+.arrow::after{content:"";position:absolute;left:50%;bottom:-36px;margin-left:-26px;border:26px solid transparent;border-top:34px solid var(--c,#ef5b5b);border-bottom:0}
+.panel{position:absolute;background:#fff;border:6px solid #2e2a3a;border-radius:34px;box-shadow:0 12px 0 rgba(46,42,58,.12)}
+@keyframes rain{from{transform:translateY(-40px);opacity:0}15%{opacity:1}to{transform:translateY(200px);opacity:.2}}
+@keyframes speed{from{transform:translateX(0);opacity:.9}to{transform:translateX(-160px);opacity:0}}
+@keyframes fadein{to{opacity:1}}
+
+/* ── 카메라 · 살아 있는 움직임 (2026-11-23 추가) ── */
+/* .tk = kit.js track(): 여러 지점을 지나는 움직임 한 줄 (키프레임은 kit.js가 만든다) */
+.tk{position:absolute;inset:0}
+.cam{transform-origin:0 0}
+/* 숨쉬기: 서 있는 배우가 발을 축으로 아주 작게 커졌다 작아진다 (배우마다 --bd로 박자를 어긋나게) */
+.breathe>svg{transform-origin:50% 94.5%;animation:breathe 1.5s ease-in-out var(--bd,0s) infinite alternate}
+@keyframes breathe{to{transform:scale(.99,1.022)}}
+/* 표정이 놀람·씩으로 바뀔 때 머리가 톡 (cast.js의 .hd, 시각은 animation-delay) */
+.hd.pop{animation:headpop .34s cubic-bezier(.3,1.4,.5,1) both}
+@keyframes headpop{0%{transform:none}40%{transform:scale(1.17)}100%{transform:none}}
+/* 반짝 효과선: 놀라는 순간 튀어나와 남는다 */
+.spk{position:absolute;opacity:0;transform-origin:0 100%;animation:spk .28s cubic-bezier(.3,1.8,.5,1) var(--at) forwards}
+@keyframes spk{0%{opacity:1;transform:scale(0)}100%{opacity:1;transform:scale(1)}}
+/* 누가 말하는지 (2026-11-23, 컨텐츠팀 제안 · 60초 시험본): 말랑이·콩이는 흰 풍선 + 캐릭터 색 테두리(바깥에 가는 검은 선), 삐코는 까만 네모 + 흰 글자 */
+.bubble.who{border:7px solid var(--bc);box-shadow:0 0 0 3px #2e2a3a,0 9px 0 rgba(46,42,58,.14)}
+.bubble.who::before{border-top-color:var(--bc)}
+.bubble.who::after{bottom:-33px}
+.bubble.pico{background:#333;color:#fff;border-radius:16px;border-color:#1d1b1a}
+.bubble.pico::after{border-top-color:#333}
+.bubble.still{animation:none}
+.name{position:absolute;padding:8px 22px 4px;border-radius:999px;border:4px solid #2e2a3a;font-size:34px;white-space:nowrap;animation:pop .35s cubic-bezier(.3,1.6,.5,1) var(--at) both}
+/* 흔들림: 미끄러지는 얼굴처럼 발을 축으로 잘게 (rotate 속성이라 다른 움직임과 겹쳐도 된다) */
+.wobble{animation:wob .14s ease-in-out var(--at,0s) infinite alternate}
+@keyframes wob{from{rotate:-2.5deg}to{rotate:2.5deg}}
+
+/* ── 아웃트로 (2026-11-23 · 채널 배너와 같은 하늘 + 구름) ── */
+.ioc{position:absolute;inset:0;background:linear-gradient(#a9d4f2,#dceef9);overflow:hidden}
+/* 뭉게구름: 동그라미 넷 + 밑판 (채널 배너 .cl과 같은 모양). 천천히 옆으로 흐른다 */
+.cl{position:absolute;width:300px;height:110px;transform:scale(var(--s,1));transform-origin:0 100%;filter:drop-shadow(0 14px 16px rgba(70,130,185,.22))}
+.cl i{position:absolute;border-radius:50%;background:radial-gradient(circle at 45% 35%,#fff 55%,#eef6fd 100%)}
+.cl i:nth-child(1){left:0;bottom:0;width:300px;height:80px;border-radius:40px}
+.cl i:nth-child(2){left:34px;bottom:30px;width:110px;height:110px}
+.cl i:nth-child(3){left:104px;bottom:40px;width:140px;height:140px}
+.cl i:nth-child(4){left:200px;bottom:26px;width:86px;height:86px}
+.drift{position:absolute;inset:0;animation:drift var(--len) linear var(--at) both}
+@keyframes drift{to{transform:translateX(-60px)}}
+/* 아웃트로 글 */
+.ititle{position:absolute;left:0;right:0;text-align:center;font-family:Jua,sans-serif;color:#1f3a68;letter-spacing:-2px;white-space:nowrap;
+  text-shadow:0 8px 0 rgba(255,255,255,.9);animation:ipop .45s cubic-bezier(.3,1.6,.5,1) var(--at) both}
+.ititle em{font-style:normal;color:#f2843a}
+@keyframes ipop{from{transform:scale(0)}}
+/* 손 흔들기 (오른팔) */
+.waving .arm1{animation:wave .42s ease-in-out var(--wd,0s) infinite alternate}
+@keyframes wave{from{transform:rotate(-128deg)}to{transform:rotate(-172deg)}}
+/* 최종 화면 자리 (미리보기에서만) */
+.es{position:absolute;border:6px dashed rgba(31,58,104,.55);background:rgba(255,255,255,.35);display:grid;place-items:center;font-family:Jua,sans-serif;font-size:36px;color:#1f3a68;text-align:center}
+
+/* ── 30초 시험본 「소리가 사라진다면」에서 더한 것 (2026-11-24) ── */
+/* 빈 말풍선: 말했는데 아무것도 안 나온다 — 점선 테두리, 속은 비움 */
+.bubble.empty{border-style:dashed;min-width:170px;height:84px;background:rgba(255,255,255,.75)}
+/* 「상상」 딱지: 왼쪽 위 노란 테이프 */
+.imagine{position:absolute;left:34px;top:30px;padding:10px 30px 5px;background:#ffd23f;border:4px solid #2e2a3a;font-family:Jua,sans-serif;font-size:44px;color:#2e2a3a;
+  transform:rotate(-6deg);box-shadow:0 6px 0 rgba(46,42,58,.15);animation:pop .3s cubic-bezier(.3,1.6,.5,1) var(--at) both}
+/* 박수: clap 자세(벌림)에서 두 팔을 가운데로 모았다 벌린다. --cd = 첫 손뼉이 닿기 0.4초 전, --cn = 몇 번 */
+.clapping .arm0{animation:clap0 .9s ease-in-out var(--cd) var(--cn,3) both}
+.clapping .arm1{animation:clap1 .9s ease-in-out var(--cd) var(--cn,3) both}
+@keyframes clap0{0%,100%{transform:rotate(-40deg)}44%{transform:rotate(-88deg)}}
+@keyframes clap1{0%,100%{transform:rotate(40deg)}44%{transform:rotate(88deg)}}
+/* 누르기: 가리키는 팔을 짧게 앞뒤로 (초인종). --pd 시작, --pn 몇 번 */
+.pressing .arm1{animation:press .5s ease-in-out var(--pd) var(--pn,3) both}
+@keyframes press{0%,100%{transform:rotate(-158deg)}50%{transform:rotate(-146deg)}}
+/* 제자리 떨림 (공기 알갱이·스피커 막·고막): --amp만큼 좌우로, --per의 절반마다 한쪽 끝 */
+.osc{animation:osc calc(var(--per,.8s) / 2) ease-in-out var(--od,0s) infinite alternate both}
+@keyframes osc{from{transform:translateX(calc(var(--amp,10px) * -1))}to{transform:translateX(var(--amp,10px))}}
+/* 퍼지는 물결 (판 ②③): 동그라미가 커지며 옅어진다 */
+.ring{position:absolute;border-radius:50%;border:10px solid #3d8fe0;animation:ring var(--per,1.2s) linear var(--od,0s) infinite both}
+@keyframes ring{from{transform:scale(.15);opacity:1}to{transform:scale(1);opacity:0}}
+/* 반짝이는 별 */
+.twinkle{animation:twinkle 1.1s ease-in-out var(--od,0s) infinite alternate both}
+@keyframes twinkle{from{opacity:.25}to{opacity:1}}
+/* 둥둥 떠 있기 (우주) */
+.floaty{animation:floaty 1.6s ease-in-out var(--od,0s) infinite alternate both}
+@keyframes floaty{from{transform:translateY(-16px)}to{transform:translateY(16px)}}
+/* 한 번 사라지기 (음표 퐁) */
+@keyframes vanish{0%{transform:scale(1);opacity:1}40%{transform:scale(1.3);opacity:1}100%{transform:scale(0);opacity:0}}
+
+/* ── 자막 타이포 (가로판, 2026-11-24) — 템플릿 6 생생 「자막 타이포」(tools/motion/template-vivid.html)를 가로 화면·2D 그림에 맞게 옮김. 생생 파일은 그대로.
+   작은 주아 한 줄(.ty-s) + 큰 블랙한산스 낱말(.ty-b) · 큰 낱말을 <em>으로 감싸면 형광펜 띠. 흰 글자 + 진한 테두리 (우리 2D 그림의 굵은 선과 맞춤).
+   수(.land 착지 · .slam 쿵 · .fly 날아옴 · .rise 솟아오름 · .through 뚫고 지나감)는 kit.js typo()가 붙인다. 이름은 ty-로 시작 (kit의 .big·pop과 안 겹치게) */
+.ty{position:absolute;left:calc(var(--cx,960px) - var(--tw,1100px) / 2);width:var(--tw,1100px);top:var(--y,40px);text-align:center;color:#fff}
+.ty .ty-s{display:block;font:400 var(--ss,64px)/1.15 Jua,sans-serif;-webkit-text-stroke:var(--sk,11px) #2e2a3a;paint-order:stroke fill}
+.ty .ty-b{display:block;margin-top:2px;font:400 var(--fs,180px)/1.02 'Black Han Sans',sans-serif;letter-spacing:-.02em;-webkit-text-stroke:var(--bk,18px) #2e2a3a;paint-order:stroke fill}
+.ty .ty-in{display:block}
+.ty .ty-b em{font-style:normal;position:relative;isolation:isolate;display:inline-block;padding:0 .06em;margin:0 -.03em}
+.ty .ty-b em::before{content:"";position:absolute;z-index:-1;left:-.02em;right:-.02em;top:52%;height:40%;border-radius:.05em;background:var(--point,#f2843a);
+  transform:scaleX(0);transform-origin:0 50%;animation:ty-band .18s cubic-bezier(.5,0,.2,1) calc(var(--at) + var(--e,.5s)) both}
+@keyframes ty-band{to{transform:scaleX(1)}}
+@keyframes ty-up{from{opacity:0;transform:translateY(40px)}}
+@keyframes ty-pop{from{opacity:0;transform:scale(.3)}}
+@keyframes ty-fade{from{opacity:0}}
+/* 착지: 첫 프레임에 125%로 꽉 차 있다가 내려앉음 → 끝에 위로 튕겨 나감 (훅 — 0초 프레임에 글자가 다 보인다) */
+.ty.land{--e:.22s;animation:ty-outup .24s cubic-bezier(.5,0,1,.5) calc(var(--at) + var(--len) - .26s) forwards}
+.ty.land .ty-in{transform-origin:50% 55%;animation:ty-land .36s linear var(--at) both}
+@keyframes ty-land{0%{transform:scale(1.25);animation-timing-function:cubic-bezier(.5,0,.9,.6)}55%{transform:scale(1.04,.9);animation-timing-function:ease-out}78%{transform:scale(.98,1.04)}100%{transform:none}}
+@keyframes ty-outup{from{transform:none;opacity:1}to{transform:translateY(-420px) scale(.75);opacity:0}}
+/* 쿵: 위에서 떨어져 0.25초에 쿵 → 끝에 아래로 떨어짐 */
+.ty.slam{--e:.45s;animation:ty-outdown .26s cubic-bezier(.5,0,1,.5) calc(var(--at) + var(--len) - .28s) forwards}
+.ty.slam .ty-s{animation:ty-pop .35s cubic-bezier(.3,1.6,.5,1) calc(var(--at) + .25s) both}
+.ty.slam .ty-b{transform-origin:50% 85%;animation:ty-slam .52s linear var(--at) both}
+@keyframes ty-slam{0%{transform:translateY(-900px) scale(.9,1.3);animation-timing-function:cubic-bezier(.55,0,1,.7)}
+  48%{transform:translateY(0) scale(1.22,.74);animation-timing-function:cubic-bezier(.2,.8,.3,1)}70%{transform:scale(.95,1.07)}86%{transform:scale(1.02,.98)}100%{transform:none}}
+@keyframes ty-outdown{from{transform:none}to{transform:translateY(1100px) rotate(9deg)}}
+/* 날아옴: 글자마다 다른 방향·회전으로 날아와 맞춰짐 → 끝에 왼쪽으로 밀려남 (세 글자까지, 2초 이상) */
+.ty.fly{--e:.5s;animation:ty-outleft .22s cubic-bezier(.5,0,1,.5) calc(var(--at) + var(--len) - .24s) forwards}
+.ty.fly .ty-s{animation:ty-up .3s cubic-bezier(.2,.8,.2,1) var(--at) both}
+.ty.fly .c{display:inline-block;animation:ty-flyin .3s cubic-bezier(.2,.9,.3,1.12) calc(var(--at) + .08s + var(--i) * .04s) both}
+@keyframes ty-flyin{0%{opacity:0;transform:translate(var(--fx),var(--fy)) rotate(var(--fr)) scale(1.7)}30%{opacity:1}}
+@keyframes ty-outleft{from{transform:none}to{transform:translateX(-2100px) skewX(16deg)}}
+/* 솟아오름: 흰 선이 그어지고 그 아래에서 낱말이 솟음 → 끝에 선 아래로 들어감 */
+.ty.rise{--e:.5s}
+.ty.rise .ty-b{position:relative;clip-path:inset(-40% -30% 12% -30%)}
+.ty.rise .ty-b::after{content:"";position:absolute;left:50%;bottom:12%;width:var(--rw,calc(var(--fs,180px) * 3.2));height:10px;margin-left:calc(var(--rw,calc(var(--fs,180px) * 3.2)) / -2);border-radius:5px;background:#fff;
+  box-shadow:0 0 0 4px #2e2a3a;transform:scaleX(0);animation:ty-rule .2s cubic-bezier(.3,0,.2,1) var(--at) both}
+@keyframes ty-rule{to{transform:scaleX(1)}}
+.ty.rise .ty-b em{animation:ty-risein .36s cubic-bezier(.2,.9,.25,1.12) calc(var(--at) + .18s) both,ty-sinkout .2s cubic-bezier(.6,0,1,.6) calc(var(--at) + var(--len) - .24s) forwards}
+@keyframes ty-risein{from{transform:translateY(95%)}}
+@keyframes ty-sinkout{from{transform:none}to{transform:translateY(95%)}}
+.ty.rise .ty-s{animation-name:ty-pop,ty-outfade;animation-duration:.45s,.2s;animation-timing-function:cubic-bezier(.3,1.6,.5,1),ease-in;
+  animation-delay:var(--at),calc(var(--at) + var(--len) - .24s);animation-fill-mode:both,forwards}
+@keyframes ty-outfade{from{opacity:1;transform:none}to{opacity:0;transform:translateY(-40px)}}
+/* 뚫고 지나감: 툭 튀어나옴 → 끝 0.42초에 6배로 커지며 다음 장면으로 */
+.ty.through{--e:.4s;transform-origin:50% 66%;animation:ty-through .42s cubic-bezier(.7,0,1,.6) calc(var(--at) + var(--len) - .42s) forwards}
+.ty.through .ty-s{animation:ty-fade .3s ease var(--at) both}
+.ty.through .ty-b{animation:ty-pop .4s cubic-bezier(.3,1.7,.5,1) calc(var(--at) + .05s) both}
+@keyframes ty-through{0%{transform:none;opacity:1}60%{opacity:1}100%{transform:scale(6);opacity:0}}
+/* 영상 맨 끝 장면: 나가는 움직임 없이 남는다 — typo(…, { stay: true }) */
+.ty.stay{animation:none}
+
+/* ── 타이포 모양 더 (2026-11-24 v3) — 쓰는 법은 kit.js 「타이포 모양 더」 ── */
+/* 훅 물음 카드 (.ty.land 움직임을 같이 쓴다) */
+.tyq .card{position:relative;display:inline-block;padding:20px 66px 26px;border-radius:40px;background:#1f3a68;border:7px solid #2e2a3a;box-shadow:0 12px 0 rgba(31,58,104,.25);transform:rotate(-2deg)}
+.tyq .q1{display:block;font:400 var(--s1,56px)/1.15 Jua,sans-serif;color:#fff}
+.tyq .q2{display:block;margin-top:2px;font:400 var(--s2,128px)/1.02 'Black Han Sans',sans-serif;color:#ffd23f;letter-spacing:-.02em;-webkit-text-stroke:14px #2e2a3a;paint-order:stroke fill}
+.tyq .badge{position:absolute;right:-54px;bottom:-34px;width:124px;height:124px;border-radius:50%;background:#f2843a;border:7px solid #2e2a3a;display:grid;place-items:center;
+  font:400 92px/1 'Black Han Sans',sans-serif;font-style:normal;color:#fff;transform:rotate(14deg);animation:tyq-badge .5s cubic-bezier(.3,1.7,.5,1) calc(var(--at) + .25s) both}
+@keyframes tyq-badge{from{transform:rotate(-40deg) scale(0)}}
+/* 소리 글자: 기울어진 노란 큰 글자가 툭 → 흔들림 → 끝에 사라짐. .mute = 밝은 회색 글자 + 진한 회색 테두리 + 빨간 줄
+   (2026-11-25: 속이 비친 흰 글자 + 옅은 회색 테두리였는데 벽 줄무늬에 묻혀 — 테두리를 진하게, 바닥 그림자를 더했다. --bl·--al = 작고 흐린 소리) */
+.tys{position:absolute;left:var(--x);top:var(--y);transform:translate(-50%,-50%) rotate(var(--r,-8deg));font:400 var(--fs,180px)/1 'Black Han Sans',sans-serif;white-space:nowrap;
+  filter:drop-shadow(0 7px 0 rgba(46,42,58,.3));animation:tys-out .15s ease-in calc(var(--at) + var(--len) - .15s) forwards}
+.tys .w{display:inline-block;color:#ffd23f;-webkit-text-stroke:16px #2e2a3a;paint-order:stroke fill;filter:blur(var(--bl,0px));opacity:var(--al,1);
+  animation:tys-pop .3s cubic-bezier(.3,1.8,.5,1) var(--at) both,tys-shake .07s linear calc(var(--at) + .3s) 4 alternate}
+.tys.mute .w{color:#e6e9ef;-webkit-text-stroke:16px #565b68}
+.tys.mute::after{content:"";position:absolute;left:-8%;right:-8%;top:50%;height:18px;margin-top:-9px;border-radius:9px;background:#ef5b5b;border:4px solid #2e2a3a;
+  transform:rotate(-16deg) scaleX(0);animation:tys-slash .14s ease-out calc(var(--at) + .14s) forwards}
+@keyframes tys-pop{0%{transform:scale(0) rotate(-24deg)}70%{transform:scale(1.15)}100%{transform:none}}
+@keyframes tys-shake{from{transform:translateX(-5px)}to{transform:translateX(5px)}}
+@keyframes tys-slash{to{transform:rotate(-16deg) scaleX(1)}}
+@keyframes tys-out{to{opacity:0}}
+/* 비교: 흰 칩 + 표시 동그라미, 칩 사이 화살표 — 차례로 톡 → 끝에 옅어짐 */
+.tyc{position:absolute;left:var(--x);top:var(--y);transform:translate(-50%,-50%);display:flex;align-items:center;gap:24px;white-space:nowrap;
+  animation:tys-out .2s ease-in calc(var(--at) + var(--len) - .2s) forwards}
+.tyc .chip{display:inline-flex;align-items:center;gap:16px;padding:14px 20px 12px 34px;border-radius:26px;background:#fff;border:7px solid #2e2a3a;box-shadow:0 10px 0 rgba(46,42,58,.2);
+  font:400 var(--fs,68px)/1 Jua,sans-serif;color:#1f3a68;animation:ty-pop .38s cubic-bezier(.3,1.6,.5,1) calc(var(--at) + var(--d,0s)) both}
+.tyc .mark{display:grid;place-items:center;width:76px;height:76px;border-radius:50%;background:var(--mc,#ef5b5b);border:5px solid #2e2a3a;color:#fff;font:400 52px/1 'Black Han Sans',sans-serif;font-style:normal}
+.tyc .to{font:400 96px/1 'Black Han Sans',sans-serif;color:#fff;-webkit-text-stroke:12px #2e2a3a;paint-order:stroke fill;animation:ty-up .3s ease calc(var(--at) + var(--d,0s)) both}
+
+/* ── EP01 「소리」 부품 (2026-11-25) — 쓰는 법은 kit.js 「진행 꼬리표」 · 「스케치북」 · 「실 전화기」 ── */
+/* 진행 꼬리표: 「상상」 딱지 옆 흰 꼬리표 (딱지보다 조금 작게, 덜 기울게). 처음엔 톡, 이어지면 위로 넘어가듯 바뀐다 */
+.ptag{position:absolute;display:flex;align-items:center;gap:12px;padding:8px 24px 4px 14px;background:#fff;border:4px solid #2e2a3a;border-radius:16px;
+  font-family:Jua,sans-serif;font-size:40px;line-height:1.1;color:#1f3a68;white-space:nowrap;transform:rotate(-3deg);box-shadow:0 6px 0 rgba(46,42,58,.15);
+  transform-origin:50% 0;animation:ptag-pop .3s cubic-bezier(.3,1.6,.5,1) var(--at) both}
+.ptag.flip{animation:ptag-flip .34s cubic-bezier(.3,1.4,.5,1) var(--at) both}
+@keyframes ptag-pop{from{transform:rotate(-3deg) scale(0)}to{transform:rotate(-3deg)}}
+@keyframes ptag-flip{from{transform:rotate(-3deg) perspective(400px) rotateX(90deg)}to{transform:rotate(-3deg) perspective(400px) rotateX(0)}}
+/* 작은 시계: 동그라미 + 시침(짧게) · 분침(길게, 빨강). 바늘 각도는 --t, 빙글 돌 때는 --f → --t */
+.pclock{position:relative;flex:none;width:38px;height:38px;margin-top:-4px;border-radius:50%;background:#fffdf5;border:4px solid #2e2a3a}
+.pclock::after{content:"";position:absolute;left:50%;top:50%;width:6px;height:6px;margin:-3px;border-radius:50%;background:#2e2a3a}
+.pclock b{position:absolute;left:50%;bottom:50%;width:4px;margin-left:-2px;border-radius:2px;background:#2e2a3a;transform-origin:50% 100%;transform:rotate(var(--t))}
+.pclock b.h{height:9px}
+.pclock b.m{height:13px;background:#ef5b5b}
+@keyframes pc-turn{from{transform:rotate(var(--f))}to{transform:rotate(var(--t))}}
+/* 스케치북: 장은 위에서부터 겹치고(z-index), 넘기는 장은 위 모서리를 축으로 -90도까지 들려 사라진다 — 뒤집힌 뒷면이 비치지 않게 */
+.sk{position:absolute;perspective:900px}
+.sk .skp{position:absolute;inset:0;display:grid;place-items:center;text-align:center;background:#fff;border:5px solid #1d1b1a;border-radius:10px;
+  font-family:Jua,sans-serif;line-height:1.1;color:#1f3a68;transform-origin:50% 0}
+.sk .sk-ring{position:absolute;left:10px;right:10px;top:-14px;height:18px;z-index:99;background:repeating-linear-gradient(90deg,#8d96a6 0 6px,transparent 6px 22px)}
+@keyframes sk-flip{0%{transform:none;opacity:1}88%{transform:rotateX(-80deg);opacity:1}100%{transform:rotateX(-90deg);opacity:0}}
+/* 누운 모습의 이불 (cast.js pose 'lie'): 숨 쉬듯 천천히 오르내린다 */
+.cast.lie .blanket{transform-box:fill-box;transform-origin:0 50%;animation:blanket 2.4s ease-in-out infinite alternate}
+@keyframes blanket{to{transform:scale(1.012,1.035)}}
+/* 채널 로고 (kit.js 「채널 로고」): 맨 위 층, 움직이지 않는다 */
+.logo{position:absolute;pointer-events:none}
