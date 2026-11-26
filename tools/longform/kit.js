@@ -13,6 +13,8 @@
 // 만드는 순서: node tools/motion/record.mjs <motion.html> → node tools/longform/captimes.mjs <motion.html> (자막 조각 시각)
 //   → record.mjs 한 번 더 (읽은 음성은 voice/에 남아 다시 읽지 않는다) → node tools/longform/finish.mjs <motion.html>
 //   (배경음악 끊김 data-music-off · 아웃트로 끝 줄임을 넣어 motion-bgm.mp4를 다시 만든다).
+//   장면 분위기마다 음원을 바꿔 깔려면 <body data-bgm-cues="0 밝게, 2.9 끊김, …, 321.2 공연, …" data-bgm-stings="36.2 어이쿠, 86.8 쿵, …">
+//   (분위기 낱말 ↔ 곡은 contents/longform/_music/tracks.json, 끊김은 data-music-off 대신 큐로) — tools/longform/music.mjs 맨 위 주석.
 // 씨앗: 배경음악 곡과 타이포 수 순서는 폴더 이름으로 정해진다. 다른 것을 원하면 <body data-bgm="아무 글자"> · <body data-typo="아무 글자">.
 // 시간: 모두 영상 처음부터의 초. <body data-from="20">이면 20초 지점부터 찍는다 (한 구간만 미리 볼 때 — 시간표는 그대로 둔다).
 // 움직임은 CSS 애니메이션만이다 (녹화 도구가 시각을 맞춰 찍는다). 이 파일은 페이지를 열 때 한 번 장면을 만든다.
@@ -37,6 +39,29 @@
 // 몸      alive([['jump', t, 공중시간], ['talk', t]], [발 x, 발 y], 배우) — 점프 앞 웅크림 · 뜰 때 길쭉 · 착지 납작 (스쿼시·스트레치),
 //         ['land', t] 떨어져 닿을 때만 납작 · 말풍선이 뜰 때 통통 두 번. 점프 높이 움직임은 jump()가 따로 한다 (지난 시범과 같은 물리)
 // 반짝    spark(t, x, y, size) — 놀라는 순간 「///」
+//
+// ── 카메라 · 빛 · 편집 기법 (2026-11-26, 스터디 S76) — 대본 「화면」 칸에 「효과 이름 + 무엇을 + 어떻게」로 이 이름 그대로 쓴다 ──
+//   자세한 값은 아래 「카메라 · 빛 · 편집 기법」 절. 시험 영상: contents/_test/longform-camera/ (부품마다 3~4초)
+// 크레인        「크레인 — 하늘에서 무대 현수막까지 3.5초에 내려오며 연다」
+//               W.push(seg(0, 4, crane(0, 3.5, [[0.15, 하늘], [0.55, 나무·울타리], [1, 무대·배우]], { y: -650 }, { y: 420, z: 1.3 }))); cut(0, WIDE)
+//               「크레인 — 관객 머리에서 무대 전체로 솟는다」 crane(a, b, [… , [1.35, 관객]], { y: 880, z: 1.6 }, {})
+// 깊이          층 = [[깊이, html], …] — 1 주인공 층(배우·무대 바닥) · 0.1~0.6 뒤(하늘·나무) · 1.2~1.5 앞(관객 머리). 크레인·달리 줌·아크가 쓴다
+//   (패럴랙스)   parallax([[t, 시점, ease], …], 층) — 시점을 여러 번 옮길 때. 하늘은 크레인 높이만큼 위로 넉넉히 그린다
+// 달리 줌       「달리 줌 — 말랑이는 그대로, 뒤 하늘·울타리만 1.2초에 1.7배로 쑥」 dollyZoom(a, b, [[0.3, 뒤], [1, 앞]], 1.7, { at: 말랑이 얼굴 세상 점 })
+// 아크          「아크 — 콩이를 가운데 두고 옆으로 돈다」 arcShot(a, b, 층, 300) — 뒤 층과 앞 층이 반대로 미끄러진다
+// 크래시 줌     「크래시 줌 — 0.25초에 말랑이 얼굴로 확, 휙 소리 · 집중선」 S.push(crashZoom(t, shot('close', 배우))) — cut 대신
+// 휩 팬         「휩 팬 — 0.3초에 옆으로 휙 흐리며 콩이에게」 S.push(whipPan(t, shot('medium', 배우))) — 장면을 바꾸려면 t + 0.15에 바꾼다
+// 슬로 모션     「슬로 모션 — 북 치는 1.8초만 0.25배로」 W.push(slowMotion(장면 시작, 장면 끝, [a, b, 0.25], () => 장면))
+// 프리즈 프레임 「프리즈 프레임 + 이름표 — 귀 긁는 순간 1.6초 멈추고 '콩이 · 귀가 가려운 줄 앎'」
+//               W.push(freezeFrame(장면 시작, 장면 끝, [a, b], () => 장면)); S.push(freezeTag(a, b, '콩이', '귀가 가려운 줄 앎', { who: 'orange' }))
+// 타임랩스      「타임랩스 — 창밖 해와 구름이 휙휙, 시계가 7:00 → 9:40」 W.push(seg(a, b, 방 + timelapse(a, b))) + progressTag 칸 [a, 끝, '오전 9:40', 바늘 도는 초]
+// 시간대 색     「시간대 색 — 노을」 W.push(grade(a, b, '노을')) — '아침' · '한낮' · '노을' · '밤'. W 맨 끝에, seg로 감싸지 않는다
+// 빛줄기        「빛줄기 — 왼쪽 위 해에서 무대로」 W.push(lightRays(a, b, [x, y], { angle: 35 }))
+// 렌즈 플레어   「렌즈 플레어 — 해가 렌즈에 비침」 S.push(lensFlare(a, b, [x, y]))
+// 보케          「보케 — 관객 휴대폰 불빛이 앞에서 흐리게」 S.push(bokeh(a, b, { area: [0, 700, 1920, 1080] }))
+// 레터박스      「레터박스 — 6시 무대부터 공연 끝까지 위아래 검은 띠」 S.push(letterbox(a, b))
+// 아이리스 아웃 「아이리스 아웃 — 말랑이 얼굴로 동그랗게 닫히며 끝」 S.push(irisOut(a, b, [x, y]))
+// 스매시 컷     「스매시 컷 — 시끄러운 무대에서 조용한 밤 방으로 뚝」 S.push(smashCut(t)) + 장면을 t에 바꿈 (배경음악은 큐 「끊김」)
 const FROM = +document.body.dataset.from || 0;
 const GN = 2480, GH = 1240, G = 840; // 평소 중력 · 오늘(절반) 중력 (px/s², 키 380px ≈ 1.5m) · 땅 높이
 const OUT = 'cubic-bezier(.33,.67,.67,1)', IN = 'cubic-bezier(.33,0,.67,.33)', EASE = 'cubic-bezier(.4,0,.2,1)', PUNCH = 'cubic-bezier(.15,.85,.3,1.12)';
@@ -177,18 +202,24 @@ typo.compare = (a, b, items, o = {}) => {
 //   앞 꼬리표와 이어지면(끝 = 다음 시작) 꼬리표가 톡 넘어가며 바뀌고, 시곗바늘이 앞 시각에서 새 시각까지 앞으로 빙글 돈다 (밤 9:00 → 다음 날 7:00이면 10바퀴).
 //   o.x · o.y (기본 214 · 30 — 「상상」 딱지 오른쪽. 딱지가 없는 장면만 이어지면 x 34) · o.sfx (바뀔 때 효과음 이름, 기본 없음 — 소리 없는 구간을 지킨다)
 //   시계가 아닌 글(「1일째」 「① 점프」)도 그대로 쓴다 — 다른 편의 진행 꼬리표.
+//   타임랩스 (2026-11-26): 칸 넷째 값 = 바늘이 빙글빙글 도는 초 — 그동안 글은 앞 시각 그대로이고, 다 돌면 새 시각으로 톡 넘어간다.
+//     [[25.4, 25.7, '오전 7:00'], [25.7, 29.8, '오전 9:40', 3.6]] → 25.7~29.3초 「오전 7:00」에서 바늘이 돌고, 29.3초에 「오전 9:40」
 const clockMin = text => { const m = /(\d{1,2}):(\d{2})/.exec(text); return m ? (+m[1] % 12) * 60 + +m[2] : null; }; // 12시간 시계의 분
 function progressTag(list, o = {}) {
-  return list.map(([a, b, text], i) => {
-    const prev = i && list[i - 1][1] >= a - 0.01 ? list[i - 1] : null, cur = clockMin(text), was = prev && clockMin(prev[2]);
-    let icon = '';
+  return list.map(([a, b, text, turn], i) => {
+    const prev = i && list[i - 1][1] >= a - 0.01 ? list[i - 1] : null, cur = clockMin(text), was = prev && clockMin(prev[2]), lapse = turn != null && prev;
+    let icon = '', still = '';
     if (o.icon !== false && cur != null) {
       const spin = was != null ? ((cur - was) % 720 + 720) % 720 : 0, from = cur - spin; // 앞으로만 돈다
-      const hand = (cls, deg0, deg1) => `<b class="${cls}" style="--f:${r3(deg0)}deg;--t:${r3(deg1)}deg${spin ? `;animation:pc-turn .6s cubic-bezier(.3,0,.2,1) ${T(a)}s both` : ''}"></b>`;
+      const hand = (cls, deg0, deg1) => `<b class="${cls}" style="--f:${r3(deg0)}deg;--t:${r3(deg1)}deg${spin ? `;animation:pc-turn ${turn ?? '.6'}s cubic-bezier(.3,0,.2,1) ${T(a)}s both` : ''}"></b>`;
       icon = `<i class="pclock">${hand('h', from * 0.5, cur * 0.5)}${hand('m', from * 6, cur * 6)}</i>`;
+      still = `<i class="pclock"><b class="h" style="--t:${r3(cur * 0.5)}deg"></b><b class="m" style="--t:${r3(cur * 6)}deg"></b></i>`;
     }
-    if (o.sfx && prev) sfx(a, o.sfx, 0.3);
-    return seg(a, b, `<div class="ptag${prev ? ' flip' : ''}" style="--at:${T(a)}s;left:${o.x ?? 214}px;top:${o.y ?? 30}px">${icon}<span>${text}</span></div>`);
+    if (o.sfx && prev) sfx(lapse ? a + turn : a, o.sfx, 0.3);
+    const at = `left:${o.x ?? 214}px;top:${o.y ?? 30}px`;
+    if (lapse) return seg(a, a + turn, `<div class="ptag" style="--at:${T(a)}s;${at};animation:none">${icon}<span>${prev[2]}</span></div>`)
+      + seg(a + turn, b, `<div class="ptag flip" style="--at:${T(a + turn)}s;${at}">${still}<span>${text}</span></div>`);
+    return seg(a, b, `<div class="ptag${prev ? ' flip' : ''}" style="--at:${T(a)}s;${at}">${icon}<span>${text}</span></div>`);
   }).join('');
 }
 
@@ -288,11 +319,26 @@ function camera(shots, inner) {
     //   step-end로 t에 바로 바꾸는 것도 해 봤는데, ㎲ 어긋남에 그 프레임 전체가 앞 샷이 됐다 (EP01 15.2·301.1초).
     //   앞 움직임이 t 바로 앞에 끝나 자리가 없을 때만 예전처럼 t+0.001초.
     if (how === 'cut' && steps.at(-1)[0] < t - 0.0001) { steps.push([Math.max(steps.at(-1)[0], t - 0.001), steps.at(-1)[1], 'linear'], [t - 0.0001, at(s)]); return; }
-    const d = how === 'cut' ? 0.001 : how === 'punch' ? 0.2 : how, e = how === 'punch' ? PUNCH : how === 'cut' ? 'linear' : ease || EASE;
+    const fast = FAST[how]; // 'crash' 크래시 줌 · 'whip' 휩 팬 (2026-11-26) — crashZoom() · whipPan()이 쓴다
+    const d = how === 'cut' ? 0.001 : how === 'punch' ? 0.2 : fast ? fast[0] : how, e = how === 'punch' ? PUNCH : how === 'cut' ? 'linear' : fast ? fast[1] : ease || EASE;
     steps.push([t, steps.at(-1)[1], e], [t + d, at(s)]);
     if (how === 'punch') sfx(t, 'swoosh', 0.3);
+    if (fast) { sfx(t, 'whoosh', fast[2]); BLUR.push([t, d, how]); }
   });
-  return track(steps, [0, 0], inner, 'cam');
+  const cam = track(steps, [0, 0], inner, 'cam');
+  return BLUR.length ? `<div class="a" style="inset:0;${blurAnim()}">${cam}</div>` : cam; // 흐림은 크래시 줌 · 휩 팬이 있을 때만
+}
+// 크래시 줌 · 휩 팬: [걸리는 초, ease, 휙 크기]. 움직이는 동안 세상이 흐려진다 — 크래시 줌은 고르게, 휩 팬은 가로로만 (SVG 필터 kx-mb1~4)
+const FAST = { crash: [0.25, 'cubic-bezier(.8,0,.2,1)', 0.45], whip: [0.3, 'cubic-bezier(.65,0,.35,1)', 0.5] }, BLUR = [];
+function blurAnim() {
+  const pts = [];
+  for (const [t, d, how] of BLUR) {
+    if (how === 'crash') pts.push([t, 'none'], [t + d * 0.45, 'blur(6px)'], [t + d, 'none']);
+    else [0, 1, 3, 4, 4, 3, 1, 0].forEach((lv, i) => pts.push([t + d * i / 7, lv ? `url(#kx-mb${lv})` : 'none']));
+  }
+  const t0 = pts[0][0], len = pts.at(-1)[0] - t0, name = 'kxb' + KF.length;
+  KF.push(`@keyframes ${name}{${pts.map(([t, f]) => `${pct(t, t0, len)}%{filter:${f}}`).join('')}}`);
+  return `animation:${name} ${r3(len)}s linear ${T(t0)}s both`;
 }
 // 세상 점이 t초에 화면 어디에 보이나 (그때 카메라가 옮기는 중이면 옮긴 뒤 자리) — 말풍선·이름표를 화면에 둘 때
 function onScreen(t, [x, y]) {
@@ -313,7 +359,7 @@ function handOf(a, pose = 'stand', i = 1) {
 }
 function actor(who, x, size, pose, face, o = {}) {
   const u = size / 290, still = !/walking|running/.test(o.cls || '');
-  return `<div class="actor${still ? ' breathe' : ''} ${o.cls || ''}" style="left:${x}px;top:${G + (o.up || 0) - 274 * u}px;--bd:${-r3((x * 7 % 13) / 13 * 1.5)}s">${castSVG({ who, size, pose, face, look: o.look || 0, pop: o.pop != null ? T(o.pop) : null, tilt: o.tilt, cup: o.cup, dir: o.dir })}</div>`;
+  return `<div class="actor${still ? ' breathe' : ''} ${o.cls || ''}" style="left:${x}px;top:${G + (o.up || 0) - 274 * u}px;--bd:${-r3((x * 7 % 13) / 13 * 1.5)}s">${castSVG({ who, size, pose, face, look: o.look || 0, pop: o.pop != null ? T(o.pop) : null, tilt: o.tilt, cup: o.cup, dir: o.dir, hold: o.hold })}</div>`;
 }
 const act = (a, pose, face, o = {}) => actor(a.who, a.x, a.size, pose, face, { up: a.up, ...o });
 // 표정이 바뀌는 한 자리. 놀람·씩으로 바뀌는 순간 머리가 톡 (맨 처음 표정은 그대로 나온다)
@@ -396,13 +442,183 @@ function logoHTML() {
   return seg(0, end, `<img class="logo" src="${LOGO.src}" alt="" style="left:${r3(1920 - 34 - (x1 + 1) * k)}px;top:${r3(30 - y0 * k)}px;width:${r3(LOGO.w * k)}px;height:${r3(LOGO.h * k)}px;opacity:${LOGO_ALPHA}">`);
 }
 
+// ── 카메라 · 빛 · 편집 기법 (2026-11-26, 스터디 S76 · 사람: "쫌 다듬어보자... 첫편인데 멋지게 만들어봐얒.") ──
+// 기법 이름과 쓰임만 참고했다 (코드깎는노인 「영상 기법 효과 프롬프트 50개」 — 장면은 베끼지 않음). 그림체는 그대로 두고 카메라 · 빛 · 편집 박자 · 깊이만 더한다.
+// 한 줄 쓰는 법은 맨 위. 모양은 kit.css 「카메라 · 빛 · 편집 기법」. 이 절의 부품을 안 쓰는 페이지는 예전과 똑같이 나온다.
+
+// 보였다 사라지기 (빛 · 색 효과): 섞기(mix-blend)를 쓰는 효과는 seg로 감싸면 안 된다 — seg의 투명도 움직임이 따로 묶어 아래 그림과 안 섞인다
+const fxEnv = (a, b, fi = 0.5, fo = fi, max = 1) => {
+  const len = b - a, i = Math.min(Math.max(fi, 0.001), len / 2), o = Math.min(Math.max(fo, 0.001), len / 2), name = 'kxe' + KF.length;
+  KF.push(`@keyframes ${name}{0%{opacity:0}${pct(a + i, a, len)}%,${pct(b - o, a, len)}%{opacity:${max}}100%{opacity:0}}`);
+  return `animation:${name} ${r3(len)}s linear ${T(a)}s both`;
+};
+
+// 깊이 (패럴랙스): 배경을 층으로 나눠, 시점이 움직일 때 층마다 다른 빠르기로 움직인다 — 크레인 · 달리 줌 · 아크가 쓴다.
+//   층 = [[깊이 k, html], …] — 1 = 주인공 층 (배우 · 무대 · 바닥. 보통 카메라와 똑같이 움직인다) · 0.1~0.6 = 뒤 (하늘 · 먼 나무 · 울타리 — 덜 움직인다)
+//     · 1.2~1.5 = 앞 (관객 머리 · 나뭇잎 — 더 움직인다) · 0 = 꼼짝 않는 먼 하늘. 층끼리 걸친 것(실 · 그림자)은 한 층에 같이 둔다.
+//     playground() 대신 조각을 층마다 나눠 넣는다 — 뒤: 하늘 · cloud · trees · fence / 주인공: dirt · 무대 · 배우. 하늘은 크레인 높이만큼 위로 넉넉히 그린다.
+//   시점 {x, y, z} = camera 샷과 같은 뜻 (주인공 층 기준, 기본 960 · 540 · 1) · v = 달리 줌 배율 (뒤 층만 커지고 앞 층은 작아진다, 주인공 층은 그대로)
+//     · f = [x, y] 달리 줌이 커지는 가운데 (세상 점, 기본 가운데) · o = 아크 양 (주인공 층은 그대로, 뒤 층과 앞 층이 서로 반대로 미끄러진다, px)
+//   층은 세상(W)에 넣는다. 시점이 카메라 노릇을 하니 크레인 · 아크 동안 카메라는 WIDE로 둔다 (달리 줌은 어느 샷이든 된다).
+//   모든 배경을 나눌 필요는 없다 — 크레인 · 달리 줌 · 아크를 쓰는 컷만.
+const layerAt = ({ x = 960, y = 540, z = 1, v = 1, o = 0, f = [960, 540] }, k) => {
+  const z1 = Math.max(0.05, 1 + k * (z - 1)), s = v ** (1 - k), cx = 960 + k * (x - 960) + (1 - k) * o, cy = 540 + k * (y - 540), zk = +(s * z1).toFixed(5);
+  return { x: r3(f[0] * (1 - s) + s * (960 - cx * z1)), y: r3(f[1] * (1 - s) + s * (540 - cy * z1)), sx: zk, sy: zk };
+};
+// parallax([[t, 시점, ease], …], 층) — 시점을 둘 넘게 이어 옮길 때 (ease는 그 시점에서 다음 시점까지, 기본 부드럽게)
+const parallax = (views, layers) => layers.map(([k, html]) => track(views.map(([t, s, e], i) => [t, layerAt(s, k), i < views.length - 1 ? e || EASE : undefined]), [0, 0], html)).join('');
+// 크레인: crane(a, b, 층, 처음 시점, 끝 시점, ease) — 위에서 내려오며 열기 (하늘 { y: -650 } → 현수막 { y: 420, z: 1.3 }) · 아래에서 솟기 (관객 { y: 880, z: 1.6 } → 무대 전체 {})
+const crane = (a, b, layers, from, to, ease = EASE) => parallax([[a, from, ease], [b, to]], layers);
+// 달리 줌: dollyZoom(a, b, 층, 배율, { at: [x, y] 세상 점, view: 시점, ease }) — 주인공 층 크기는 그대로, 뒤 층만 배율까지 쑥 다가온다 (깜짝 · 깨달음).
+//   at은 보통 주인공 얼굴. 카메라가 그 사람을 잡고 있어도 된다 (WIDE가 아니어도). 효과음은 따로 (쿵 · whoosh)
+const dollyZoom = (a, b, layers, amount = 1.6, o = {}) => parallax([[a, { ...o.view, f: o.at, v: 1 }, o.ease || 'cubic-bezier(.5,0,.3,1)'], [b, { ...o.view, f: o.at, v: amount }]], layers);
+// 아크: arcShot(a, b, 층, 양, { view, ease }) — 주인공을 가운데 두고 옆으로 도는 느낌. 양 +면 왼쪽에서 오른쪽으로 (뒤 층이 오른쪽→왼쪽으로 미끄러진다)
+const arcShot = (a, b, layers, amount = 260, o = {}) => parallax([[a, { ...o.view, o: -amount }, o.ease || EASE], [b, { ...o.view, o: amount }]], layers);
+
+// 크래시 줌: S.push(crashZoom(t, shot('close', 배우))) — 0.25초에 확 당긴다 (빨라졌다가 딱 멈춤). 그동안 세상이 흐리고 휙 소리, 화면에 집중선이 0.38초 번쩍.
+//   cut(t, 샷) 대신 쓴다 (그 자리에 카메라 컷을 넣는다). { lines: false }면 집중선 없이
+function crashZoom(t, s, o = {}) {
+  cut(t, s, 'crash');
+  return o.lines === false ? '' : `<div class="kx-lines" style="animation:kx-lines .38s ease-out ${T(t)}s both"></div>`;
+}
+// 휩 팬: S.push(whipPan(t, 다음 샷)) — 0.3초에 옆으로 휙 (가로로 흐림 · 바람 줄 · 휙 소리). 같은 세상 안 두 사람 사이를 넘길 때 좋다.
+//   다른 장면으로 넘기려면 장면(seg)을 t + 0.15(가장 흐릴 때)에 바꾼다. cut(t, 샷) 대신 쓴다
+function whipPan(t, s) {
+  cut(t, s, 'whip');
+  return `<div class="kx-streak" style="animation:kx-streak .32s linear ${T(t)}s both"></div>`;
+}
+
+// 슬로 모션 · 프리즈 프레임: 장면 하나를 통째로 받아 그 안의 시간을 늦추거나 멈춘다 (배우 · 숨 · 북채 · 장면 안 seg까지 모든 움직임).
+//   W.push(slowMotion(230.6, 238.9, [233.0, 234.8, 0.25], () => 장면 html)) — 233.0~234.8초 동안 0.25배로, 그 뒤는 늦어진 만큼 이어서
+//   W.push(freezeFrame(69.9, 76.4, [72.6, 74.2], () => 장면 html)) — 72.6초 모습으로 1.6초 멈췄다가 이어서
+//   장면은 함수로 준다 — 그 안에서 낸 효과음(sfx · typo.sound 등)도 같은 시간표로 옮겨진다. 장면 끝(컷)은 그대로, 안의 움직임만 그만큼 밀린다.
+//   카메라와 S 쪽(말풍선 · 타이포)은 그대로 흐른다 — S도 늦추려면 같은 꼴로 감싼다: S.push(slowMotion(…, () => typo.sound(…)))
+//   (kitDone이 감싼 사본 안 애니메이션의 시작 · 길이를 τ = 시작 + 빠르기 × (t − 시작)에 맞게 고친다)
+const WARP = [];
+const retime = (a, b, at, rate, html) => seg(a, b, `<div class="a kx-warp" style="inset:0" data-w="${WARP.push([a, at, rate]) - 1}">${html}</div>`);
+function slowMotion(a, b, [s0, s1, rate], build) {
+  const n0 = SFX.length, html = typeof build === 'function' ? build() : build, slowEnd = s0 + rate * (s1 - s0), lag = s1 - slowEnd;
+  for (let i = n0; i < SFX.length; i++) { // 장면 안 효과음: 늦춘 구간은 늘이고, 그 뒤는 밀린 만큼 미룬다
+    const [t, ...rest] = SFX[i].split(' '), u = +t + FROM, v = u < s0 ? u : u < slowEnd ? s0 + (u - s0) / rate : u + lag;
+    SFX[i] = [+(v - FROM).toFixed(2), ...rest].join(' ');
+  }
+  return seg(a, s0, html) + retime(s0, s1, s0, rate, html) + retime(s1, b, slowEnd, 1, html);
+}
+const freezeFrame = (a, b, [s0, s1], build) => slowMotion(a, b, [s0, s1, 1e-4], build);
+// 프리즈 프레임 이름표: S.push(freezeTag(a, b, '콩이', '귀가 가려운 줄 앎', { who, x, y, r })) — 멈춘 순간 하얗게 번쩍 · 찰칵, 기울어진 이름표가 탁 붙는다 (웃음 박자)
+//   who 'orange'처럼 주면 이름표 띠가 그 캐릭터 색 (기본 노랑) · x · y 이름표 왼쪽 위 (기본 110 · 610) · r 기울기 (기본 -6도)
+function freezeTag(a, b, name, line = '', o = {}) {
+  sfx(a, 'click', 0.5); sfx(a + 0.1, 'thud', 0.35);
+  return seg(a, b, `<div class="a" style="inset:0;background:#fff;animation:kx-flash .22s ease-out ${T(a)}s both"></div>
+    <div class="kx-ftag" style="left:${o.x ?? 110}px;top:${o.y ?? 610}px;--r:${o.r ?? -6}deg;--c:${o.who ? NAMEC[o.who] : '#ffd23f'};animation:kx-ftag .3s cubic-bezier(.2,1.4,.4,1) ${T(a + 0.06)}s both"><b>${name}</b>${line ? `<span>${line}</span>` : ''}</div>`);
+}
+
+// 타임랩스: W.push(seg(a, b, room + timelapse(a, b))) — 창밖에 해가 비스듬히 떠오르고 구름이 휙휙 흘러가며, 바닥 햇빛 자국이 기울며 미끄러진다 (몇 시간이 몇 초에).
+//   시계가 건너뛰는 것은 progressTag의 그 칸 넷째 값(바늘이 도는 초)으로: [a, b, '오전 9:40', b - a]. 째깍 소리가 빠르게 난다 ({ ticks: false }면 없음)
+//   o.win [x, y, w, h] 창 안쪽 (기본 kit room 창 ROOM_WIN) · o.light [x, y, w, h] 바닥 햇빛 자리 (기본 room 햇빛 ROOM_LIGHT, false면 없음)
+//   o.sky [처음, 끝] 창밖 하늘 색 (기본 새벽 살구 → 한낮 파랑). 방 위에 얹으니 장면 html 안에서 방 뒤에 넣는다
+const ROOM_WIN = [244, 164, 412, 292], ROOM_LIGHT = [130, 470, 740, 330];
+function timelapse(a, b, o = {}) {
+  const [x, y, w, h] = o.win || ROOM_WIN, len = r3(b - a), [c0, c1] = o.sky || ['#ffc79a', '#9fd3f7'];
+  if (o.ticks !== false) for (let t = a + 0.05; t < b - 0.05; t += 0.18) sfx(t, 'tick', 0.12);
+  // 해: 창 왼쪽 아래 밖에서 떠올라 오른쪽 위 안쪽까지 (끝까지 창 안에 보인다)
+  const sun = track(Array.from({ length: 9 }, (_, i) => { const u = i / 8; return [a + len * u, { x: r3(w * (-0.06 + 0.92 * u)), y: r3(h * (1.08 - 0.86 * Math.sin(u * Math.PI / 2))) }, 'linear']; }), [0, 0], '<i class="kx-sun"></i>');
+  const clouds = [[0.1, 0.8, 0, 1], [0.34, 1.1, 0.45, 0.8], [0.62, 0.95, 0.7, 0.65]].map(([fy, per, off, sc]) => `<i class="kx-cloud" style="top:${r3(h * fy)}px;--x0:${w + 30}px;--x1:-200px;--s:${sc};animation-duration:${per}s;animation-delay:${r3(T(a) - off * per)}s"></i>`).join('');
+  const [lx, ly, lw, lh] = o.light || ROOM_LIGHT;
+  const light = o.light === false ? '' : `<div class="kx-sunlight" style="left:${lx}px;top:${ly}px;width:${lw}px;height:${lh}px;animation-duration:${len}s;animation-delay:${T(a)}s"></div>`;
+  // 하늘: 아래 새벽빛 → 가운데 밝은 노랑 → 위 한낮 파랑으로 칠한 긴 판을 아래로 내린다 (두 색을 겹쳐 바꾸면 가운데가 잿빛이 된다)
+  return `<div class="a" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px;overflow:hidden;background:${c1}">
+    <div class="a" style="left:0;top:0;width:100%;height:${h * 3}px;background:linear-gradient(0deg,${c0} 0 22%,#ffe9b4 48%,${c1} 78%);--y0:${-h * 2}px;animation:kx-skypan ${len}s cubic-bezier(.3,0,.6,1) ${T(a)}s both"></div>${sun}${clouds}</div>${light}`;
+}
+
+// 시간대 색: W.push(grade(a, b, '노을', { fade })) — 세상(W) 맨 위에 그 시간 빛을 입힌다 (자막 · 타이포 · 딱지 · 로고는 그대로). W 맨 끝에 넣고 seg로 감싸지 않는다.
+//   '아침' 살구빛 · '한낮' 맑게 · '노을' 주황 분홍 + 위쪽 빛 번짐 · '밤' 남색으로 어둡게 + 가장자리 어둡게.
+//   o.fade 들고 나는 초 (기본 .8) — 앞뒤 grade를 fade만큼 겹쳐 두면 아침 → 노을 → 밤으로 바뀌는 것처럼 보인다
+const GRADES = {
+  // 후보를 같은 무대에 얹어 골랐다 (contents/_test/longform-camera/grades.png, 2026-11-26) — 노을은 곱하기만 하면 파란 하늘이 잿빛 분홍이 돼서 color 섞기
+  아침: [['soft-light', 'linear-gradient(#ffc27a,#fff0d6)', 1], ['multiply', '#fff1dc', 0.6], ['screen', 'radial-gradient(circle at 14% 4%,rgba(255,226,170,.7),transparent 55%)', 1]],
+  한낮: [['soft-light', 'linear-gradient(#fffbe8,#fff)', 0.5]],
+  노을: [['color', 'linear-gradient(#ff7a3a,#ffa860)', 0.45], ['multiply', 'linear-gradient(#ffd2a8,#ffc09a)', 0.75], ['screen', 'radial-gradient(ellipse at 50% 0%,rgba(255,160,80,.45),transparent 62%)', 1]],
+  밤: [['multiply', 'linear-gradient(#34448f,#252e66)', 0.78], ['normal', 'radial-gradient(ellipse at 50% 46%,transparent 52%,rgba(6,8,28,.5))', 1]],
+};
+const grade = (a, b, kind, o = {}) => {
+  if (!GRADES[kind]) throw new Error(`grade 「${kind}」는 없어요. 아침 · 한낮 · 노을 · 밤 중에서 골라요.`);
+  return GRADES[kind].map(([mode, bg, max]) => `<div class="kx-grade" style="mix-blend-mode:${mode};background:${bg};${fxEnv(a, b, o.fade ?? 0.8, o.fade ?? 0.8, max)}"></div>`).join('');
+};
+
+// 빛줄기: W.push(lightRays(a, b, [x, y], { angle, spread, n, len, color })) — 빛이 들어오는 점(세상 점)에서 부채꼴로 퍼지는 빛, 천천히 일렁인다. 카메라를 따라 움직인다.
+//   angle 가운데 방향 (도, 0 = 오른쪽 · 90 = 아래, 기본 100) · spread 퍼짐 (기본 50) · n 줄 수 (기본 6) · len 길이 (기본 1500) · color 'r,g,b' (기본 따뜻한 흰빛) · fade (기본 .6)
+//   W 맨 끝 쪽에 넣고 seg로 감싸지 않는다 (밑그림과 섞여 밝아진다)
+function lightRays(a, b, [x, y], o = {}) {
+  const n = o.n ?? 6, sp = o.spread ?? 50, ang = o.angle ?? 100, L = o.len ?? 1500, col = o.color ?? '255,238,196';
+  const rays = Array.from({ length: n }, (_, i) => { const d = ang - sp / 2 + sp * (i + 0.5) / n, w = 110 + ((i * 3) % 5) * 45;
+    return `<i class="kx-ray" style="width:${L}px;height:${w}px;top:${-w / 2}px;--r:${r3(d)}deg;--sw:${i % 2 ? 2.2 : -2.2}deg;background:linear-gradient(90deg,rgba(${col},.55),rgba(${col},.18) 55%,rgba(${col},0));animation-duration:${3 + (i % 3) * 0.7}s;animation-delay:${r3(T(a) - i * 0.6)}s"></i>`; }).join('');
+  return `<div class="kx-fx" style="left:${x}px;top:${y}px;mix-blend-mode:screen;${fxEnv(a, b, o.fade ?? 0.6)}">${rays}</div>`;
+}
+
+// 렌즈 플레어: S.push(lensFlare(a, b, [x, y], { to, size })) — 해 · 조명이 렌즈에 비친 빛: 빛 점 + 가로 빛줄 + 화면 가운데를 지나는 빛 동그라미들 (화면 점).
+//   to [x, y] 주면 빛 점이 b까지 그 자리로 옮겨 가고 동그라미들도 따라간다 (카메라가 움직일 때) · size 배율 (기본 1) · fade (기본 .5)
+function lensFlare(a, b, src, o = {}) {
+  const k = o.size ?? 1, to = o.to || src, at = ([sx, sy], f) => [sx + (960 - sx) * f, sy + (540 - sy) * f];
+  const items = [[0, 560, 'radial-gradient(circle,rgba(255,252,236,.95),rgba(255,222,160,.4) 22%,transparent 64%)', 'kx-glint'],
+    ...[[0.3, 70, '255,200,120', 0.32], [0.62, 160, '120,200,255', 0.16], [1.16, 48, '255,150,200', 0.38], [1.48, 230, '160,255,190', 0.12], [1.9, 96, '255,220,140', 0.26]]
+      .map(([f, s, c, al]) => [f, s, `radial-gradient(circle,rgba(${c},${al}) 0 52%,rgba(${c},${r3(al * 1.7)}) 60%,rgba(${c},0) 68%)`, ''])];
+  const move = (f, s, inner) => { const [x0, y0] = at(src, f), [x1, y1] = at(to, f), sz = s * k;
+    return track([[a, { x: r3(x0 - sz / 2), y: r3(y0 - sz / 2) }, 'linear'], [b, { x: r3(x1 - sz / 2), y: r3(y1 - sz / 2) }]], [0, 0], inner(sz)); };
+  const ghosts = items.map(([f, s, bg, cls]) => move(f, s, sz => `<i class="kx-ghost ${cls}" style="width:${r3(sz)}px;height:${r3(sz)}px;background:${bg}"></i>`)).join('');
+  const streak = move(0, 0, () => `<i class="kx-flare-h" style="left:${-760 * k}px;width:${1520 * k}px"></i>`);
+  return `<div class="kx-fx" style="inset:0;mix-blend-mode:screen;${fxEnv(a, b, o.fade ?? 0.5)}">${ghosts}${streak}</div>`;
+}
+
+// 보케 (흐린 불빛): S.push(bokeh(a, b, { area, n, size, colors, seed })) — 초점 밖 동글동글 흐린 빛 (관객 휴대폰 불빛 · 무대 조명). 천천히 떠다니며 반짝인다 (화면 자리).
+//   area [x0, y0, x1, y1] (기본 화면 아래쪽) · n 개수 (기본 16) · size [작게, 크게] (기본 50 · 150) · colors ['r,g,b', …] (기본 따뜻한 흰빛 · 노랑 · 분홍) · seed (다른 배치, 기본 7)
+function bokeh(a, b, o = {}) {
+  let h = (o.seed ?? 7) * 2654435761 >>> 0;
+  const rnd = () => (h = (Math.imul(h, 1103515245) + 12345) >>> 0) / 4294967296;
+  const [x0, y0, x1, y1] = o.area || [0, 620, 1920, 1080], [s0, s1] = o.size || [50, 150], cols = o.colors || ['255,246,214', '255,214,120', '255,176,196', '255,232,170'];
+  const dots = Array.from({ length: o.n ?? 16 }, (_, i) => { const s = s0 + (s1 - s0) * rnd(), c = cols[i % cols.length];
+    return `<i class="kx-bk" style="left:${r3(x0 + (x1 - x0) * rnd() - s / 2)}px;top:${r3(y0 + (y1 - y0) * rnd() - s / 2)}px;width:${r3(s)}px;height:${r3(s)}px;background:radial-gradient(circle,rgba(${c},.5) 0 48%,rgba(${c},.85) 60%,rgba(${c},0) 70%);--dy:${r3(-20 - 40 * rnd())}px;--o0:${r3(0.35 + 0.3 * rnd())};--o1:${r3(0.75 + 0.25 * rnd())};animation-duration:${r3(2.4 + 2 * rnd())}s;animation-delay:${r3(T(a) - 3 * rnd())}s"></i>`; }).join('');
+  return `<div class="kx-fx" style="inset:0;mix-blend-mode:screen;${fxEnv(a, b, o.fade ?? 0.6)}">${dots}</div>`;
+}
+
+// 레터박스: S.push(letterbox(a, b, { h, len })) — 위아래 검은 띠가 a부터 len초(기본 .6)에 들어오고, b까지 다 빠진다 (절정 · 무대처럼 영화 같은 순간).
+//   h 띠 높이 (기본 132 = 2.35:1). 아래 자막은 띠 위에 그대로 보인다 (띠를 S 쪽에 넣으니 자막 · 딱지 · 로고보다 아래)
+function letterbox(a, b, o = {}) {
+  const h = o.h ?? 132, d = o.len ?? 0.6;
+  sfx(a, 'swoosh', 0.2);
+  const bar = top => track([[a, { y: top ? -h : h }, EASE], [a + d, {}, 'linear'], [b - d, {}, EASE], [b, { y: top ? -h : h }]], [0, 0], `<i class="kx-bar" style="${top ? 'top' : 'bottom'}:0;height:${h}px"></i>`);
+  return seg(a, b, bar(true) + bar(false));
+}
+
+// 아이리스 아웃: S.push(irisOut(a, b, [x, y], { len, hold })) — 화면이 [x, y](화면 점, 보통 얼굴)를 가운데로 동그랗게 닫힌다.
+//   작은 동그라미에서 잠깐 멈췄다가(hold 반지름, 기본 170 · 0이면 안 멈춤) 깜깜해지고 b까지 검다. len 닫히는 초 (기본 1.6). 아웃트로 바로 앞에
+function irisOut(a, b, [x, y], o = {}) {
+  const len = o.len ?? 1.6, hold = o.hold ?? 170, name = 'kxi' + KF.length;
+  KF.push(`@keyframes ${name}{0%{--ir:2300px;animation-timing-function:cubic-bezier(.45,0,.25,1)}${hold ? `62%{--ir:${hold}px;animation-timing-function:linear}82%{--ir:${hold}px;animation-timing-function:cubic-bezier(.6,0,.9,.5)}` : ''}100%{--ir:0px}}`);
+  sfx(a, 'swoosh', 0.25); if (hold) sfx(a + len * 0.82, 'pop', 0.3);
+  return seg(a, b, `<div class="kx-iris" style="--ix:${x}px;--iy:${y}px;animation:${name} ${len}s linear ${T(a)}s both"></div>`);
+}
+
+// 스매시 컷: S.push(smashCut(t, { color, sfx })) — 시끄러운 장면에서 조용한 장면으로(또는 거꾸로) 뚝 끊는 컷: 0.12초 번쩍 + 쿵. 장면 바꿈(seg)도 t에.
+//   color 번쩍 색 (기본 흰색) · sfx 소리 이름 (기본 thud, false면 없음). 배경음악을 같이 끊으려면 data-bgm-cues에 t 「끊김」
+function smashCut(t, o = {}) {
+  if (o.sfx !== false) sfx(t, o.sfx || 'thud', 0.7);
+  return seg(t, t + 0.12, `<div class="a" style="inset:0;background:${o.color ?? '#fff'};animation:kx-flash .12s linear ${T(t)}s both"></div>`);
+}
+
 // 장면을 다 쌓은 뒤 한 번: (아웃트로) · 로고 · 키프레임 · 장면 · 효과음 목록 · 글꼴
 function kitDone() {
   if (OUTRO_AT != null) H.push(outroHTML());
   H.push(logoHTML());
+  if (BLUR.some(([, , how]) => how === 'whip')) H.push(`<svg width="0" height="0" style="position:absolute">${[6, 14, 26, 40].map((s, i) => `<filter id="kx-mb${i + 1}" x="-10%" width="120%"><feGaussianBlur stdDeviation="${s} 0"/></filter>`).join('')}</svg>`); // 휩 팬 가로 흐림
   const st = document.createElement('style'); st.textContent = KF.join('\n'); document.head.append(st);
   const stage = document.querySelector('.stage');
   stage.innerHTML = H.join('');
+  // 슬로 모션 · 프리즈 프레임: 감싼 사본 안 애니메이션을 τ = at + rate·(t − a)에 맞춘다 — 시작(delay)과 길이(duration)를 고친다
+  stage.querySelectorAll('.kx-warp').forEach(el => {
+    const [a, at, rate] = WARP[+el.dataset.w], A = (a - FROM) * 1000, AT = (at - FROM) * 1000;
+    el.getAnimations({ subtree: true }).forEach(an => { const tm = an.effect.getTiming(); an.effect.updateTiming({ delay: A + (tm.delay - AT) / rate, duration: tm.duration / rate }); });
+  });
   document.body.dataset.sfx = SFX.join(', ');
   document.fonts.load("96px 'Black Han Sans'", stage.textContent);
   document.fonts.load('46px Jua', stage.textContent);

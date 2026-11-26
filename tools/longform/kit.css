@@ -262,3 +262,68 @@ body{background:#000;font-family:Jua,sans-serif;font-synthesis:none;color:#2e2a3
 @keyframes blanket{to{transform:scale(1.012,1.035)}}
 /* 채널 로고 (kit.js 「채널 로고」): 맨 위 층, 움직이지 않는다 */
 .logo{position:absolute;pointer-events:none}
+
+/* ── 연주 (cast.js pose 'drum' · 'xylo', 2026-11-25 EP01 v2 S9 무대) ──
+   채가 손목에서 위로 튀었다 내려친다. 두 손이 한 박씩 번갈아 친다 (오른손 · 왼손 · 오른손 …).
+   --beat = 한 번 치는 사이 (기본 .5s — 120bpm 한 박), --play = 시작 시각 (장면 시각 T(t)s). 시작 전에는 내려친 자리에서 멈춰 있다.
+   쓰기: <div style="--beat:.5s;--play:${T(335)}s">${act(K, 'drum', 'laugh', { cls: 'drumming' })}</div> · 말랑이는 'xylo' + cls 'xylophone' */
+.drumming .stick0{animation:drumstick0 calc(var(--beat,.5s) * 2) linear var(--play,0s) infinite both}
+.drumming .stick1{animation:drumstick1 calc(var(--beat,.5s) * 2) linear calc(var(--play,0s) + var(--beat,.5s)) infinite both}
+.drumming .arm0{animation:drumarm0 calc(var(--beat,.5s) * 2) linear var(--play,0s) infinite both}
+.drumming .arm1{animation:drumarm1 calc(var(--beat,.5s) * 2) linear calc(var(--play,0s) + var(--beat,.5s)) infinite both}
+@keyframes drumstick0{0%{transform:rotate(0);animation-timing-function:cubic-bezier(.2,.7,.4,1)}45%{transform:rotate(150deg);animation-timing-function:cubic-bezier(.6,0,.95,.5)}100%{transform:rotate(0)}}
+@keyframes drumstick1{0%{transform:rotate(0);animation-timing-function:cubic-bezier(.2,.7,.4,1)}45%{transform:rotate(-150deg);animation-timing-function:cubic-bezier(.6,0,.95,.5)}100%{transform:rotate(0)}}
+@keyframes drumarm0{0%{transform:rotate(-28deg);animation-timing-function:cubic-bezier(.2,.7,.4,1)}45%{transform:rotate(-12deg);animation-timing-function:cubic-bezier(.6,0,.95,.5)}100%{transform:rotate(-28deg)}}
+@keyframes drumarm1{0%{transform:rotate(28deg);animation-timing-function:cubic-bezier(.2,.7,.4,1)}45%{transform:rotate(12deg);animation-timing-function:cubic-bezier(.6,0,.95,.5)}100%{transform:rotate(28deg)}}
+/* 실로폰: 채가 작게 튀었다 친다 · 두 팔은 네 박마다 바깥쪽(−14°) · 안쪽(−30°) 건반을 오간다 */
+.xylophone .stick0{animation:xylostick0 calc(var(--beat,.5s) * 2) linear var(--play,0s) infinite both}
+.xylophone .stick1{animation:xylostick1 calc(var(--beat,.5s) * 2) linear calc(var(--play,0s) + var(--beat,.5s)) infinite both}
+.xylophone .arm0{animation:xyloarm0 calc(var(--beat,.5s) * 8) linear var(--play,0s) infinite both}
+.xylophone .arm1{animation:xyloarm1 calc(var(--beat,.5s) * 8) linear calc(var(--play,0s) + var(--beat,.5s) * 4) infinite both}
+@keyframes xylostick0{0%{transform:rotate(0);animation-timing-function:cubic-bezier(.2,.7,.4,1)}45%{transform:rotate(70deg);animation-timing-function:cubic-bezier(.6,0,.95,.5)}100%{transform:rotate(0)}}
+@keyframes xylostick1{0%{transform:rotate(0);animation-timing-function:cubic-bezier(.2,.7,.4,1)}45%{transform:rotate(-70deg);animation-timing-function:cubic-bezier(.6,0,.95,.5)}100%{transform:rotate(0)}}
+@keyframes xyloarm0{0%,42%{transform:rotate(-14deg)}50%,92%{transform:rotate(-30deg)}100%{transform:rotate(-14deg)}}
+@keyframes xyloarm1{0%,42%{transform:rotate(14deg)}50%,92%{transform:rotate(30deg)}100%{transform:rotate(14deg)}}
+
+/* ── 카메라 · 빛 · 편집 기법 (2026-11-26, 스터디 S76) — 쓰는 법은 kit.js 「카메라 · 빛 · 편집 기법」. 이름은 모두 kx-로 시작 (편 scene.js 이름과 안 겹치게) ── */
+@property --ir{syntax:'<length>';inherits:false;initial-value:0px}
+/* 크래시 줌 집중선 · 휩 팬 바람 줄 (화면 위) */
+.kx-lines{position:absolute;inset:-160px;pointer-events:none;opacity:0;
+  background:repeating-conic-gradient(from 0deg at 50% 50%,rgba(255,255,255,0) 0deg 5deg,rgba(255,255,255,.8) 5deg 5.5deg,rgba(255,255,255,0) 5.5deg 8deg,rgba(255,255,255,.55) 8deg 8.4deg,rgba(255,255,255,0) 8.4deg 13deg);
+  -webkit-mask:radial-gradient(circle at 50% 50%,transparent 0 330px,#000 720px)}
+@keyframes kx-lines{0%{opacity:0;transform:scale(1.4)}22%{opacity:1}100%{opacity:0;transform:scale(1)}}
+.kx-streak{position:absolute;inset:0;pointer-events:none;opacity:0;
+  background:repeating-linear-gradient(0deg,rgba(255,255,255,0) 0 26px,rgba(255,255,255,.32) 26px 29px,rgba(255,255,255,0) 29px 71px,rgba(255,255,255,.2) 71px 73px,rgba(255,255,255,0) 73px 97px);
+  -webkit-mask:linear-gradient(90deg,transparent,#000 22%,#000 78%,transparent)}
+@keyframes kx-streak{0%{opacity:0;transform:translateX(-120px)}35%,60%{opacity:1}100%{opacity:0;transform:translateX(120px)}}
+/* 프리즈 프레임: 번쩍 · 이름표 */
+@keyframes kx-flash{from{opacity:.85}to{opacity:0}}
+.kx-ftag{position:absolute;display:flex;flex-direction:column;gap:8px;padding:24px 44px 20px 66px;background:#fffdf5;border:6px solid #2e2a3a;border-radius:18px;
+  box-shadow:12px 14px 0 rgba(0,0,0,.2);transform:rotate(var(--r));transform-origin:0 50%;white-space:nowrap}
+.kx-ftag::before{content:"";position:absolute;left:0;top:0;bottom:0;width:30px;background:var(--c);border-right:5px solid #2e2a3a;border-radius:12px 0 0 12px}
+.kx-ftag b{font:400 100px/1 'Black Han Sans',sans-serif;color:#1f3a68}
+.kx-ftag span{font:400 56px/1.1 Jua,sans-serif;color:#2e2a3a}
+@keyframes kx-ftag{from{transform:rotate(calc(var(--r) - 16deg)) scale(1.7);opacity:0}to{transform:rotate(var(--r)) scale(1);opacity:1}}
+/* 타임랩스: 창밖 해 · 구름 · 바닥 햇빛 */
+.kx-sun{position:absolute;left:-46px;top:-46px;width:92px;height:92px;border-radius:50%;background:#ffd23f;border:5px solid #2e2a3a;box-shadow:0 0 44px 20px rgba(255,222,130,.65)}
+.kx-cloud{position:absolute;left:0;width:150px;height:46px;border-radius:30px;background:#fff;animation:kx-drift 1s linear infinite both}
+.kx-cloud::before,.kx-cloud::after{content:"";position:absolute;background:#fff;border-radius:50%}
+.kx-cloud::before{width:70px;height:70px;left:24px;top:-32px}.kx-cloud::after{width:54px;height:54px;left:76px;top:-20px}
+@keyframes kx-drift{from{transform:translateX(var(--x0)) scale(var(--s,1))}to{transform:translateX(var(--x1)) scale(var(--s,1))}}
+@keyframes kx-skypan{from{transform:translateY(var(--y0))}to{transform:translateY(0)}}
+.kx-sunlight{position:absolute;background:linear-gradient(rgba(255,214,110,.55),rgba(255,226,140,.3));clip-path:polygon(18% 0,82% 0,100% 100%,0 100%);transform-origin:50% 0;animation:kx-skew 1s linear both}
+@keyframes kx-skew{from{transform:skewX(34deg)}to{transform:skewX(-30deg)}}
+/* 시간대 색 · 빛줄기 · 렌즈 플레어 · 보케 (섞기 — seg로 감싸지 않는다) */
+.kx-grade{position:absolute;inset:-1600px;pointer-events:none}
+.kx-fx{position:absolute;pointer-events:none}
+.kx-ray{position:absolute;left:0;transform-origin:0 50%;transform:rotate(var(--r));clip-path:polygon(0 44%,100% 0,100% 100%,0 56%);filter:blur(10px);animation:kx-sway 4s ease-in-out infinite alternate both}
+@keyframes kx-sway{from{transform:rotate(var(--r))}to{transform:rotate(calc(var(--r) + var(--sw)))}}
+.kx-ghost{position:absolute;left:0;top:0;border-radius:50%}
+.kx-glint{animation:kx-glint 1.7s ease-in-out infinite alternate both}
+@keyframes kx-glint{from{transform:scale(.94);opacity:.85}to{transform:scale(1.06);opacity:1}}
+.kx-flare-h{position:absolute;top:-9px;height:18px;border-radius:50%;background:radial-gradient(ellipse at 50% 50%,rgba(210,230,255,.9),rgba(130,180,255,.3) 38%,transparent 70%)}
+.kx-bk{position:absolute;border-radius:50%;filter:blur(3px);animation:kx-float 4s ease-in-out infinite alternate both}
+@keyframes kx-float{0%{transform:translateY(0);opacity:var(--o0)}50%{opacity:var(--o1)}100%{transform:translateY(var(--dy));opacity:var(--o0)}}
+/* 레터박스 · 아이리스 아웃 */
+.kx-bar{position:absolute;left:0;right:0;background:#0b0a10}
+.kx-iris{position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at var(--ix) var(--iy),transparent var(--ir),#0b0a10 calc(var(--ir) + 1.5px))}

@@ -6,14 +6,19 @@
 // - <body data-music-off="3.4-12">: 그 구간 배경음악을 뚝 끊었다가(0.03초) 끝에서 0.4초에 걸쳐 다시 키운다. 여럿이면 쉼표로
 //   (2026-11-24, 30초 시험본 「소리가 사라진다면」 — bgm.mjs·sfx.mjs는 고치지 않고 여기서 한다).
 // - 인트로·징글은 2026-11-25 안 쓰기로 해서 뺐다 (예전 것은 contents/_test/longform-kit/finish.mjs).
+// - <body data-bgm-cues="0 밝게, 24 장난, …">가 있으면 bgm.mjs 곡 대신 장면 분위기마다 무료 음원을 바꿔 깐다 (2026-11-25 · 사람: "무료 음원 쓰자").
+//   음원·목록·스팅은 tools/longform/music.mjs 맨 위 주석. 나레이션 밑에서는 목소리 대역을 4dB 파고 덜 깊고 느리게 줄인다
+//   (말할 때 나레이션보다 약 20dB 아래, 쉼에서 7dB쯤 올라옴 — 2026-11-25 시험본 B에서 잰 값). 큐가 없는 페이지는 예전 그대로다.
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { makeMusic, musicSeed } from '../motion/bgm.mjs';
+import { cueMusic, parseCues, wav16 } from './music.mjs';
 
 const SR = 44100, MUSIC = 0.32; // 음악 크기 — bgm.mjs VOLUME과 같다
+const CUE_DUCK = 'sidechaincompress=threshold=0.05:ratio=3:attack=60:release=900', CUE_EQ = 'equalizer=f=2200:t=q:w=1.1:g=-4'; // 큐 곡 (음원)
 const ff = args => { const r = spawnSync('ffmpeg', ['-v', 'error', '-y', ...args], { encoding: 'utf8' }); if (r.status) throw new Error(r.stderr); };
 
 function finish(page) {
@@ -24,15 +29,30 @@ function finish(page) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'hikary-finish-'));
   try {
     const inputs = ['-i', video], parts = [], mix = ['[0:a]'];
-    if (seed) {
+    // 크기 줄이기: 아웃트로면 마지막 5초 동안 0으로 · data-music-off 구간은 끊음
+    const g = t => {
+      let v = 1;
+      if (outro) v *= Math.max(0, Math.min(1, (D - t) / 5));
+      for (const [a, b] of off) v *= t < a ? 1 : t < a + 0.03 ? (a + 0.03 - t) / 0.03 : t < b ? 0 : Math.min(1, (t - b) / 0.4);
+      return v;
+    };
+    const cues = parseCues(attr('bgm-cues'));
+    if (cues.length) { // 장면 분위기마다 무료 음원 (music.mjs)
+      const musicDir = path.resolve(dir, attr('bgm-dir') || '../_music');
+      const { music: [L, R], stings, log } = cueMusic({ cues, stings: parseCues(attr('bgm-stings')), seconds: D, dir: musicDir });
+      for (let i = 0; i < L.length; i++) { const k = g(i / SR); L[i] *= k; R[i] *= k; }
+      fs.writeFileSync(path.join(tmp, 'music.wav'), wav16([L, R]));
+      fs.writeFileSync(path.join(tmp, 'stings.wav'), wav16(stings));
+      inputs.push('-i', path.join(tmp, 'music.wav'));
+      const m = inputs.length / 2 - 1;
+      if (fs.existsSync(voice)) { inputs.push('-i', voice); parts.push(`[${m}:a]${CUE_EQ}[m0]`, `[m0][${inputs.length / 2 - 1}:a]${CUE_DUCK}[m]`); }
+      else parts.push(`[${m}:a]${CUE_EQ}[m]`);
+      inputs.push('-i', path.join(tmp, 'stings.wav'));
+      parts.push(`[${inputs.length / 2 - 1}:a]anull[s]`);
+      mix.push('[m]', '[s]');
+      console.log(`배경음악: 음원 ${cues.length}구간${outro ? ' · 끝 5초 줄임' : ''}${off.map(([a, b]) => ` · ${a}~${b}초 끊음`).join('')}\n  ${log.join('\n  ')}`);
+    } else if (seed) {
       const { wav: w, picks } = makeMusic(seed, D), n = (w.length - 44) / 4;
-      // 크기 줄이기: 아웃트로면 마지막 5초 동안 0으로 · data-music-off 구간은 끊음
-      const g = t => {
-        let v = 1;
-        if (outro) v *= Math.max(0, Math.min(1, (D - t) / 5));
-        for (const [a, b] of off) v *= t < a ? 1 : t < a + 0.03 ? (a + 0.03 - t) / 0.03 : t < b ? 0 : Math.min(1, (t - b) / 0.4);
-        return v;
-      };
       for (let i = 0; i < n; i++) { const k = g(i / SR); for (const o of [44 + i * 4, 46 + i * 4]) w.writeInt16LE(Math.round(w.readInt16LE(o) * k), o); }
       fs.writeFileSync(path.join(tmp, 'music.wav'), w);
       inputs.push('-i', path.join(tmp, 'music.wav'));
